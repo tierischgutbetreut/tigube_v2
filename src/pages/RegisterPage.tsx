@@ -23,16 +23,15 @@ function RegisterPage() {
       <div className="container-custom max-w-3xl">
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center mb-6">
-            <Paw className="h-8 w-8 text-primary-500 mr-2" />
-            <span className="text-2xl font-bold">PetPal</span>
+            <img src="/Image/tigube_logo_klein.png" alt="TiGuBe Logo" className="h-10 w-auto mr-2" />
           </Link>
           <h1 className="text-3xl font-bold mb-4">
-            {userType === 'owner' ? 'Join as a Pet Owner' : 'Become a Pet Caregiver'}
+            {userType === 'owner' ? 'Als Tierbesitzer registrieren' : 'Als Betreuer registrieren'}
           </h1>
           <p className="text-gray-600 max-w-lg mx-auto">
             {userType === 'owner' 
-              ? 'Create an account to find trusted caregivers for your furry friends.'
-              : 'Create an account to offer your pet care services and connect with pet owners.'}
+              ? 'Erstelle ein Konto, um vertrauenswürdige Betreuer für deine Tiere zu finden.'
+              : 'Erstelle ein Konto, um Betreuungsdienste anzubieten und Tierbesitzer zu erreichen.'}
           </p>
         </div>
         
@@ -48,7 +47,7 @@ function RegisterPage() {
               }`}
               onClick={() => setUserType('owner')}
             >
-              Pet Owner
+              Tierbesitzer
             </button>
             <button
               type="button"
@@ -59,7 +58,7 @@ function RegisterPage() {
               }`}
               onClick={() => setUserType('caregiver')}
             >
-              Pet Caregiver
+              Betreuer
             </button>
           </div>
         </div>
@@ -124,7 +123,7 @@ function RegisterPage() {
               onClick={prevStep}
               leftIcon={<ChevronLeft className="h-4 w-4" />}
             >
-              Back
+              Zurück
             </Button>
           ) : (
             <div />
@@ -136,14 +135,14 @@ function RegisterPage() {
               onClick={nextStep}
               rightIcon={<ChevronRight className="h-4 w-4" />}
             >
-              Continue
+              Weiter
             </Button>
           ) : (
             <Button
               variant="primary"
               onClick={() => window.location.href = userType === 'owner' ? '/' : '/caregivers/dashboard'}
             >
-              Complete Registration
+              Registrierung abschließen
             </Button>
           )}
         </div>
@@ -151,9 +150,9 @@ function RegisterPage() {
         {/* Login Link */}
         <div className="text-center mt-8">
           <p className="text-gray-600">
-            Already have an account?{' '}
+            Bereits registriert?{' '}
             <Link to="/login" className="text-primary-600 hover:text-primary-700 font-medium">
-              Log in
+              Jetzt anmelden
             </Link>
           </p>
         </div>
@@ -163,79 +162,74 @@ function RegisterPage() {
 }
 
 const stepLabels = {
-  owner: ['Account Info', 'Pet Details', 'Preferences'],
-  caregiver: ['Account Info', 'Services', 'Verification'],
+  owner: ['Kontoinformationen', 'Tierdetails', 'Betreuungswünsche'],
+  caregiver: ['Kontoinformationen', 'Leistungen', 'Verifizierung'],
 };
 
 function OwnerStep1() {
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold mb-6">Create Your Account</h2>
-      
+      <h2 className="text-xl font-semibold mb-6">Konto erstellen</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
-            First Name
+            Vorname
           </label>
           <input
             type="text"
             id="firstName"
             className="input"
-            placeholder="Your first name"
+            placeholder="Dein Vorname"
           />
         </div>
         <div>
           <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
-            Last Name
+            Nachname
           </label>
           <input
             type="text"
             id="lastName"
             className="input"
-            placeholder="Your last name"
+            placeholder="Dein Nachname"
           />
         </div>
       </div>
-      
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-          Email Address
+          E-Mail-Adresse
         </label>
         <input
           type="email"
           id="email"
           className="input"
-          placeholder="your.email@example.com"
+          placeholder="deine.email@beispiel.de"
         />
       </div>
-      
       <div>
         <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-          Password
+          Passwort
         </label>
         <input
           type="password"
           id="password"
           className="input"
-          placeholder="Create a secure password"
+          placeholder="Sicheres Passwort erstellen"
         />
         <p className="text-xs text-gray-500 mt-1">
-          Must be at least 8 characters with a number and special character
+          Mindestens 8 Zeichen, eine Zahl und ein Sonderzeichen
         </p>
       </div>
-      
       <div>
         <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
-          Location
+          Ort
         </label>
         <input
           type="text"
           id="location"
           className="input"
-          placeholder="Your city"
+          placeholder="Deine Stadt"
         />
       </div>
-      
       <div className="flex items-start">
         <input
           type="checkbox"
@@ -243,13 +237,13 @@ function OwnerStep1() {
           className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded mt-1"
         />
         <label htmlFor="terms" className="ml-2 block text-sm text-gray-600">
-          I agree to the{' '}
+          Ich akzeptiere die{' '}
           <a href="#" className="text-primary-600 hover:text-primary-700">
-            Terms of Service
+            Nutzungsbedingungen
           </a>{' '}
-          and{' '}
+          und{' '}
           <a href="#" className="text-primary-600 hover:text-primary-700">
-            Privacy Policy
+            Datenschutzbestimmungen
           </a>
         </label>
       </div>
@@ -260,77 +254,73 @@ function OwnerStep1() {
 function OwnerStep2() {
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold mb-6">Tell Us About Your Pet</h2>
-      
+      <h2 className="text-xl font-semibold mb-6">Erzähle uns von deinem Tier</h2>
       <div>
         <label htmlFor="petName" className="block text-sm font-medium text-gray-700 mb-1">
-          Pet Name
+          Name des Tieres
         </label>
         <input
           type="text"
           id="petName"
           className="input"
-          placeholder="Your pet's name"
+          placeholder="Name deines Tieres"
         />
       </div>
-      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label htmlFor="petType" className="block text-sm font-medium text-gray-700 mb-1">
-            Pet Type
+            Tierart
           </label>
           <select id="petType" className="input">
-            <option value="">Select pet type</option>
-            <option value="dog">Dog</option>
-            <option value="cat">Cat</option>
-            <option value="bird">Bird</option>
-            <option value="rabbit">Rabbit</option>
-            <option value="other">Other</option>
+            <option value="">Tierart auswählen</option>
+            <option value="dog">Hund</option>
+            <option value="cat">Katze</option>
+            <option value="bird">Vogel</option>
+            <option value="rabbit">Kaninchen</option>
+            <option value="other">Andere</option>
           </select>
         </div>
         <div>
           <label htmlFor="petBreed" className="block text-sm font-medium text-gray-700 mb-1">
-            Breed
+            Rasse
           </label>
           <input
             type="text"
             id="petBreed"
             className="input"
-            placeholder="Pet's breed"
+            placeholder="Rasse des Tieres"
           />
         </div>
       </div>
-      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label htmlFor="petAge" className="block text-sm font-medium text-gray-700 mb-1">
-            Age
+            Alter
           </label>
           <input
             type="number"
             id="petAge"
             className="input"
-            placeholder="Years"
+            placeholder="Jahre"
             min="0"
           />
         </div>
         <div>
           <label htmlFor="petWeight" className="block text-sm font-medium text-gray-700 mb-1">
-            Weight (kg)
+            Gewicht (kg)
           </label>
           <input
             type="number"
             id="petWeight"
             className="input"
-            placeholder="Weight in kg"
+            placeholder="Gewicht in kg"
             min="0"
           />
         </div>
       </div>
-      
       <div>
         <span className="block text-sm font-medium text-gray-700 mb-1">
-          Pet Photo
+          Tierfoto
         </span>
         <div className="mt-1 border-2 border-dashed border-gray-300 rounded-lg p-6 flex justify-center">
           <div className="space-y-1 text-center">
@@ -340,28 +330,26 @@ function OwnerStep2() {
                 htmlFor="file-upload"
                 className="relative cursor-pointer bg-white rounded-md font-medium text-primary-600 hover:text-primary-500 focus-within:outline-none"
               >
-                <span>Upload a photo</span>
+                <span>Foto hochladen</span>
                 <input id="file-upload" name="file-upload" type="file" className="sr-only" />
               </label>
-              <p className="pl-1">or drag and drop</p>
+              <p className="pl-1">oder per Drag & Drop</p>
             </div>
-            <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+            <p className="text-xs text-gray-500">PNG, JPG, GIF bis 10MB</p>
           </div>
         </div>
       </div>
-      
       <div>
         <label htmlFor="petDescription" className="block text-sm font-medium text-gray-700 mb-1">
-          About Your Pet
+          Über dein Tier
         </label>
         <textarea
           id="petDescription"
           rows={4}
           className="input"
-          placeholder="Tell us about your pet's personality, likes, dislikes, and any special needs"
+          placeholder="Beschreibe das Wesen, Vorlieben, Abneigungen und besondere Bedürfnisse deines Tieres"
         ></textarea>
       </div>
-      
       <div className="pt-4">
         <Button
           variant="ghost"
@@ -369,7 +357,7 @@ function OwnerStep2() {
           onClick={() => {}}
           leftIcon={<Paw className="h-4 w-4" />}
         >
-          Add Another Pet
+          Weiteres Tier hinzufügen
         </Button>
       </div>
     </div>
@@ -379,14 +367,13 @@ function OwnerStep2() {
 function OwnerStep3() {
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold mb-6">Care Preferences</h2>
-      
+      <h2 className="text-xl font-semibold mb-6">Betreuungswünsche</h2>
       <div>
         <span className="block text-sm font-medium text-gray-700 mb-3">
-          What services are you looking for?
+          Welche Leistungen suchst du?
         </span>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {['Dog Walking', 'Pet Sitting', 'Boarding', 'Drop-In Visits', 'House Sitting', 'Doggy Day Care'].map((service) => (
+          {["Gassi-Service", "Haustierbetreuung", "Übernachtung", "Kurzbesuche", "Haussitting", "Hundetagesbetreuung"].map((service) => (
             <label key={service} className="flex items-center p-3 border border-gray-300 rounded-lg hover:border-primary-500 cursor-pointer transition-colors">
               <input
                 type="checkbox"
@@ -397,51 +384,47 @@ function OwnerStep3() {
           ))}
         </div>
       </div>
-      
       <div>
         <label htmlFor="vetInfo" className="block text-sm font-medium text-gray-700 mb-1">
-          Veterinarian Information
+          Tierarztinformationen
         </label>
         <textarea
           id="vetInfo"
           rows={3}
           className="input"
-          placeholder="Veterinarian name, address, and contact information"
+          placeholder="Name, Adresse und Kontaktdaten des Tierarztes"
         ></textarea>
       </div>
-      
       <div>
         <label htmlFor="emergencyContact" className="block text-sm font-medium text-gray-700 mb-1">
-          Emergency Contact
+          Notfallkontakt
         </label>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <input
             type="text"
             id="emergencyContactName"
             className="input"
-            placeholder="Contact name"
+            placeholder="Name des Kontakts"
           />
           <input
             type="text"
             id="emergencyContactPhone"
             className="input"
-            placeholder="Phone number"
+            placeholder="Telefonnummer"
           />
         </div>
       </div>
-      
       <div>
         <label htmlFor="careInstructions" className="block text-sm font-medium text-gray-700 mb-1">
-          Special Care Instructions
+          Besondere Hinweise zur Betreuung
         </label>
         <textarea
           id="careInstructions"
           rows={4}
           className="input"
-          placeholder="Any special instructions for caregivers (medications, feeding schedule, behavior notes, etc.)"
+          placeholder="Besondere Hinweise für Betreuer (Medikamente, Fütterungszeiten, Verhalten, etc.)"
         ></textarea>
       </div>
-      
       <div className="pt-4">
         <div className="bg-primary-50 p-4 rounded-lg">
           <div className="flex">
@@ -450,7 +433,7 @@ function OwnerStep3() {
             </div>
             <div className="ml-3">
               <p className="text-sm text-primary-800">
-                You're almost done! After registration, you'll be able to search for caregivers, book services, and manage your pet's care.
+                Fast geschafft! Nach der Registrierung kannst du Betreuer suchen, Leistungen buchen und die Betreuung deines Tieres verwalten.
               </p>
             </div>
           </div>
@@ -463,96 +446,89 @@ function OwnerStep3() {
 function CaregiverStep1() {
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold mb-6">Create Your Caregiver Account</h2>
-      
+      <h2 className="text-xl font-semibold mb-6">Betreuer-Konto erstellen</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
-            First Name
+            Vorname
           </label>
           <input
             type="text"
             id="firstName"
             className="input"
-            placeholder="Your first name"
+            placeholder="Dein Vorname"
           />
         </div>
         <div>
           <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
-            Last Name
+            Nachname
           </label>
           <input
             type="text"
             id="lastName"
             className="input"
-            placeholder="Your last name"
+            placeholder="Dein Nachname"
           />
         </div>
       </div>
-      
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-          Email Address
+          E-Mail-Adresse
         </label>
         <input
           type="email"
           id="email"
           className="input"
-          placeholder="your.email@example.com"
+          placeholder="deine.email@beispiel.de"
         />
       </div>
-      
       <div>
         <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-          Password
+          Passwort
         </label>
         <input
           type="password"
           id="password"
           className="input"
-          placeholder="Create a secure password"
+          placeholder="Sicheres Passwort erstellen"
         />
         <p className="text-xs text-gray-500 mt-1">
-          Must be at least 8 characters with a number and special character
+          Mindestens 8 Zeichen, eine Zahl und ein Sonderzeichen
         </p>
       </div>
-      
       <div>
         <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-1">
-          Phone Number
+          Telefonnummer
         </label>
         <input
           type="tel"
           id="phoneNumber"
           className="input"
-          placeholder="Your phone number"
+          placeholder="Deine Telefonnummer"
         />
       </div>
-      
       <div>
         <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
-          Location
+          Ort
         </label>
         <input
           type="text"
           id="location"
           className="input"
-          placeholder="Your city"
+          placeholder="Deine Stadt"
         />
       </div>
-      
       <div>
         <label htmlFor="bio" className="block text-sm font-medium text-gray-700 mb-1">
-          About You
+          Über dich
         </label>
         <textarea
           id="bio"
           rows={4}
           className="input"
-          placeholder="Tell pet owners about yourself, your experience with pets, and why you'd be a great caregiver"
+          placeholder="Erzähle den Tierbesitzern von dir, deiner Erfahrung mit Tieren und warum du ein großartiger Betreuer bist"
         ></textarea>
       </div>
-      
       <div className="flex items-start">
         <input
           type="checkbox"
@@ -560,13 +536,13 @@ function CaregiverStep1() {
           className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded mt-1"
         />
         <label htmlFor="terms" className="ml-2 block text-sm text-gray-600">
-          I agree to the{' '}
+          Ich akzeptiere die{' '}
           <a href="#" className="text-primary-600 hover:text-primary-700">
-            Terms of Service
+            Nutzungsbedingungen
           </a>{' '}
-          and{' '}
+          und{' '}
           <a href="#" className="text-primary-600 hover:text-primary-700">
-            Privacy Policy
+            Datenschutzbestimmungen
           </a>
         </label>
       </div>
@@ -577,14 +553,13 @@ function CaregiverStep1() {
 function CaregiverStep2() {
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold mb-6">Your Services</h2>
-      
+      <h2 className="text-xl font-semibold mb-6">Deine Leistungen</h2>
       <div>
         <span className="block text-sm font-medium text-gray-700 mb-3">
-          What services do you offer?
+          Welche Leistungen bietest du an?
         </span>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {['Dog Walking', 'Pet Sitting', 'Boarding', 'Drop-In Visits', 'House Sitting', 'Doggy Day Care'].map((service) => (
+          {["Gassi-Service", "Haustierbetreuung", "Übernachtung", "Kurzbesuche", "Haussitting", "Hundetagesbetreuung"].map((service) => (
             <label key={service} className="flex items-center p-3 border border-gray-300 rounded-lg hover:border-primary-500 cursor-pointer transition-colors">
               <input
                 type="checkbox"
@@ -595,13 +570,12 @@ function CaregiverStep2() {
           ))}
         </div>
       </div>
-      
       <div>
         <span className="block text-sm font-medium text-gray-700 mb-3">
-          What pets do you care for?
+          Welche Tiere betreust du?
         </span>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {['Dogs', 'Cats', 'Birds', 'Rabbits', 'Fish', 'Small Animals'].map((pet) => (
+          {["Hunde", "Katzen", "Vögel", "Kaninchen", "Fische", "Kleintiere"].map((pet) => (
             <label key={pet} className="flex items-center p-3 border border-gray-300 rounded-lg hover:border-primary-500 cursor-pointer transition-colors">
               <input
                 type="checkbox"
@@ -612,15 +586,14 @@ function CaregiverStep2() {
           ))}
         </div>
       </div>
-      
       <div>
         <span className="block text-sm font-medium text-gray-700 mb-3">
-          Set your rates
+          Lege deine Preise fest
         </span>
         <div className="grid grid-cols-1 gap-6">
           <div className="grid grid-cols-2 items-center">
             <label htmlFor="rateWalking" className="text-gray-700">
-              Dog Walking (per 30 min)
+              Gassi-Service (pro 30 Min)
             </label>
             <div className="relative rounded-md">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -634,10 +607,9 @@ function CaregiverStep2() {
               />
             </div>
           </div>
-          
           <div className="grid grid-cols-2 items-center">
             <label htmlFor="rateSitting" className="text-gray-700">
-              Pet Sitting (per visit)
+              Haustierbetreuung (pro Besuch)
             </label>
             <div className="relative rounded-md">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -651,10 +623,9 @@ function CaregiverStep2() {
               />
             </div>
           </div>
-          
           <div className="grid grid-cols-2 items-center">
             <label htmlFor="rateBoarding" className="text-gray-700">
-              Boarding (per night)
+              Übernachtung (pro Nacht)
             </label>
             <div className="relative rounded-md">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -670,31 +641,29 @@ function CaregiverStep2() {
           </div>
         </div>
       </div>
-      
       <div>
         <label htmlFor="serviceArea" className="block text-sm font-medium text-gray-700 mb-1">
-          Service Area
+          Einsatzgebiet
         </label>
         <input
           type="text"
           id="serviceArea"
           className="input"
-          placeholder="How far are you willing to travel? (e.g., 5 km radius from Berlin Mitte)"
+          placeholder="Wie weit bist du bereit zu fahren? (z.B. 5 km Umkreis ab Berlin Mitte)"
         />
       </div>
-      
       <div>
         <label htmlFor="availability" className="block text-sm font-medium text-gray-700 mb-1">
-          General Availability
+          Allgemeine Verfügbarkeit
         </label>
         <textarea
           id="availability"
           rows={3}
           className="input"
-          placeholder="Describe your general availability (e.g., weekdays after 5pm, weekends, etc.)"
+          placeholder="Beschreibe deine generelle Verfügbarkeit (z.B. werktags ab 17 Uhr, Wochenenden, etc.)"
         ></textarea>
         <p className="text-xs text-gray-500 mt-1">
-          You'll be able to set up a detailed calendar after registration
+          Nach der Registrierung kannst du einen detaillierten Kalender anlegen
         </p>
       </div>
     </div>
@@ -704,11 +673,10 @@ function CaregiverStep2() {
 function CaregiverStep3() {
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold mb-6">Verification & Profile</h2>
-      
+      <h2 className="text-xl font-semibold mb-6">Verifizierung & Profil</h2>
       <div>
         <span className="block text-sm font-medium text-gray-700 mb-1">
-          Profile Photo
+          Profilfoto
         </span>
         <div className="mt-1 border-2 border-dashed border-gray-300 rounded-lg p-6 flex justify-center">
           <div className="space-y-1 text-center">
@@ -718,22 +686,21 @@ function CaregiverStep3() {
                 htmlFor="photo-upload"
                 className="relative cursor-pointer bg-white rounded-md font-medium text-primary-600 hover:text-primary-500 focus-within:outline-none"
               >
-                <span>Upload a photo</span>
+                <span>Foto hochladen</span>
                 <input id="photo-upload" name="photo-upload" type="file" className="sr-only" />
               </label>
-              <p className="pl-1">or drag and drop</p>
+              <p className="pl-1">oder per Drag & Drop</p>
             </div>
-            <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+            <p className="text-xs text-gray-500">PNG, JPG, GIF bis 10MB</p>
           </div>
         </div>
         <p className="text-sm text-gray-500 mt-2">
-          A clear photo of your face helps build trust with pet owners
+          Ein klares Foto von dir schafft Vertrauen bei Tierbesitzern
         </p>
       </div>
-      
       <div>
         <span className="block text-sm font-medium text-gray-700 mb-1">
-          Home Photos (for boarding/house sitting)
+          Fotos von deinem Zuhause (für Übernachtung/Haussitting)
         </span>
         <div className="mt-1 border-2 border-dashed border-gray-300 rounded-lg p-6 flex justify-center">
           <div className="space-y-1 text-center">
@@ -743,19 +710,18 @@ function CaregiverStep3() {
                 htmlFor="home-photos-upload"
                 className="relative cursor-pointer bg-white rounded-md font-medium text-primary-600 hover:text-primary-500 focus-within:outline-none"
               >
-                <span>Upload photos</span>
+                <span>Fotos hochladen</span>
                 <input id="home-photos-upload" name="home-photos-upload" type="file" multiple className="sr-only" />
               </label>
-              <p className="pl-1">or drag and drop</p>
+              <p className="pl-1">oder per Drag & Drop</p>
             </div>
-            <p className="text-xs text-gray-500">Upload multiple photos of your home environment</p>
+            <p className="text-xs text-gray-500">Lade mehrere Fotos deiner Wohnumgebung hoch</p>
           </div>
         </div>
       </div>
-      
       <div>
         <span className="block text-sm font-medium text-gray-700 mb-3">
-          Experience & Qualifications
+          Erfahrung & Qualifikationen
         </span>
         <div className="space-y-4">
           <label className="flex items-center">
@@ -763,44 +729,42 @@ function CaregiverStep3() {
               type="checkbox"
               className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
             />
-            <span className="ml-3 text-gray-700">Pet First Aid Certified</span>
+            <span className="ml-3 text-gray-700">Erste-Hilfe am Tier zertifiziert</span>
           </label>
           <label className="flex items-center">
             <input
               type="checkbox"
               className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
             />
-            <span className="ml-3 text-gray-700">Professional Dog Trainer</span>
+            <span className="ml-3 text-gray-700">Professioneller Hundetrainer</span>
           </label>
           <label className="flex items-center">
             <input
               type="checkbox"
               className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
             />
-            <span className="ml-3 text-gray-700">Veterinary Experience</span>
+            <span className="ml-3 text-gray-700">Tierarzterfahrung</span>
           </label>
           <label className="flex items-center">
             <input
               type="checkbox"
               className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
             />
-            <span className="ml-3 text-gray-700">Animal Shelter Volunteer</span>
+            <span className="ml-3 text-gray-700">Tierheim-Erfahrung</span>
           </label>
         </div>
       </div>
-      
       <div>
         <label htmlFor="experience" className="block text-sm font-medium text-gray-700 mb-1">
-          Describe Your Experience
+          Beschreibe deine Erfahrung
         </label>
         <textarea
           id="experience"
           rows={4}
           className="input"
-          placeholder="Tell pet owners about your experience with animals, including any professional experience or personal pet ownership"
+          placeholder="Erzähle den Tierbesitzern von deiner Erfahrung mit Tieren, inkl. beruflicher Erfahrung oder eigenen Tieren"
         ></textarea>
       </div>
-      
       <div className="pt-4">
         <div className="bg-primary-50 p-4 rounded-lg">
           <div className="flex">
@@ -809,8 +773,7 @@ function CaregiverStep3() {
             </div>
             <div className="ml-3">
               <p className="text-sm text-primary-800">
-                Great job! After registration, your profile will be reviewed by our team. 
-                Background checks help ensure trust and safety on our platform.
+                Geschafft! Nach der Registrierung wird dein Profil von unserem Team geprüft. Hintergrundprüfungen sorgen für Vertrauen und Sicherheit.
               </p>
             </div>
           </div>

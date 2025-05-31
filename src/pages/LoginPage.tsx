@@ -19,14 +19,13 @@ function LoginPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <Link to="/" className="flex items-center justify-center">
-          <Paw className="h-10 w-10 text-primary-500" />
-          <span className="ml-2 text-2xl font-bold">PetPal</span>
+          <img src="/Image/tigube_logo_klein.png" alt="TiGuBe Logo" className="h-12 w-auto" />
         </Link>
         <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-          Welcome back
+          Willkommen zurück
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Sign in to your account to continue
+          Melde dich an, um fortzufahren
         </p>
       </div>
 
@@ -35,7 +34,7 @@ function LoginPage() {
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
+                E-Mail-Adresse
               </label>
               <div className="mt-1">
                 <input
@@ -53,7 +52,7 @@ function LoginPage() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
+                Passwort
               </label>
               <div className="mt-1 relative">
                 <input
@@ -92,13 +91,13 @@ function LoginPage() {
                   onChange={() => setRememberMe(!rememberMe)}
                 />
                 <label htmlFor="remember_me" className="ml-2 block text-sm text-gray-700">
-                  Remember me
+                  Angemeldet bleiben
                 </label>
               </div>
 
               <div className="text-sm">
                 <Link to="/forgot-password" className="font-medium text-primary-600 hover:text-primary-500">
-                  Forgot your password?
+                  Passwort vergessen?
                 </Link>
               </div>
             </div>
@@ -110,7 +109,7 @@ function LoginPage() {
                 fullWidth
                 size="lg"
               >
-                Sign in
+                Anmelden
               </Button>
             </div>
           </form>
@@ -121,7 +120,7 @@ function LoginPage() {
                 <div className="w-full border-t border-gray-300" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                <span className="px-2 bg-white text-gray-500">Oder weiter mit</span>
               </div>
             </div>
 
@@ -175,9 +174,9 @@ function LoginPage() {
           
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
+              Noch kein Konto?{' '}
               <Link to="/register" className="font-medium text-primary-600 hover:text-primary-500">
-                Sign up for free
+                Jetzt kostenlos registrieren
               </Link>
             </p>
           </div>

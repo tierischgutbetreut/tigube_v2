@@ -19,32 +19,31 @@ function Header() {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <Paw className="h-8 w-8 text-primary-500" />
-            <span className="text-xl font-bold text-gray-900">PetPal</span>
+            <img src="/Image/tigube_logo_klein.png" alt="TiGuBe Logo" className="h-10 w-auto" />
           </Link>
           
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
             <NavLink to="/" isActive={isActive('/')}>
-              Home
+              Startseite
             </NavLink>
             <NavLink to="/search" isActive={isActive('/search')}>
-              Find Caregivers
+            Betreuer finden
             </NavLink>
             <NavLink to="/register?type=caregiver" isActive={isActive('/register?type=caregiver')}>
-              Become a Caregiver
+            Betreuer werden
             </NavLink>
             <Link
               to="/login"
               className="btn btn-outline"
             >
-              Log In
+              Login
             </Link>
             <Link
               to="/register"
               className="btn btn-primary"
             >
-              Sign Up
+              Anmelden
             </Link>
           </nav>
           

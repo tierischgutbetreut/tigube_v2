@@ -67,7 +67,7 @@ function SearchPage() {
               </div>
               <input
                 type="text"
-                placeholder="Search location"
+                placeholder="PLZ oder Stadt eingeben"
                 className="block w-full bg-white border border-gray-300 rounded-lg pl-10 py-3 focus:ring-primary-500 focus:border-primary-500"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
@@ -79,7 +79,7 @@ function SearchPage() {
               leftIcon={<Filter className="h-4 w-4" />}
               onClick={() => setShowFilters(!showFilters)}
             >
-              Filters
+              Filter
             </Button>
           </div>
         </div>
@@ -90,7 +90,7 @@ function SearchPage() {
         {showFilters && (
           <div className="bg-white rounded-lg shadow-sm p-6 mb-8 animate-fade-in">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Filters</h2>
+              <h2 className="text-lg font-semibold">Filter</h2>
               <button
                 onClick={() => setShowFilters(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -101,15 +101,29 @@ function SearchPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h3 className="font-medium mb-3">Services</h3>
+                <h3 className="font-medium mb-3">Leistungen</h3>
                 <div className="space-y-2">
-                  {['Dog Walking', 'Pet Sitting', 'Boarding', 'Drop-In Visits', 'House Sitting', 'Doggy Day Care'].map((service) => (
+                  {["Gassi-Service", "Haustierbetreuung", "Übernachtung", "Kurzbesuche", "Haussitting", "Hundetagesbetreuung"].map((service, idx) => (
                     <label key={service} className="flex items-center">
                       <input
                         type="checkbox"
                         className="rounded text-primary-600 focus:ring-primary-500 h-4 w-4"
-                        checked={activeFilters.includes(service)}
-                        onChange={() => toggleFilter(service)}
+                        checked={activeFilters.includes([
+                          "Dog Walking",
+                          "Pet Sitting",
+                          "Boarding",
+                          "Drop-In Visits",
+                          "House Sitting",
+                          "Doggy Day Care"
+                        ][idx])}
+                        onChange={() => toggleFilter([
+                          "Dog Walking",
+                          "Pet Sitting",
+                          "Boarding",
+                          "Drop-In Visits",
+                          "House Sitting",
+                          "Doggy Day Care"
+                        ][idx])}
                       />
                       <span className="ml-2 text-gray-700">{service}</span>
                     </label>
@@ -118,7 +132,7 @@ function SearchPage() {
               </div>
               
               <div>
-                <h3 className="font-medium mb-3">Price Range (€/hour)</h3>
+                <h3 className="font-medium mb-3">Preisbereich (€/Stunde)</h3>
                 <div className="px-2">
                   <input
                     type="range"
@@ -136,7 +150,7 @@ function SearchPage() {
                 </div>
                 
                 <div className="mt-6">
-                  <h3 className="font-medium mb-3">Rating</h3>
+                  <h3 className="font-medium mb-3">Bewertung</h3>
                   <div className="space-y-2">
                     {[5, 4, 3].map((rating) => (
                       <label key={rating} className="flex items-center">
@@ -151,7 +165,7 @@ function SearchPage() {
                           {[...Array(5 - rating)].map((_, i) => (
                             <Star key={i} className="h-4 w-4 text-gray-300" />
                           ))}
-                          <span className="ml-1 text-gray-700">& up</span>
+                          <span className="ml-1 text-gray-700">und mehr</span>
                         </span>
                       </label>
                     ))}
@@ -169,17 +183,17 @@ function SearchPage() {
                   setLocation('');
                 }}
               >
-                Clear All
+                Alle zurücksetzen
               </Button>
-              <Button onClick={() => setShowFilters(false)}>Apply Filters</Button>
+              <Button onClick={() => setShowFilters(false)}>Filter anwenden</Button>
             </div>
           </div>
         )}
 
         {/* Results Count */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold mb-2">Pet Caregivers in {location || 'All Locations'}</h1>
-          <p className="text-gray-600">{caregivers.length} caregivers available</p>
+          <h1 className="text-2xl font-bold mb-2">Tierbetreuer in {location || 'allen Orten'}</h1>
+          <p className="text-gray-600">{caregivers.length} Betreuer verfügbar</p>
         </div>
 
         {/* Active Filters */}
@@ -190,7 +204,17 @@ function SearchPage() {
                 key={filter}
                 className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-100 text-primary-800"
               >
-                {filter}
+                {(() => {
+                  switch (filter) {
+                    case 'Dog Walking': return 'Gassi-Service';
+                    case 'Pet Sitting': return 'Haustierbetreuung';
+                    case 'Boarding': return 'Übernachtung';
+                    case 'Drop-In Visits': return 'Kurzbesuche';
+                    case 'House Sitting': return 'Haussitting';
+                    case 'Doggy Day Care': return 'Hundetagesbetreuung';
+                    default: return filter;
+                  }
+                })()}
                 <button
                   onClick={() => toggleFilter(filter)}
                   className="ml-1 focus:outline-none"
@@ -203,7 +227,7 @@ function SearchPage() {
               onClick={() => setActiveFilters([])}
               className="text-sm text-primary-600 hover:text-primary-800"
             >
-              Clear all
+              Alle entfernen
             </button>
           </div>
         )}
@@ -219,8 +243,8 @@ function SearchPage() {
               <div className="text-gray-500 mb-4">
                 <SearchIcon className="h-12 w-12 mx-auto text-gray-400" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-1">No caregivers found</h3>
-              <p className="text-gray-600 mb-4">Try adjusting your filters or search for a different location</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-1">Keine Betreuer gefunden</h3>
+              <p className="text-gray-600 mb-4">Passe die Filter an oder suche an einem anderen Ort</p>
               <Button
                 onClick={() => {
                   setActiveFilters([]);
@@ -228,7 +252,7 @@ function SearchPage() {
                   setLocation('');
                 }}
               >
-                Clear Filters
+                Filter zurücksetzen
               </Button>
             </div>
           )}
@@ -267,7 +291,7 @@ function CaregiverCard({ caregiver }: CaregiverCardProps) {
         />
         {caregiver.verified && (
           <div className="absolute top-2 right-2 bg-primary-500 text-white text-xs font-medium px-2 py-1 rounded-full">
-            Verified
+            Verifiziert
           </div>
         )}
       </div>
@@ -296,12 +320,22 @@ function CaregiverCard({ caregiver }: CaregiverCardProps) {
               key={service}
               className="text-xs font-medium bg-gray-100 text-gray-800 px-2 py-1 rounded-full"
             >
-              {service}
+              {(() => {
+                switch (service) {
+                  case 'Dog Walking': return 'Gassi-Service';
+                  case 'Pet Sitting': return 'Haustierbetreuung';
+                  case 'Boarding': return 'Übernachtung';
+                  case 'Drop-In Visits': return 'Kurzbesuche';
+                  case 'House Sitting': return 'Haussitting';
+                  case 'Doggy Day Care': return 'Hundetagesbetreuung';
+                  default: return service;
+                }
+              })()}
             </span>
           ))}
           {caregiver.services.length > 3 && (
             <span className="text-xs font-medium bg-gray-100 text-gray-800 px-2 py-1 rounded-full">
-              +{caregiver.services.length - 3} more
+              +{caregiver.services.length - 3} weitere
             </span>
           )}
         </div>
@@ -309,17 +343,17 @@ function CaregiverCard({ caregiver }: CaregiverCardProps) {
         <div className="flex items-center justify-between">
           <p className="flex items-center text-xs text-gray-600">
             <Clock className="h-3 w-3 mr-1" /> 
-            Responds in {caregiver.responseTime}
+            Antwortet in {caregiver.responseTime}
           </p>
-          <p className="font-semibold text-primary-600">€{caregiver.hourlyRate}/hr</p>
+          <p className="font-semibold text-primary-600">€{caregiver.hourlyRate}/Std.</p>
         </div>
         
         <Button
           variant="primary"
           className="w-full mt-4"
-          onClick={() => window.location.href = `/caregivers/${caregiver.id}`}
+          onClick={() => window.location.href = `/betreuer/${caregiver.id}`}
         >
-          View Profile
+          Profil ansehen
         </Button>
       </div>
     </div>

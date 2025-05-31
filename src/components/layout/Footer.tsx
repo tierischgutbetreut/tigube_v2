@@ -11,49 +11,47 @@ function Footer() {
           {/* Logo and description */}
           <div className="md:col-span-1">
             <Link to="/" className="flex items-center space-x-2">
-              <Paw className="h-8 w-8 text-primary-400" />
-              <span className="text-xl font-bold text-white">PetPal</span>
+              <img src="/Image/tigube_logo_klein.png" alt="TiGuBe Logo" className="h-10 w-auto" />
             </Link>
             <p className="mt-4 text-sm">
-              Connecting pet owners with loving caregivers since 2023. Trusted, verified, and passionate pet care.
+            Deutschlands vertrauensvolle Plattform für professionelle Tierbetreuung. Finden Sie den perfekten Betreuer für Ihren Liebling oder werden Sie selbst Teil unserer Gemeinschaft.
             </p>
             <div className="mt-6 flex space-x-4">
               <SocialLink href="#" icon={<Facebook size={20} />} />
               <SocialLink href="#" icon={<Instagram size={20} />} />
-              <SocialLink href="#" icon={<Twitter size={20} />} />
             </div>
           </div>
 
-          {/* For Pet Owners */}
+          {/* Für Tierbesitzer */}
           <div>
-            <h3 className="text-lg font-semibold text-white mb-4">For Pet Owners</h3>
+            <h3 className="text-lg font-semibold text-white mb-4">Für Tierbesitzer</h3>
             <ul className="space-y-2">
-              <FooterLink to="/search">Find a Caregiver</FooterLink>
-              <FooterLink to="/how-it-works">How It Works</FooterLink>
-              <FooterLink to="/pricing">Pricing</FooterLink>
+              <FooterLink to="/search">Betreuer finden</FooterLink>
+              <FooterLink to="/how-it-works">Wie es funktioniert</FooterLink>
+              <FooterLink to="/pricing">Preise</FooterLink>
               <FooterLink to="/faq">FAQ</FooterLink>
             </ul>
           </div>
 
-          {/* For Caregivers */}
+          {/* Für Betreuer */}
           <div>
-            <h3 className="text-lg font-semibold text-white mb-4">For Caregivers</h3>
+            <h3 className="text-lg font-semibold text-white mb-4">Für Betreuer</h3>
             <ul className="space-y-2">
-              <FooterLink to="/register?type=caregiver">Become a Caregiver</FooterLink>
-              <FooterLink to="/caregiver-requirements">Requirements</FooterLink>
-              <FooterLink to="/caregiver-resources">Resources</FooterLink>
-              <FooterLink to="/caregiver-faq">Caregiver FAQ</FooterLink>
+              <FooterLink to="/register?type=caregiver">Betreuer werden</FooterLink>
+              <FooterLink to="/caregiver-requirements">Voraussetzungen</FooterLink>
+              <FooterLink to="/caregiver-resources">Ressourcen</FooterLink>
+              <FooterLink to="/caregiver-faq">Betreuer-FAQ</FooterLink>
             </ul>
           </div>
 
-          {/* Company */}
+          {/* Unternehmen */}
           <div>
-            <h3 className="text-lg font-semibold text-white mb-4">Company</h3>
+            <h3 className="text-lg font-semibold text-white mb-4">Unternehmen</h3>
             <ul className="space-y-2">
-              <FooterLink to="/about">About Us</FooterLink>
-              <FooterLink to="/contact">Contact</FooterLink>
-              <FooterLink to="/privacy">Privacy Policy</FooterLink>
-              <FooterLink to="/terms">Terms of Service</FooterLink>
+              <FooterLink to="/about">Über uns</FooterLink>
+              <FooterLink to="/contact">Kontakt</FooterLink>
+              <FooterLink to="/privacy">Datenschutz</FooterLink>
+              <FooterLink to="/terms">AGB</FooterLink>
             </ul>
           </div>
         </div>
@@ -62,10 +60,10 @@ function Footer() {
         
         <div className="flex flex-col md:flex-row justify-between items-center">
           <p className="text-sm text-gray-400">
-            &copy; {currentYear} PetPal. All rights reserved.
+            &copy; {currentYear} TiGuBe. Alle Rechte vorbehalten.
           </p>
           <p className="text-sm text-gray-400 mt-2 md:mt-0 flex items-center">
-            Made with <Heart size={14} className="mx-1 text-primary-400" /> in Berlin, Germany
+            Mit <Heart size={14} className="mx-1 text-primary-400" /> gemacht in Moos
           </p>
         </div>
       </div>

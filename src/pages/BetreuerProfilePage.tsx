@@ -5,7 +5,7 @@ import Button from '../components/ui/Button';
 import { mockCaregivers, mockReviews } from '../data/mockData';
 import { formatCurrency } from '../lib/utils';
 
-function CaregiverProfilePage() {
+function BetreuerProfilePage() {
   const { id } = useParams<{ id: string }>();
   const [isFavorite, setIsFavorite] = useState(false);
   
@@ -18,10 +18,10 @@ function CaregiverProfilePage() {
   if (!caregiver) {
     return (
       <div className="container-custom py-16 text-center">
-        <h1 className="text-2xl font-bold mb-4">Caregiver Not Found</h1>
-        <p className="mb-8">The caregiver you're looking for doesn't exist or has been removed.</p>
+        <h1 className="text-2xl font-bold mb-4">Betreuer nicht gefunden</h1>
+        <p className="mb-8">Der gesuchte Betreuer existiert nicht oder wurde entfernt.</p>
         <Link to="/search" className="btn btn-primary">
-          Back to Search
+          Zurück zur Suche
         </Link>
       </div>
     );
@@ -43,7 +43,7 @@ function CaregiverProfilePage() {
                 />
                 {caregiver.verified && (
                   <div className="absolute top-4 right-4 bg-primary-500 text-white text-xs font-semibold px-3 py-1 rounded-full flex items-center">
-                    <Shield className="h-3 w-3 mr-1" /> Verified
+                    <Shield className="h-3 w-3 mr-1" /> Verifiziert
                   </div>
                 )}
               </div>
@@ -75,11 +75,11 @@ function CaregiverProfilePage() {
                 <div className="flex items-center">
                   <Star className="h-5 w-5 text-accent-500 fill-accent-500 mr-1" />
                   <span className="font-medium">{caregiver.rating}</span>
-                  <span className="text-gray-500 text-sm ml-1">({caregiver.reviewCount} reviews)</span>
+                  <span className="text-gray-500 text-sm ml-1">({caregiver.reviewCount} Bewertungen)</span>
                 </div>
                 <div className="flex items-center text-gray-600">
                   <Clock className="h-4 w-4 mr-1" /> 
-                  Responds in {caregiver.responseTime}
+                  Antwortet in {caregiver.responseTime}
                 </div>
                 <div className="badge badge-primary">
                   {formatCurrency(caregiver.hourlyRate)}/hr
@@ -105,21 +105,21 @@ function CaregiverProfilePage() {
                   size="lg"
                   onClick={() => window.location.href = `/booking/${caregiver.id}`}
                 >
-                  Book Now
+                  Jetzt buchen
                 </Button>
                 <Button 
                   variant="outline" 
                   size="lg"
                   leftIcon={<MessageCircle className="h-4 w-4" />}
                 >
-                  Contact
+                  Kontakt
                 </Button>
                 <Button 
                   variant="outline" 
                   size="lg"
                   leftIcon={<Calendar className="h-4 w-4" />}
                 >
-                  Check Availability
+                  Verfügbarkeit prüfen
                 </Button>
               </div>
             </div>
@@ -133,53 +133,53 @@ function CaregiverProfilePage() {
           <div className="lg:col-span-2">
             {/* About Section */}
             <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
-              <h2 className="text-xl font-bold mb-4">About {caregiver.name}</h2>
+              <h2 className="text-xl font-bold mb-4">Über {caregiver.name}</h2>
               <p className="text-gray-700 mb-6">
-                Hello! I'm {caregiver.name}, a passionate animal lover based in {caregiver.location}. I have extensive experience caring for all types of pets, from energetic dogs to independent cats and even small animals.
+                Hallo! Ich bin {caregiver.name}, leidenschaftlicher Tierliebhaber aus {caregiver.location}. Ich habe umfassende Erfahrung in der Betreuung aller Arten von Haustieren, von energiegeladenen Hunden bis zu unabhängigen Katzen und sogar Kleintieren.
               </p>
               <p className="text-gray-700 mb-6">
-                My approach to pet care is based on respect, love, and understanding of each animal's unique needs. I believe in providing personalized care that keeps your pets happy, healthy, and safe while you're away.
+                Meine Herangehensweise an die Tierbetreuung basiert auf Respekt, Liebe und dem Verständnis für die individuellen Bedürfnisse jedes Tieres. Ich biete eine persönliche Betreuung, die Ihr Tier glücklich, gesund und sicher hält, während Sie abwesend sind.
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <h3 className="font-semibold mb-3">Skills & Qualifications</h3>
+                  <h3 className="font-semibold mb-3">Fähigkeiten & Qualifikationen</h3>
                   <ul className="space-y-2 text-gray-700">
                     <li className="flex items-start">
                       <CheckCircle className="h-5 w-5 text-primary-500 mt-0.5 mr-2" />
-                      <span>Pet First Aid Certified</span>
+                      <span>Erste-Hilfe am Tier zertifiziert</span>
                     </li>
                     <li className="flex items-start">
                       <CheckCircle className="h-5 w-5 text-primary-500 mt-0.5 mr-2" />
-                      <span>Medication Administration</span>
+                      <span>Medikamentengabe</span>
                     </li>
                     <li className="flex items-start">
                       <CheckCircle className="h-5 w-5 text-primary-500 mt-0.5 mr-2" />
-                      <span>Basic Training Commands</span>
+                      <span>Grundlegende Kommandos</span>
                     </li>
                     <li className="flex items-start">
                       <CheckCircle className="h-5 w-5 text-primary-500 mt-0.5 mr-2" />
-                      <span>Senior Pet Care</span>
+                      <span>Seniorenbetreuung für Tiere</span>
                     </li>
                   </ul>
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-3">Additional Information</h3>
+                  <h3 className="font-semibold mb-3">Weitere Informationen</h3>
                   <ul className="space-y-2 text-gray-700">
                     <li className="flex items-start">
                       <CheckCircle className="h-5 w-5 text-primary-500 mt-0.5 mr-2" />
-                      <span>Has own transportation</span>
+                      <span>Eigener Transport vorhanden</span>
                     </li>
                     <li className="flex items-start">
                       <CheckCircle className="h-5 w-5 text-primary-500 mt-0.5 mr-2" />
-                      <span>Can provide updates with photos</span>
+                      <span>Kann Updates mit Fotos senden</span>
                     </li>
                     <li className="flex items-start">
                       <CheckCircle className="h-5 w-5 text-primary-500 mt-0.5 mr-2" />
-                      <span>Background checked</span>
+                      <span>Hintergrund überprüft</span>
                     </li>
                     <li className="flex items-start">
                       <CheckCircle className="h-5 w-5 text-primary-500 mt-0.5 mr-2" />
-                      <span>Non-smoking home</span>
+                      <span>Nichtraucherhaushalt</span>
                     </li>
                   </ul>
                 </div>
@@ -189,7 +189,7 @@ function CaregiverProfilePage() {
             {/* Reviews Section */}
             <div className="bg-white rounded-xl shadow-sm p-6">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold">Reviews ({caregiverReviews.length})</h2>
+                <h2 className="text-xl font-bold">Bewertungen ({caregiverReviews.length})</h2>
                 <div className="flex items-center">
                   <Star className="h-5 w-5 text-accent-500 fill-accent-500 mr-1" />
                   <span className="font-medium">{caregiver.rating}</span>
@@ -204,7 +204,7 @@ function CaregiverProfilePage() {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <p className="text-gray-500">No reviews yet</p>
+                  <p className="text-gray-500">Noch keine Bewertungen</p>
                 </div>
               )}
             </div>
@@ -214,7 +214,7 @@ function CaregiverProfilePage() {
           <div className="lg:col-span-1">
             {/* Services & Rates */}
             <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
-              <h2 className="text-xl font-bold mb-4">Services & Rates</h2>
+              <h2 className="text-xl font-bold mb-4">Leistungen & Preise</h2>
               <div className="space-y-4">
                 {caregiver.services.map(service => (
                   <div key={service} className="flex justify-between items-center py-2 border-b border-gray-100">
@@ -232,19 +232,19 @@ function CaregiverProfilePage() {
             
             {/* Availability Calendar Placeholder */}
             <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-xl font-bold mb-4">Availability</h2>
+              <h2 className="text-xl font-bold mb-4">Verfügbarkeit</h2>
               <div className="text-gray-700 mb-4">
-                <p>Check {caregiver.name}'s availability and book your preferred time slot.</p>
+                <p>Prüfe die Verfügbarkeit von {caregiver.name} und buche deinen Wunschtermin.</p>
               </div>
               <div className="bg-gray-100 rounded-lg p-4 flex items-center justify-center h-64">
-                <p className="text-gray-500 text-center">Calendar placeholder</p>
+                <p className="text-gray-500 text-center">Kalender Platzhalter</p>
               </div>
               <Button
                 variant="outline"
                 className="w-full mt-4"
                 leftIcon={<Calendar className="h-4 w-4" />}
               >
-                Check Full Calendar
+                Gesamten Kalender anzeigen
               </Button>
             </div>
           </div>
@@ -270,7 +270,7 @@ interface ReviewCardProps {
 
 function ReviewCard({ review }: ReviewCardProps) {
   const date = new Date(review.date);
-  const formattedDate = date.toLocaleDateString('en-US', {
+  const formattedDate = date.toLocaleDateString('de-DE', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -286,7 +286,7 @@ function ReviewCard({ review }: ReviewCardProps) {
             className="w-10 h-10 rounded-full mr-3"
           />
           <div>
-            <p className="font-medium">Pet Owner</p>
+            <p className="font-medium">Tierbesitzer</p>
             <p className="text-sm text-gray-500">{formattedDate}</p>
           </div>
         </div>
@@ -367,4 +367,4 @@ function serviceUnit(service: string): string {
   }
 }
 
-export default CaregiverProfilePage;
+export default BetreuerProfilePage;

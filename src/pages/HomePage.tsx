@@ -1,168 +1,159 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Clock, Shield, Heart, Dog, Cat, Rabbit } from 'lucide-react';
+import { Search, MapPin, Clock, Shield, Heart, Dog, Cat, Rabbit, Calendar, Briefcase, PawPrint } from 'lucide-react';
 import Button from '../components/ui/Button';
 
 function HomePage() {
   const navigate = useNavigate();
   const [location, setLocation] = useState('');
-  
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [service, setService] = useState('Hundebetreuung');
+  const [petType, setPetType] = useState('Hund');
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate(`/search?location=${encodeURIComponent(location)}`);
+    const queryParams = new URLSearchParams();
+    if (petType) queryParams.append('petType', petType);
+    if (service) queryParams.append('service', service);
+    if (location) queryParams.append('location', location);
+    if (startDate) queryParams.append('startDate', startDate);
+    if (endDate) queryParams.append('endDate', endDate);
+    navigate(`/search?${queryParams.toString()}`);
   };
 
   return (
     <div className="flex flex-col min-h-screen">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-primary-500 to-secondary-600 text-white py-16 md:py-24">
+      <section className="relative bg-white py-16 md:py-24">
         <div className="container-custom">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            {/* Linke Seite: Text */}
             <div className="space-y-6 animate-fade-in">
-              <h1 className="text-4xl md:text-5xl font-bold leading-tight">
-                Find the Perfect Care for Your Furry Friend
+              <h1 className="text-4xl md:text-5xl font-bold leading-tight text-gray-900">
+                Liebevolle Betreuung für <span className="text-primary-600">Ihr Haustier</span>
               </h1>
-              <p className="text-lg md:text-xl text-white/90 max-w-xl">
-                Connect with trusted local caregivers who'll treat your pet like family. Book dog walking, pet sitting, and more in minutes.
+              <p className="text-lg md:text-xl text-gray-700 max-w-xl">
+                Finden Sie vertrauensvolle und erfahrene Tierbetreuer in Ihrer Nähe. Ihr Liebling verdient die beste Pflege, wenn Sie nicht da sind.
               </p>
-              
-              {/* Search Form */}
-              <form onSubmit={handleSearch} className="bg-white/10 backdrop-blur-sm rounded-xl p-2 max-w-md">
-                <div className="flex">
-                  <div className="relative flex-grow">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <MapPin className="h-5 w-5 text-white" />
-                    </div>
+              <form onSubmit={handleSearch} className="bg-white rounded-xl p-4 shadow-md grid grid-cols-1 md:grid-cols-4 gap-4 max-w-xl">
+
+                <div className="flex flex-col md:col-span-2">
+                  <label htmlFor="service" className="text-sm font-medium text-gray-700 mb-1">Ich suche</label>
+                  <div className="relative">
+                    <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <select
+                      id="service"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      value={service}
+                      onChange={(e) => setService(e.target.value)}
+                    >
+                      <option value="Hundebetreuung">Hundebetreuung</option>
+                      <option value="Hundetagesbetreuung">Hundetagesbetreuung</option>
+                      <option value="Katzenbetreuung">Katzenbetreuung</option>
+                      <option value="Gassi-Service">Gassi-Service</option>
+                      <option value="Hausbesuche">Hausbesuche</option>
+                      <option value="Haussitting">Haussitting</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex flex-col md:col-span-2">
+                  <label htmlFor="location" className="text-sm font-medium text-gray-700 mb-1">PLZ oder Ort</label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
+                      id="location"
                       type="text"
-                      placeholder="Enter your location"
-                      className="block w-full bg-transparent border-0 pl-10 py-3 text-white placeholder-white/70 focus:ring-0"
+                      placeholder="Gib bitte Deinen Wohnort ein"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
                       value={location}
                       onChange={(e) => setLocation(e.target.value)}
                       required
                     />
                   </div>
-                  <button
-                    type="submit"
-                    className="flex-shrink-0 bg-white text-primary-600 hover:bg-white/90 px-5 py-3 rounded-lg font-medium transition-colors ml-2"
-                  >
-                    <Search className="w-5 h-5" />
-                    <span className="sr-only">Search</span>
-                  </button>
                 </div>
+                <div className="flex flex-col md:col-span-2">
+                  <label htmlFor="startDate" className="text-sm font-medium text-gray-700 mb-1">Von</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      id="startDate"
+                      type="date"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col md:col-span-2">
+                  <label htmlFor="endDate" className="text-sm font-medium text-gray-700 mb-1">Bis</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      id="endDate"
+                      type="date"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  className="md:col-span-4 bg-primary-600 hover:bg-primary-700 text-white font-semibold px-6 py-3 rounded-md transition-colors flex items-center justify-center gap-2 mt-auto"
+                >
+                  <Search className="w-5 h-5" /> Finde einen Tiersitter
+                </button>
               </form>
-              
-              <div className="flex flex-wrap items-center gap-4 text-sm mt-6">
-                <span className="flex items-center">
-                  <Shield className="mr-1 h-4 w-4" /> Verified Caregivers
-                </span>
-                <span className="flex items-center">
-                  <Clock className="mr-1 h-4 w-4" /> Book in Minutes
-                </span>
-                <span className="flex items-center">
-                  <Heart className="mr-1 h-4 w-4" /> 100% Love Guarantee
-                </span>
+              <div className="flex gap-4 mt-2">
+
               </div>
             </div>
-            
-            {/* Hero Image */}
-            <div className="relative hidden lg:block">
+            {/* Rechte Seite: Bild mit Overlay */}
+            <div className="relative flex justify-center items-center">
+              <div className="absolute inset-0 bg-primary-50 rounded-3xl scale-95 z-0" />
               <img
-                src="https://images.pexels.com/photos/6975370/pexels-photo-6975370.jpeg"
-                alt="Pet caregiver with a dog"
-                className="rounded-xl shadow-xl animate-fade-in"
+                src="https://images.pexels.com/photos/7210349/pexels-photo-7210349.jpeg?auto=compress&cs=tinysrgb&w=800"
+                alt="Frau mit Hund auf dem Arm"
+                className="relative rounded-2xl shadow-xl w-full max-w-md object-cover z-10"
               />
-              <div className="absolute -bottom-4 -left-4 bg-white rounded-lg shadow-lg p-4 animate-slide-up">
-                <div className="flex items-center space-x-4">
-                  <div className="rounded-full bg-primary-100 p-3">
-                    <Heart className="h-6 w-6 text-primary-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Trusted Caregivers</p>
-                    <p className="text-sm text-gray-600">Background checked & verified</p>
-                  </div>
-                </div>
+              {/* Overlay-Badge */}
+              <div className="absolute top-6 right-6 bg-white/90 rounded-xl shadow px-4 py-2 flex items-center gap-2 z-20">
+                <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.967a1 1 0 00.95.69h4.178c.969 0 1.371 1.24.588 1.81l-3.385 2.46a1 1 0 00-.364 1.118l1.287 3.966c.3.922-.755 1.688-1.54 1.118l-3.385-2.46a1 1 0 00-1.175 0l-3.385 2.46c-.784.57-1.838-.196-1.539-1.118l1.287-3.966a1 1 0 00-.364-1.118L2.045 9.394c-.783-.57-.38-1.81.588-1.81h4.178a1 1 0 00.95-.69l1.286-3.967z"/></svg>
+                <span className="font-bold text-gray-900 text-lg">4.9/5</span>
               </div>
             </div>
           </div>
-        </div>
-        
-        {/* Wave Divider */}
-        <div className="absolute bottom-0 left-0 right-0 overflow-hidden">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none" className="fill-white h-12 w-full">
-            <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V120H0V0C108.56,18.62,177.92,36.89,260,55.47Z"></path>
-          </svg>
         </div>
       </section>
 
-      {/* Services Section */}
-      <section className="py-16 bg-white">
-        <div className="container-custom">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">Services For Your Pet</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Whatever your pet needs, we have trusted caregivers ready to help. Book the perfect service for your furry friend.
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <ServiceCard
-              icon={<Dog className="h-8 w-8 text-primary-500" />}
-              title="Dog Walking"
-              description="Regular walks to keep your dog happy and healthy. Scheduled visits with photo updates."
-              price="From €15/walk"
-            />
-            <ServiceCard
-              icon={<Cat className="h-8 w-8 text-primary-500" />}
-              title="Pet Sitting"
-              description="In-home pet sitting for when you're away. Feeding, playtime, and lots of love."
-              price="From €25/visit"
-            />
-            <ServiceCard
-              icon={<Home className="h-8 w-8 text-primary-500" />}
-              title="Boarding"
-              description="Overnight care in a caregiver's loving home. Your pet gets 24/7 attention and care."
-              price="From €35/night"
-            />
-          </div>
-          
-          <div className="mt-12 text-center">
-            <Button 
-              variant="primary" 
-              size="lg"
-              onClick={() => navigate('/search')}
-            >
-              Find a Caregiver Near You
-            </Button>
-          </div>
-        </div>
-      </section>
+
 
       {/* How It Works */}
       <section className="py-16 bg-gray-50">
         <div className="container-custom">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">How PetPal Works</h2>
+            <h2 className="text-3xl font-bold mb-4">So funktioniert TiGuBe</h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Finding the perfect caregiver for your pet is easy with PetPal. Just follow these simple steps.
+              Die perfekte Betreuung für dein Haustier zu finden ist mit TiGuBe ganz einfach. Folge einfach diesen Schritten.
             </p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <StepCard
               number="1"
-              title="Search for Caregivers"
-              description="Browse profiles of verified caregivers in your area. Filter by service, price, and availability."
+              title="Betreuer suchen"
+              description="Durchsuche Profile von verifizierten Betreuern in deiner Nähe. Filtere nach Service, Preis und Verfügbarkeit."
             />
             <StepCard
               number="2"
-              title="Book & Pay Securely"
-              description="Schedule and pay for services through our secure platform. All bookings are confirmed instantly."
+              title="Sicher buchen & bezahlen"
+              description="Plane und bezahle Services über unsere sichere Plattform. Alle Buchungen werden sofort bestätigt."
             />
             <StepCard
               number="3"
-              title="Enjoy Peace of Mind"
-              description="Receive updates during the service. Your pet gets the care they deserve, and you get peace of mind."
+              title="Sorglos genießen"
+              description="Erhalte Updates während der Betreuung. Dein Tier bekommt die beste Fürsorge und du absolute Sicherheit."
             />
           </div>
         </div>
@@ -172,29 +163,29 @@ function HomePage() {
       <section className="py-16 bg-white">
         <div className="container-custom">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">What Pet Parents Say</h2>
+            <h2 className="text-3xl font-bold mb-4">Das sagen unsere Kunden</h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Thousands of pet owners trust PetPal for their pet care needs. Here's what some of them have to say.
+              Tausende Tierbesitzer vertrauen TiGuBe. Das sagen einige von ihnen:
             </p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             <TestimonialCard
-              quote="Maria was amazing with my anxious rescue dog! She sent photos during every walk and followed all my instructions perfectly."
+              quote="Maria war großartig mit meinem ängstlichen Hund aus dem Tierschutz! Sie hat bei jedem Spaziergang Fotos geschickt und alle Anweisungen perfekt befolgt."
               author="Laura S."
               location="Berlin"
               imageSrc="https://images.pexels.com/photos/3680219/pexels-photo-3680219.jpeg?auto=compress&cs=tinysrgb&w=100"
               rating={5}
             />
             <TestimonialCard
-              quote="Finding a trustworthy cat sitter used to be so stressful. Thanks to PetPal, I can travel worry-free knowing my cats are in good hands."
+              quote="Einen vertrauenswürdigen Katzensitter zu finden war früher so stressig. Dank TiGuBe kann ich jetzt sorgenfrei reisen, weil meine Katzen in guten Händen sind."
               author="Michael T."
-              location="Munich"
+              location="München"
               imageSrc="https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100"
               rating={5}
             />
             <TestimonialCard
-              quote="Our caregiver Thomas treats our dog like his own. The booking process is seamless, and the peace of mind is priceless."
+              quote="Unser Betreuer Thomas behandelt unseren Hund wie seinen eigenen. Die Buchung ist unkompliziert und das gute Gefühl unbezahlbar."
               author="Sophie K."
               location="Hamburg"
               imageSrc="https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=100"
@@ -210,10 +201,9 @@ function HomePage() {
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
             <div className="grid grid-cols-1 lg:grid-cols-5">
               <div className="lg:col-span-3 p-8 md:p-12">
-                <h2 className="text-3xl font-bold mb-4">Ready to Find the Perfect Pet Caregiver?</h2>
+                <h2 className="text-3xl font-bold mb-4">Bereit, den perfekten Tierbetreuer zu finden?</h2>
                 <p className="text-gray-600 mb-8 max-w-xl">
-                  Join thousands of happy pet parents who trust PetPal for their pet care needs. 
-                  Create your free account today and start connecting with loving caregivers in your area.
+                  Schließe dich tausenden glücklichen Tierbesitzern an, die TiGuBe vertrauen. Erstelle jetzt kostenlos dein Konto und finde liebevolle Betreuer in deiner Nähe.
                 </p>
                 <div className="flex flex-wrap gap-4">
                   <Button 
@@ -221,14 +211,14 @@ function HomePage() {
                     size="lg"
                     onClick={() => navigate('/register')}
                   >
-                    Sign Up as Pet Owner
+                    Als Tierbesitzer registrieren
                   </Button>
                   <Button 
                     variant="outline" 
                     size="lg"
                     onClick={() => navigate('/register?type=caregiver')}
                   >
-                    Become a Caregiver
+                    Betreuer werden
                   </Button>
                 </div>
               </div>
