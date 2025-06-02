@@ -1,6 +1,7 @@
-import { ReactNode } from 'react';
+import React, { ReactNode } from 'react';
 import Header from './Header';
 import Footer from './Footer';
+import CookieBanner from '../ui/CookieBanner';
 
 interface LayoutProps {
   children: ReactNode;
@@ -14,6 +15,7 @@ function Layout({ children }: LayoutProps) {
         {children}
       </main>
       <Footer />
+      <CookieBanner />
     </div>
   );
 }

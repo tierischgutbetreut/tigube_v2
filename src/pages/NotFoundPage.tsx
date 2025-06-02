@@ -14,9 +14,12 @@ function NotFoundPage() {
             />
           </svg>
         </div>
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">Page Not Found</h1>
-        <p className="text-lg text-gray-600 max-w-md mx-auto mb-8">
-          The page you're looking for doesn't exist or has been moved.
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">404 - Seite nicht gefunden</h1>
+        <p className="text-lg text-gray-600 max-w-md mx-auto mb-4">
+          Wuff! 🐕 Auch unser bester Spürhund konnte diese Seite nicht finden.
+        </p>
+        <p className="text-base text-gray-500 max-w-md mx-auto mb-8">
+          Die gesuchte Seite existiert nicht oder wurde verschoben.
         </p>
         <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
           <Button
@@ -25,15 +28,15 @@ function NotFoundPage() {
             leftIcon={<Home className="h-5 w-5" />}
             onClick={() => window.location.href = '/'}
           >
-            Back to Home
+            Zurück zur Startseite
           </Button>
           <Button
             variant="outline"
             size="lg"
             leftIcon={<Search className="h-5 w-5" />}
-            onClick={() => window.location.href = '/search'}
+            onClick={() => window.location.href = '/suche'}
           >
-            Find a Caregiver
+            Betreuer finden
           </Button>
         </div>
       </div>

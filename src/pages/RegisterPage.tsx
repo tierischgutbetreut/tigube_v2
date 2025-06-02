@@ -23,7 +23,7 @@ function RegisterPage() {
       <div className="container-custom max-w-3xl">
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center mb-6">
-            <img src="/Image/tigube_logo_klein.png" alt="TiGuBe Logo" className="h-10 w-auto mr-2" />
+            <img src="public\Image\Logos\tigube_logo_klein.png" alt="tigube Logo" className="h-10 w-auto mr-2" />
           </Link>
           <h1 className="text-3xl font-bold mb-4">
             {userType === 'owner' ? 'Als Tierbesitzer registrieren' : 'Als Betreuer registrieren'}
@@ -151,7 +151,7 @@ function RegisterPage() {
         <div className="text-center mt-8">
           <p className="text-gray-600">
             Bereits registriert?{' '}
-            <Link to="/login" className="text-primary-600 hover:text-primary-700 font-medium">
+            <Link to="/anmelden" className="text-primary-600 hover:text-primary-700 font-medium">
               Jetzt anmelden
             </Link>
           </p>
@@ -219,16 +219,29 @@ function OwnerStep1() {
           Mindestens 8 Zeichen, eine Zahl und ein Sonderzeichen
         </p>
       </div>
-      <div>
-        <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
-          Ort
-        </label>
-        <input
-          type="text"
-          id="location"
-          className="input"
-          placeholder="Deine Stadt"
-        />
+      <div className="grid grid-cols-3 gap-4">
+        <div className="col-span-1">
+          <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-1">
+            PLZ
+          </label>
+          <input
+            type="text"
+            id="postalCode"
+            className="input"
+            placeholder="Deine Postleitzahl"
+          />
+        </div>
+        <div className="col-span-2">
+          <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+            Ort
+          </label>
+          <input
+            type="text"
+            id="location"
+            className="input"
+            placeholder="Deine Stadt"
+          />
+        </div>
       </div>
       <div className="flex items-start">
         <input
@@ -507,27 +520,29 @@ function CaregiverStep1() {
           placeholder="Deine Telefonnummer"
         />
       </div>
-      <div>
-        <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
-          Ort
-        </label>
-        <input
-          type="text"
-          id="location"
-          className="input"
-          placeholder="Deine Stadt"
-        />
-      </div>
-      <div>
-        <label htmlFor="bio" className="block text-sm font-medium text-gray-700 mb-1">
-          Über dich
-        </label>
-        <textarea
-          id="bio"
-          rows={4}
-          className="input"
-          placeholder="Erzähle den Tierbesitzern von dir, deiner Erfahrung mit Tieren und warum du ein großartiger Betreuer bist"
-        ></textarea>
+      <div className="grid grid-cols-3 gap-4">
+        <div className="col-span-1">
+          <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-1">
+            PLZ
+          </label>
+          <input
+            type="text"
+            id="postalCode"
+            className="input"
+            placeholder="Deine Postleitzahl"
+          />
+        </div>
+        <div className="col-span-2">
+          <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+            Ort
+          </label>
+          <input
+            type="text"
+            id="location"
+            className="input"
+            placeholder="Deine Stadt"
+          />
+        </div>
       </div>
       <div className="flex items-start">
         <input
@@ -643,13 +658,14 @@ function CaregiverStep2() {
       </div>
       <div>
         <label htmlFor="serviceArea" className="block text-sm font-medium text-gray-700 mb-1">
-          Einsatzgebiet
+          Einsatzgebiet (Km)
         </label>
         <input
-          type="text"
+          type="number"
           id="serviceArea"
           className="input"
-          placeholder="Wie weit bist du bereit zu fahren? (z.B. 5 km Umkreis ab Berlin Mitte)"
+          placeholder="5"
+          min="1"
         />
       </div>
       <div>
@@ -752,6 +768,26 @@ function CaregiverStep3() {
             />
             <span className="ml-3 text-gray-700">Tierheim-Erfahrung</span>
           </label>
+          
+          {/* Eingabefeld für eigene Qualifikationen */}
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Eigene Qualifikation hinzufügen..."
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              />
+              <button
+                type="button"
+                className="px-4 py-2 bg-primary-600 text-white text-sm rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                Hinzufügen
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Füge weitere Qualifikationen oder Erfahrungen hinzu, die für die Tierbetreuung relevant sind
+            </p>
+          </div>
         </div>
       </div>
       <div>

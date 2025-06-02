@@ -20,7 +20,7 @@ function BetreuerProfilePage() {
       <div className="container-custom py-16 text-center">
         <h1 className="text-2xl font-bold mb-4">Betreuer nicht gefunden</h1>
         <p className="mb-8">Der gesuchte Betreuer existiert nicht oder wurde entfernt.</p>
-        <Link to="/search" className="btn btn-primary">
+        <Link to="/suche" className="btn btn-primary">
           Zurück zur Suche
         </Link>
       </div>
@@ -82,7 +82,7 @@ function BetreuerProfilePage() {
                   Antwortet in {caregiver.responseTime}
                 </div>
                 <div className="badge badge-primary">
-                  {formatCurrency(caregiver.hourlyRate)}/hr
+                  {formatCurrency(caregiver.hourlyRate)}/h
                 </div>
               </div>
               
@@ -100,13 +100,7 @@ function BetreuerProfilePage() {
               <p className="text-gray-700 mb-6">{caregiver.bio}</p>
               
               <div className="flex flex-col sm:flex-row gap-3">
-                <Button 
-                  variant="primary" 
-                  size="lg"
-                  onClick={() => window.location.href = `/booking/${caregiver.id}`}
-                >
-                  Jetzt buchen
-                </Button>
+
                 <Button 
                   variant="outline" 
                   size="lg"
@@ -114,13 +108,7 @@ function BetreuerProfilePage() {
                 >
                   Kontakt
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="lg"
-                  leftIcon={<Calendar className="h-4 w-4" />}
-                >
-                  Verfügbarkeit prüfen
-                </Button>
+
               </div>
             </div>
           </div>
@@ -230,23 +218,7 @@ function BetreuerProfilePage() {
               </div>
             </div>
             
-            {/* Availability Calendar Placeholder */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-xl font-bold mb-4">Verfügbarkeit</h2>
-              <div className="text-gray-700 mb-4">
-                <p>Prüfe die Verfügbarkeit von {caregiver.name} und buche deinen Wunschtermin.</p>
-              </div>
-              <div className="bg-gray-100 rounded-lg p-4 flex items-center justify-center h-64">
-                <p className="text-gray-500 text-center">Kalender Platzhalter</p>
-              </div>
-              <Button
-                variant="outline"
-                className="w-full mt-4"
-                leftIcon={<Calendar className="h-4 w-4" />}
-              >
-                Gesamten Kalender anzeigen
-              </Button>
-            </div>
+
           </div>
         </div>
       </div>
@@ -363,7 +335,7 @@ function serviceUnit(service: string): string {
     case 'Doggy Day Care':
       return '/day';
     default:
-      return '/hr';
+      return '/h';
   }
 }
 

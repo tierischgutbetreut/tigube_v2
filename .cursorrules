@@ -1,0 +1,179 @@
+# Tigube v2 - Project Intelligence & Patterns
+
+## Projekt-Kontext
+Haustierbetreuungsplattform (Pet Care Platform) - Vermittlung zwischen Haustierbesitzern und Tierbetreuern.
+
+## Wichtige Erkenntnisse & Patterns
+
+### Architektur-Entscheidungen
+- **React 18 + TypeScript + Vite**: Moderne, performante Entwicklungsumgebung
+- **Tailwind CSS**: Utility-First für konsistentes Design
+- **Zustand**: Leichtgewichtiges State Management
+- **Supabase**: Backend-as-a-Service mit PostgreSQL, Auth und Real-time
+- **Lazy Loading**: Alle Routen für bessere Performance
+
+### Code-Stil & Konventionen
+- **TypeScript**: Strikte Typisierung für alle Komponenten
+- **Functional Components**: Ausschließlich mit Hooks
+- **Props-Interfaces**: Explizite Typdefinitionen
+- **Controlled Components**: Für alle Formulare
+- **Custom Hooks**: Für wiederverwendbare Logik
+
+### Komponenten-Patterns
+```typescript
+// Bevorzugtes Komponenten-Pattern
+interface ComponentProps {
+  // Props-Definition
+}
+
+function Component({ prop1, prop2 }: ComponentProps) {
+  // Hooks am Anfang
+  // Event-Handler
+  // Render-Logik
+  return (
+    // JSX mit Tailwind-Klassen
+  );
+}
+
+export default Component;
+```
+
+### Routing-Struktur
+- **Deutsche URLs**: `/suche`, `/registrieren`, `/anmelden`
+- **Lazy Loading**: Alle Seiten-Komponenten
+- **Layout-Wrapper**: Konsistente Seitenstruktur
+- **Query-Parameter**: Für Suchfilter
+
+### Styling-Präferenzen
+- **Mobile-First**: Responsive Design von Anfang an
+- **Tailwind-Utilities**: Bevorzugt über Custom CSS
+- **Headless UI**: Für komplexe, accessible Komponenten
+- **Lucide Icons**: Konsistente Icon-Library
+- **clsx + tailwind-merge**: Für bedingte Klassen
+
+### State Management
+- **Lokaler State**: useState für Komponenten-spezifische Daten
+- **Globaler State**: Zustand für App-weite Daten
+- **Form-State**: Controlled Components mit useState
+- **URL-State**: Query-Parameter für Suchfilter
+
+### Datenstrukturen
+
+#### Betreuer-Modell (geplant)
+```typescript
+interface Betreuer {
+  id: string;
+  name: string;
+  location: string;
+  services: string[];
+  rating: number;
+  priceRange: string;
+  availability: Date[];
+  description: string;
+  images: string[];
+}
+```
+
+#### Such-Parameter
+```typescript
+interface SearchFilters {
+  petType?: string;
+  service?: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+}
+```
+
+### Performance-Optimierungen
+- **Code-Splitting**: Automatisch durch Vite
+- **Lazy Loading**: React.lazy() für Routen
+- **Bundle-Optimierung**: Vite-Build-Optimierungen
+- **Asset-Optimierung**: SVG-Icons, optimierte Bilder
+
+### Entwicklungsworkflow
+1. **Memory Bank lesen**: Vor jeder Aufgabe
+2. **TypeScript-First**: Typen vor Implementierung
+3. **Komponenten-Tests**: Manuelle Tests im Browser
+4. **Responsive-Check**: Mobile und Desktop testen
+5. **Accessibility-Check**: Keyboard-Navigation, Screen-Reader
+
+### Kritische Implementierungspfade
+
+#### Suchfunktionalität
+1. HomePage-Formular → Query-Parameter → SearchPage
+2. Mock-Daten → Filter-Logik → Ergebnisse anzeigen
+3. Betreuer-Cards → Profil-Links → BetreuerProfilePage
+
+#### Authentifizierung (geplant)
+1. Supabase Auth Setup → Login/Register Forms
+2. Protected Routes mit JWT → User Context → State Management
+3. Row Level Security → User-Rollen → Permissions → Feature-Gating
+
+### Bekannte Herausforderungen
+- **Standortsuche**: Geocoding-Integration erforderlich
+- **Verfügbarkeitskalender**: Komplexe Terminlogik
+- **Bewertungssystem**: Vertrauensaufbau und Spam-Schutz
+- **Mobile UX**: Touch-optimierte Interaktionen
+
+### Benutzer-Präferenzen
+- **Deutsche Sprache**: UI-Texte und URLs
+- **Einfache Navigation**: Klare, intuitive Benutzerführung
+- **Vertrauensaufbau**: Transparenz und Sicherheit betonen
+- **Mobile-Optimierung**: Primär mobile Nutzung erwartet
+
+### Tool-Nutzung
+- **Vite Dev Server**: Port 5174, Hot Reload
+- **ESLint**: Live-Linting in IDE
+- **TypeScript**: Strikte Konfiguration
+- **Tailwind IntelliSense**: Für CSS-Klassen-Vorschläge
+
+### Deployment-Strategie
+- **Vercel/Netlify**: Primäre Hosting-Optionen
+- **Environment Variables**: Für Supabase URL und API-Keys
+- **Build-Optimierung**: Vite-Production-Build
+- **CDN**: Für statische Assets
+
+### Sicherheitsüberlegungen
+- **Input-Validierung**: Client- und Server-seitig
+- **XSS-Schutz**: React's eingebaute Sanitization
+- **API-Keys**: Environment Variables, nie im Code
+- **HTTPS**: Für alle Produktions-Deployments
+
+### Testing-Strategie (geplant)
+- **Unit Tests**: Vitest für Komponenten-Tests
+- **Integration Tests**: React Testing Library
+- **E2E Tests**: Playwright für kritische User-Flows
+- **Manual Testing**: Regelmäßige Browser-Tests
+
+### Monitoring & Analytics (geplant)
+- **Performance**: Web Vitals Monitoring
+- **User Analytics**: Supabase Analytics oder Google Analytics
+- **Error Tracking**: Sentry oder ähnlich
+- **A/B Testing**: Für UX-Optimierungen
+
+## Projekt-Evolution
+
+### Phase 1: MVP (Aktuell)
+- Grundlegende Suchfunktionalität
+- Statische Betreuer-Profile
+- Mock-Daten-basiert
+
+### Phase 2: Backend-Integration
+- Supabase-Integration
+- Benutzer-Authentifizierung mit Row Level Security
+- PostgreSQL-Daten-Persistierung
+- Real-time Subscriptions
+
+### Phase 3: Erweiterte Features
+- Buchungssystem
+- Bewertungen
+- Zahlungsabwicklung
+
+### Phase 4: Skalierung
+- Performance-Optimierung
+- Mobile App
+- Erweiterte Analytics
+
+## Memory Bank Integration
+Diese .cursorrules-Datei ergänzt die Memory Bank und wird kontinuierlich mit neuen Erkenntnissen und Patterns aktualisiert. Bei größeren Änderungen sollte auch die Memory Bank entsprechend aktualisiert werden.

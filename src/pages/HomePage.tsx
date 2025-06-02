@@ -19,7 +19,7 @@ function HomePage() {
     if (location) queryParams.append('location', location);
     if (startDate) queryParams.append('startDate', startDate);
     if (endDate) queryParams.append('endDate', endDate);
-    navigate(`/search?${queryParams.toString()}`);
+    navigate(`/suche?${queryParams.toString()}`);
   };
 
   return (
@@ -133,27 +133,31 @@ function HomePage() {
       <section className="py-16 bg-gray-50">
         <div className="container-custom">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">So funktioniert TiGuBe</h2>
+            <h2 className="text-3xl font-bold mb-4">So funktioniert tigube</h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Die perfekte Betreuung für dein Haustier zu finden ist mit TiGuBe ganz einfach. Folge einfach diesen Schritten.
+            Die passende Betreuung für dein Tier zu finden, ist mit tigube ganz einfach.
+            Egal ob du erstmal nur stöbern oder direkt Kontakt aufnehmen willst – folge einfach diesen drei Schritten:
             </p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <StepCard
               number="1"
-              title="Betreuer suchen"
-              description="Durchsuche Profile von verifizierten Betreuern in deiner Nähe. Filtere nach Service, Preis und Verfügbarkeit."
+              title="Betreuer entdecken – kostenlos"
+              description="Durchstöbere Profile von verifizierten Tierbetreuern in deiner Nähe – ganz ohne Anmeldung.
+Filtere nach Service, Preis und Verfügbarkeit – und finde passende Angebote."
             />
             <StepCard
               number="2"
-              title="Sicher buchen & bezahlen"
-              description="Plane und bezahle Services über unsere sichere Plattform. Alle Buchungen werden sofort bestätigt."
+              title="Kontakt aufnehmen & Inserat veröffentlichen"
+              description="Du willst mit einem Betreuer schreiben oder ein Jobangebot veröffentlichen?
+Dann aktiviere tigube Premium ab 4,90 € und nutze alle Funktionen: Chat, Bilder hochladen, Bewertungen lesen & schreiben – ganz einfach."
             />
             <StepCard
               number="3"
-              title="Sorglos genießen"
-              description="Erhalte Updates während der Betreuung. Dein Tier bekommt die beste Fürsorge und du absolute Sicherheit."
+              title="Entspannt zurücklehnen"
+              description="Sobald dein Tier in Betreuung ist, kannst du dich entspannt zurücklehnen.
+Dank Profil-Bewertungen und sicheren Abläufen bekommst du genau die Fürsorge, die du dir wünschst – verlässlich & tiergerecht."
             />
           </div>
         </div>
@@ -165,7 +169,7 @@ function HomePage() {
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Das sagen unsere Kunden</h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Tausende Tierbesitzer vertrauen TiGuBe. Das sagen einige von ihnen:
+              Tausende Tierbesitzer vertrauen tigube. Das sagen einige von ihnen:
             </p>
           </div>
           
@@ -178,7 +182,7 @@ function HomePage() {
               rating={5}
             />
             <TestimonialCard
-              quote="Einen vertrauenswürdigen Katzensitter zu finden war früher so stressig. Dank TiGuBe kann ich jetzt sorgenfrei reisen, weil meine Katzen in guten Händen sind."
+              quote="Einen vertrauenswürdigen Katzensitter zu finden war früher so stressig. Dank tigube kann ich jetzt sorgenfrei reisen, weil meine Katzen in guten Händen sind."
               author="Michael T."
               location="München"
               imageSrc="https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100"
@@ -203,20 +207,20 @@ function HomePage() {
               <div className="lg:col-span-3 p-8 md:p-12">
                 <h2 className="text-3xl font-bold mb-4">Bereit, den perfekten Tierbetreuer zu finden?</h2>
                 <p className="text-gray-600 mb-8 max-w-xl">
-                  Schließe dich tausenden glücklichen Tierbesitzern an, die TiGuBe vertrauen. Erstelle jetzt kostenlos dein Konto und finde liebevolle Betreuer in deiner Nähe.
+                  Schließe dich tausenden glücklichen Tierbesitzern an, die tigube vertrauen. Erstelle jetzt kostenlos dein Konto und finde liebevolle Betreuer in deiner Nähe.
                 </p>
                 <div className="flex flex-wrap gap-4">
                   <Button 
                     variant="primary" 
                     size="lg"
-                    onClick={() => navigate('/register')}
+                    onClick={() => navigate('/registrieren')}
                   >
                     Als Tierbesitzer registrieren
                   </Button>
                   <Button 
                     variant="outline" 
                     size="lg"
-                    onClick={() => navigate('/register?type=caregiver')}
+                    onClick={() => navigate('/registrieren?type=caregiver')}
                   >
                     Betreuer werden
                   </Button>

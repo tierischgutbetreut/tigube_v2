@@ -19,7 +19,7 @@ function Header() {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <img src="/Image/tigube_logo_klein.png" alt="TiGuBe Logo" className="h-10 w-auto" />
+            <img src="/Image/Logos/tigube_logo.png" alt="tigube Logo" className="h-10 w-auto" />
           </Link>
           
           {/* Desktop Navigation */}
@@ -27,20 +27,20 @@ function Header() {
             <NavLink to="/" isActive={isActive('/')}>
               Startseite
             </NavLink>
-            <NavLink to="/search" isActive={isActive('/search')}>
+            <NavLink to="/suche" isActive={isActive('/suche')}>
             Betreuer finden
             </NavLink>
-            <NavLink to="/register?type=caregiver" isActive={isActive('/register?type=caregiver')}>
+            <NavLink to="/registrieren?type=caregiver" isActive={isActive('/registrieren?type=caregiver')}>
             Betreuer werden
             </NavLink>
             <Link
-              to="/login"
+              to="/anmelden"
               className="btn btn-outline"
             >
               Login
             </Link>
             <Link
-              to="/register"
+              to="/registrieren"
               className="btn btn-primary"
             >
               Anmelden
@@ -69,26 +69,26 @@ function Header() {
               <MobileNavLink to="/" isActive={isActive('/')} onClick={() => setIsMenuOpen(false)}>
                 Home
               </MobileNavLink>
-              <MobileNavLink to="/search" isActive={isActive('/search')} onClick={() => setIsMenuOpen(false)}>
+              <MobileNavLink to="/suche" isActive={isActive('/suche')} onClick={() => setIsMenuOpen(false)}>
                 Find Caregivers
               </MobileNavLink>
               <MobileNavLink 
-                to="/register?type=caregiver"
-                isActive={isActive('/register?type=caregiver')}
+                to="/registrieren?type=caregiver"
+                isActive={isActive('/registrieren?type=caregiver')}
                 onClick={() => setIsMenuOpen(false)}
               >
                 Become a Caregiver
               </MobileNavLink>
               <div className="pt-2 flex flex-col space-y-2">
                 <Link
-                  to="/login"
+                  to="/anmelden"
                   className="btn btn-outline w-full justify-center"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Log In
                 </Link>
                 <Link
-                  to="/register"
+                  to="/registrieren"
                   className="btn btn-primary w-full justify-center"
                   onClick={() => setIsMenuOpen(false)}
                 >
