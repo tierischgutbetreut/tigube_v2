@@ -2,12 +2,13 @@ import { createClient } from '@supabase/supabase-js';
 import { Database } from './database.types';
 
 // Umgebungsvariablen für Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON || '';
+// Unterstützt: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY (lokal/Vite)
+//              NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY (Vercel)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// Überprüfen, ob die Umgebungsvariablen gesetzt sind
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Supabase URL oder Anon Key fehlt. Bitte .env Datei überprüfen.');
+  throw new Error('Supabase URL oder Anon Key fehlt! Bitte .env Datei prüfen und Dev-Server neu starten.');
 }
 
 // Supabase Client erstellen
