@@ -27,9 +27,6 @@ function Header() {
             <NavLink to="/" isActive={isActive('/')}>
               Startseite
             </NavLink>
-            <NavLink to="/launch" isActive={isActive('/launch')}>
-              Launch
-            </NavLink>
             <NavLink to="/suche" isActive={isActive('/suche')}>
             Betreuer finden
             </NavLink>
@@ -71,9 +68,6 @@ function Header() {
             <div className="pt-2 pb-4 space-y-1 animate-fade-in">
               <MobileNavLink to="/" isActive={isActive('/')} onClick={() => setIsMenuOpen(false)}>
                 Home
-              </MobileNavLink>
-              <MobileNavLink to="/launch" isActive={isActive('/launch')} onClick={() => setIsMenuOpen(false)}>
-                Launch
               </MobileNavLink>
               <MobileNavLink to="/suche" isActive={isActive('/suche')} onClick={() => setIsMenuOpen(false)}>
                 Find Caregivers
