@@ -5,6 +5,7 @@ import LoadingSpinner from './components/ui/LoadingSpinner';
 
 // Lazy loaded pages
 const HomePage = lazy(() => import('./pages/HomePage'));
+const LaunchPage = lazy(() => import('./pages/LaunchPage'));
 const SearchPage = lazy(() => import('./pages/SearchPage'));
 const BetreuerProfilePage = lazy(() => import('./pages/BetreuerProfilePage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
@@ -23,6 +24,7 @@ function App() {
       <Suspense fallback={<LoadingSpinner />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/launch" element={<LaunchPage />} />
           <Route path="/suche" element={<SearchPage />} />
           <Route path="/betreuer/:id" element={<BetreuerProfilePage />} />
           <Route path="/registrieren" element={<RegisterPage />} />

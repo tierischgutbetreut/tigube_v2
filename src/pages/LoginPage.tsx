@@ -1,18 +1,43 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { PawPrint as Paw, Eye, EyeOff } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 import Button from '../components/ui/Button';
+import { auth } from '../lib/supabase/client';
 
 function LoginPage() {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would handle authentication
-    console.log({ email, password, rememberMe });
+    setError(null);
+    
+    if (!email || !password) {
+      setError('Bitte gib deine E-Mail-Adresse und dein Passwort ein.');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const { data, error } = await auth.signIn(email, password);
+      
+      if (error) throw error;
+      
+      if (data) {
+        // Erfolgreich angemeldet, zur Startseite navigieren
+        navigate('/');
+      }
+    } catch (err: any) {
+      console.error('Fehler bei der Anmeldung:', err);
+      setError(err.message || 'Bei der Anmeldung ist ein Fehler aufgetreten.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -31,6 +56,13 @@ function LoginPage() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-start">
+              <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+          
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
@@ -108,6 +140,8 @@ function LoginPage() {
                 variant="primary"
                 fullWidth
                 size="lg"
+                loading={loading}
+                disabled={loading}
               >
                 Anmelden
               </Button>

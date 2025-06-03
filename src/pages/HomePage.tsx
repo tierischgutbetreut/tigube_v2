@@ -54,6 +54,7 @@ function HomePage() {
                       <option value="Gassi-Service">Gassi-Service</option>
                       <option value="Hausbesuche">Hausbesuche</option>
                       <option value="Haussitting">Haussitting</option>
+                      <option value="Sonstiges">Sonstiges</option>
                     </select>
                   </div>
                 </div>
