@@ -14,10 +14,11 @@ export type UserProfileUpdate = {
   firstName?: string;
   lastName?: string;
   phoneNumber?: string;
-  postalCode?: string;
+  plz?: string;
   city?: string;
   profileCompleted?: boolean;
   userType?: 'owner' | 'caregiver';
+  profilePhotoUrl?: string;
 };
 
 export type PetData = {
@@ -34,6 +35,9 @@ export type OwnerPreferences = {
   services: string[];
   otherServices?: string;
   vetInfo?: string;
+  vetName?: string;
+  vetAddress?: string;
+  vetPhone?: string;
   emergencyContactName?: string;
   emergencyContactPhone?: string;
   careInstructions?: string;
@@ -81,10 +85,11 @@ export const userService = {
     if (profileData.firstName !== undefined) updateData.first_name = profileData.firstName;
     if (profileData.lastName !== undefined) updateData.last_name = profileData.lastName;
     if (profileData.phoneNumber !== undefined) updateData.phone_number = profileData.phoneNumber;
-    if (profileData.postalCode !== undefined) updateData.postal_code = profileData.postalCode;
+    if (profileData.plz !== undefined) updateData.plz = profileData.plz;
     if (profileData.city !== undefined) updateData.city = profileData.city;
     if (profileData.profileCompleted !== undefined) updateData.profile_completed = profileData.profileCompleted;
     if (profileData.userType !== undefined) updateData.user_type = profileData.userType;
+    if (profileData.profilePhotoUrl !== undefined) updateData.profile_photo_url = profileData.profilePhotoUrl;
 
     const { data, error } = await supabase
       .from('users')
@@ -186,7 +191,15 @@ export const ownerPreferencesService = {
       owner_id: ownerId,
       services: preferences.services,
       other_services: preferences.otherServices || null,
-      vet_info: preferences.vetInfo || null,
+      vet_info: preferences.vetInfo
+        ? preferences.vetInfo
+        : (preferences.vetName || preferences.vetAddress || preferences.vetPhone
+            ? JSON.stringify({
+                name: preferences.vetName || '',
+                address: preferences.vetAddress || '',
+                phone: preferences.vetPhone || ''
+              })
+            : null),
       emergency_contact_name: preferences.emergencyContactName || null,
       emergency_contact_phone: preferences.emergencyContactPhone || null,
       care_instructions: preferences.careInstructions || null,

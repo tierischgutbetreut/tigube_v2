@@ -17,6 +17,7 @@ const AboutPage = lazy(() => import('./pages/AboutPage'));
 const ContactPage = lazy(() => import('./pages/ContactPage'));
 const HelpPage = lazy(() => import('./pages/HelpPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
+const OwnerDashboardPage = lazy(() => import('./pages/OwnerDashboardPage'));
 
 function App() {
   return (
@@ -35,6 +36,7 @@ function App() {
           <Route path="/ueber-uns" element={<AboutPage />} />
           <Route path="/kontakt" element={<ContactPage />} />
           <Route path="/hilfe" element={<HelpPage />} />
+          <Route path="/dashboard-owner" element={<OwnerDashboardPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>

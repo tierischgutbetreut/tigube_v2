@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Search, MapPin, Clock, Shield, Heart, Dog, Cat, Rabbit, Calendar, Briefcase, PawPrint } from 'lucide-react';
 import Button from '../components/ui/Button';
 
@@ -107,7 +107,7 @@ function HomePage() {
                 </button>
               </form>
               <div className="flex gap-4 mt-2">
-
+                <Link to="/dashboard-owner" className="text-primary-600 underline text-sm">Zum Tierbesitzer-Dashboard (Demo)</Link>
               </div>
             </div>
             {/* Rechte Seite: Bild mit Overlay */}

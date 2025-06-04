@@ -357,7 +357,6 @@ export type Database = {
           phone: string | null
           phone_number: string | null
           plz: string | null
-          postal_code: string | null
           profile_completed: boolean | null
           updated_at: string | null
           user_type: string | null
@@ -376,7 +375,6 @@ export type Database = {
           phone?: string | null
           phone_number?: string | null
           plz?: string | null
-          postal_code?: string | null
           profile_completed?: boolean | null
           updated_at?: string | null
           user_type?: string | null
@@ -395,7 +393,6 @@ export type Database = {
           phone?: string | null
           phone_number?: string | null
           plz?: string | null
-          postal_code?: string | null
           profile_completed?: boolean | null
           updated_at?: string | null
           user_type?: string | null

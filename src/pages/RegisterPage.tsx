@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { PawPrint as Paw, ChevronLeft, ChevronRight, Upload, Check, AlertCircle, Trash2 } from 'lucide-react';
+import { PawPrint as Paw, ChevronLeft, ChevronRight, Upload, Check, AlertCircle, Trash2, Eye, EyeOff } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { auth, supabase } from '../lib/supabase/client';
 import { userService, petService, ownerPreferencesService } from '../lib/supabase/db';
+import { useDropzone } from 'react-dropzone';
 
 function RegisterPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const initialType = searchParams.get('type') || 'owner';
   
-  const [userType] = useState<'owner' | 'caregiver'>(initialType === 'caregiver' ? 'caregiver' : 'owner');
+  const [userType, setUserType] = useState<'owner' | 'caretaker'>(initialType === 'caretaker' ? 'caretaker' : 'owner');
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,12 +27,14 @@ function RegisterPage() {
 
   // Formular-Daten für Schritt 2 (Tierbesitzer)
   const [formStep2Owner, setFormStep2Owner] = useState({
-    postalCode: '',
+    plz: '',
     city: '',
     phoneNumber: '',
+    profilePhotoUrl: '',
     pets: [{
       name: '',
       type: '',
+      typeOther: '',
       breed: '',
       age: '',
       weight: '',
@@ -39,8 +42,10 @@ function RegisterPage() {
       description: ''
     }],
     services: [] as string[],
-    otherServices: '',
-    vetInfo: '',
+    otherServices: [''],
+    vetName: '',
+    vetAddress: '',
+    vetPhone: '',
     emergencyContactName: '',
     emergencyContactPhone: '',
     careInstructions: ''
@@ -52,6 +57,15 @@ function RegisterPage() {
   // Neue Variable für Multistep-Formular
   const [profileStep, setProfileStep] = useState(1); // 1=Kontakt, 2=Tierdetails, 3=Betreuungswünsche
 
+  const [showPassword, setShowPassword] = useState(false);
+
+  const [petPhotoUploading, setPetPhotoUploading] = useState<{[key: number]: boolean}>({});
+  const [petPhotoError, setPetPhotoError] = useState<{[key: number]: string | null}>({});
+
+  // Upload-Status für Profilbild
+  const [profilePhotoUploading, setProfilePhotoUploading] = useState(false);
+  const [profilePhotoError, setProfilePhotoError] = useState<string | null>(null);
+
   // Funktion zum Hinzufügen eines weiteren Tieres
   const addPet = () => {
     setFormStep2Owner({
@@ -61,6 +75,7 @@ function RegisterPage() {
         {
           name: '',
           type: '',
+          typeOther: '',
           breed: '',
           age: '',
           weight: '',
@@ -103,6 +118,28 @@ function RegisterPage() {
       ...formStep2Owner,
       pets: formStep2Owner.pets.filter((_, i) => i !== index)
     });
+  };
+
+  // Handler für dynamische Sonstige Leistungen
+  const handleOtherServiceChange = (idx: number, value: string) => {
+    setFormStep2Owner((prev) => ({
+      ...prev,
+      otherServices: prev.otherServices.map((s, i) => (i === idx ? value : s)),
+    }));
+  };
+
+  const handleAddOtherService = () => {
+    setFormStep2Owner((prev) => ({
+      ...prev,
+      otherServices: [...prev.otherServices, ''],
+    }));
+  };
+
+  const handleRemoveOtherService = (idx: number) => {
+    setFormStep2Owner((prev) => ({
+      ...prev,
+      otherServices: prev.otherServices.filter((_, i) => i !== idx),
+    }));
   };
 
   // Funktion zum Fortfahren zum nächsten Schritt
@@ -187,10 +224,11 @@ function RegisterPage() {
         const { error: profileError } = await userService.updateUserProfile(
           userId,
           {
-            postalCode: formStep2Owner.postalCode,
+            plz: formStep2Owner.plz,
             city: formStep2Owner.city,
             phoneNumber: formStep2Owner.phoneNumber,
-            profileCompleted: true // Jetzt als abgeschlossen markieren
+            profileCompleted: true, // Jetzt als abgeschlossen markieren
+            profilePhotoUrl: formStep2Owner.profilePhotoUrl
           }
         );
 
@@ -220,8 +258,10 @@ function RegisterPage() {
           userId,
           {
             services: formStep2Owner.services,
-            otherServices: formStep2Owner.otherServices || undefined,
-            vetInfo: formStep2Owner.vetInfo || undefined,
+            otherServices: formStep2Owner.otherServices.filter(s => s.trim()).join(', ') || undefined,
+            vetName: formStep2Owner.vetName || undefined,
+            vetAddress: formStep2Owner.vetAddress || undefined,
+            vetPhone: formStep2Owner.vetPhone || undefined,
             emergencyContactName: formStep2Owner.emergencyContactName || undefined,
             emergencyContactPhone: formStep2Owner.emergencyContactPhone || undefined,
             careInstructions: formStep2Owner.careInstructions || undefined
@@ -230,8 +270,8 @@ function RegisterPage() {
 
         if (preferencesError) throw preferencesError;
 
-        // Zur Startseite navigieren
-        navigate('/');
+        // Nach Dashboard navigieren
+        navigate('/dashboard-owner');
       } catch (err: any) {
         console.error('Fehler beim Vervollständigen des Profils:', err);
         setError(err.message || 'Beim Speichern deiner Daten ist ein Fehler aufgetreten.');
@@ -330,10 +370,11 @@ function RegisterPage() {
         const { error: profileError } = await userService.updateUserProfile(
           userId,
           {
-            postalCode: formStep2Owner.postalCode,
+            plz: formStep2Owner.plz,
             city: formStep2Owner.city,
             phoneNumber: formStep2Owner.phoneNumber,
-            profileCompleted: true // Jetzt als abgeschlossen markieren
+            profileCompleted: true, // Jetzt als abgeschlossen markieren
+            profilePhotoUrl: formStep2Owner.profilePhotoUrl
           }
         );
 
@@ -363,8 +404,10 @@ function RegisterPage() {
           userId,
           {
             services: formStep2Owner.services,
-            otherServices: formStep2Owner.otherServices || undefined,
-            vetInfo: formStep2Owner.vetInfo || undefined,
+            otherServices: formStep2Owner.otherServices.filter(s => s.trim()).join(', ') || undefined,
+            vetName: formStep2Owner.vetName || undefined,
+            vetAddress: formStep2Owner.vetAddress || undefined,
+            vetPhone: formStep2Owner.vetPhone || undefined,
             emergencyContactName: formStep2Owner.emergencyContactName || undefined,
             emergencyContactPhone: formStep2Owner.emergencyContactPhone || undefined,
             careInstructions: formStep2Owner.careInstructions || undefined
@@ -373,8 +416,8 @@ function RegisterPage() {
 
         if (preferencesError) throw preferencesError;
 
-        // Zur Startseite navigieren
-        navigate('/');
+        // Nach Dashboard navigieren
+        navigate('/dashboard-owner');
       } catch (err: any) {
         console.error('Fehler beim Vervollständigen des Profils:', err);
         setError(err.message || 'Beim Speichern deiner Daten ist ein Fehler aufgetreten.');
@@ -427,17 +470,19 @@ function RegisterPage() {
                     ? 'bg-primary-500 text-white'
                     : 'bg-transparent text-gray-600 hover:bg-gray-100'
                 }`}
+                onClick={() => setUserType('owner')}
               >
                 Tierbesitzer
               </button>
               <button
                 type="button"
                 className={`flex-1 py-3 px-4 rounded-lg text-center transition-colors ${
-                  userType === 'caregiver'
+                  userType === 'caretaker'
                     ? 'bg-primary-500 text-white'
                     : 'bg-transparent text-gray-600 hover:bg-gray-100'
                 }`}
-                disabled={true} // Vorübergehend deaktiviert, da nur Tierbesitzer implementiert werden
+                onClick={() => setUserType('caretaker')}
+                // disabled={true} // Optional: Entfernen, wenn Betreuer-Registrierung aktiv
               >
                 Betreuer
               </button>
@@ -506,15 +551,26 @@ function RegisterPage() {
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                   Passwort
                 </label>
-                <input
-                  type="password"
-                  id="password"
-                  className="input"
-                  placeholder="Sicheres Passwort erstellen"
-                  value={formStep1.password}
-                  onChange={(e) => setFormStep1({...formStep1, password: e.target.value})}
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    id="password"
+                    className="input pr-10"
+                    placeholder="Sicheres Passwort erstellen"
+                    value={formStep1.password}
+                    onChange={(e) => setFormStep1({...formStep1, password: e.target.value})}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 flex items-center px-2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                    tabIndex={-1}
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
                 <p className="text-xs text-gray-500 mt-1">
                   Mindestens 8 Zeichen, eine Zahl und ein Sonderzeichen
                 </p>
@@ -564,7 +620,7 @@ function RegisterPage() {
                 </Button>
                 <Button
                   variant="ghost"
-                  onClick={() => navigate('/')}
+                  onClick={() => navigate('/dashboard-owner')}
                 >
                   Mach ich später
                 </Button>
@@ -578,16 +634,16 @@ function RegisterPage() {
                   <div className="p-4 bg-gray-50 rounded-lg mb-6">
                     <div className="grid grid-cols-3 gap-4">
                       <div className="col-span-1">
-                        <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-1">
+                        <label htmlFor="plz" className="block text-sm font-medium text-gray-700 mb-1">
                           PLZ
                         </label>
                         <input
                           type="text"
-                          id="postalCode"
+                          id="plz"
                           className="input"
                           placeholder="Deine Postleitzahl"
-                          value={formStep2Owner.postalCode}
-                          onChange={(e) => setFormStep2Owner({...formStep2Owner, postalCode: e.target.value})}
+                          value={formStep2Owner.plz}
+                          onChange={(e) => setFormStep2Owner({...formStep2Owner, plz: e.target.value})}
                         />
                       </div>
                       <div className="col-span-2">
@@ -615,6 +671,31 @@ function RegisterPage() {
                         placeholder="Deine Telefonnummer"
                         value={formStep2Owner.phoneNumber}
                         onChange={(e) => setFormStep2Owner({...formStep2Owner, phoneNumber: e.target.value})}
+                      />
+                    </div>
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Profilbild</label>
+                      <PhotoDropzone
+                        index={-1}
+                        photoUrl={formStep2Owner.profilePhotoUrl}
+                        onUpload={async (file) => {
+                          setProfilePhotoUploading(true);
+                          setProfilePhotoError(null);
+                          try {
+                            const fileExt = file.name.split('.').pop();
+                            const filePath = `profile-${Date.now()}.${fileExt}`;
+                            const { data, error } = await supabase.storage.from('profile-photos').upload(filePath, file, { upsert: true });
+                            if (error) throw error;
+                            const { data: urlData } = supabase.storage.from('profile-photos').getPublicUrl(filePath);
+                            setFormStep2Owner((prev) => ({ ...prev, profilePhotoUrl: urlData.publicUrl }));
+                          } catch (err: any) {
+                            setProfilePhotoError(err.message || 'Upload fehlgeschlagen');
+                          } finally {
+                            setProfilePhotoUploading(false);
+                          }
+                        }}
+                        uploading={profilePhotoUploading}
+                        error={profilePhotoError}
                       />
                     </div>
                   </div>
@@ -666,6 +747,15 @@ function RegisterPage() {
                             <option value="rabbit">Kaninchen</option>
                             <option value="other">Andere</option>
                           </select>
+                          {pet.type === 'other' && (
+                            <input
+                              type="text"
+                              className="input mt-2"
+                              placeholder="Bitte Tierart angeben"
+                              value={pet.typeOther || ''}
+                              onChange={e => updatePet(index, 'typeOther', e.target.value)}
+                            />
+                          )}
                         </div>
                         <div>
                           <label htmlFor={`petBreed-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
@@ -716,34 +806,28 @@ function RegisterPage() {
                         <span className="block text-sm font-medium text-gray-700 mb-1">
                           Tierfoto
                         </span>
-                        <div className="mt-1 border-2 border-dashed border-gray-300 rounded-lg p-6 flex justify-center">
-                          <div className="space-y-1 text-center">
-                            <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                            <div className="flex text-sm text-gray-600">
-                              <label
-                                htmlFor={`file-upload-${index}`}
-                                className="relative cursor-pointer bg-white rounded-md font-medium text-primary-600 hover:text-primary-500 focus-within:outline-none"
-                              >
-                                <span>Foto hochladen</span>
-                                <input 
-                                  id={`file-upload-${index}`} 
-                                  name={`file-upload-${index}`} 
-                                  type="file" 
-                                  className="sr-only" 
-                                  onChange={(e) => {
-                                    if (e.target.files && e.target.files[0]) {
-                                      // In einer echten App würde hier das Foto hochgeladen werden
-                                      // und die URL gespeichert werden
-                                      updatePet(index, 'photoUrl', URL.createObjectURL(e.target.files[0]));
-                                    }
-                                  }}
-                                />
-                              </label>
-                              <p className="pl-1">oder per Drag & Drop</p>
-                            </div>
-                            <p className="text-xs text-gray-500">PNG, JPG, GIF bis 10MB</p>
-                          </div>
-                        </div>
+                        <PhotoDropzone
+                          index={index}
+                          photoUrl={pet.photoUrl}
+                          onUpload={async (file) => {
+                            setPetPhotoUploading((prev) => ({ ...prev, [index]: true }));
+                            setPetPhotoError((prev) => ({ ...prev, [index]: null }));
+                            try {
+                              const fileExt = file.name.split('.').pop();
+                              const filePath = `pet-${index}-${Date.now()}.${fileExt}`;
+                              const { data, error } = await supabase.storage.from('pet-photos').upload(filePath, file, { upsert: true });
+                              if (error) throw error;
+                              const { data: urlData } = supabase.storage.from('pet-photos').getPublicUrl(filePath);
+                              updatePet(index, 'photoUrl', urlData.publicUrl);
+                            } catch (err: any) {
+                              setPetPhotoError((prev) => ({ ...prev, [index]: err.message || 'Upload fehlgeschlagen' }));
+                            } finally {
+                              setPetPhotoUploading((prev) => ({ ...prev, [index]: false }));
+                            }
+                          }}
+                          uploading={!!petPhotoUploading[index]}
+                          error={petPhotoError[index]}
+                        />
                       </div>
                       <div className="mt-4">
                         <label htmlFor={`petDescription-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
@@ -793,31 +877,64 @@ function RegisterPage() {
                         ))}
                       </div>
                       <div className="mt-4">
-                        <label htmlFor="otherServices" className="block text-sm font-medium text-gray-700 mb-1">
-                          Sonstige Leistungen
-                        </label>
-                        <input
-                          type="text"
-                          id="otherServices"
-                          className="input"
-                          placeholder="Weitere Leistungen, die du benötigst"
-                          value={formStep2Owner.otherServices}
-                          onChange={(e) => setFormStep2Owner({...formStep2Owner, otherServices: e.target.value})}
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Sonstige Leistungen</label>
+                        <div className="space-y-2">
+                          {formStep2Owner.otherServices.map((service, idx) => (
+                            <div key={idx} className="flex gap-2 items-center">
+                              <input
+                                type="text"
+                                className="flex-1 input"
+                                placeholder={`Leistung ${idx + 1}`}
+                                value={service}
+                                onChange={e => handleOtherServiceChange(idx, e.target.value)}
+                              />
+                              {formStep2Owner.otherServices.length > 1 && (
+                                <button
+                                  type="button"
+                                  className="text-red-500 hover:text-red-700 px-2"
+                                  onClick={() => handleRemoveOtherService(idx)}
+                                  aria-label="Leistung entfernen"
+                                >
+                                  <Trash2 className="h-5 w-5" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            className="mt-1 text-primary-600 hover:underline text-sm"
+                            onClick={handleAddOtherService}
+                          >
+                            + Weitere Leistung hinzufügen
+                          </button>
+                        </div>
                       </div>
                     </div>
                     <div className="mt-4">
-                      <label htmlFor="vetInfo" className="block text-sm font-medium text-gray-700 mb-1">
-                        Tierarztinformationen
-                      </label>
-                      <textarea
-                        id="vetInfo"
-                        rows={3}
-                        className="input"
-                        placeholder="Name, Adresse und Kontaktdaten des Tierarztes"
-                        value={formStep2Owner.vetInfo}
-                        onChange={(e) => setFormStep2Owner({...formStep2Owner, vetInfo: e.target.value})}
-                      ></textarea>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Tierarztinformationen</label>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="Name des Tierarztes"
+                          value={formStep2Owner.vetName}
+                          onChange={e => setFormStep2Owner({ ...formStep2Owner, vetName: e.target.value })}
+                        />
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="Adresse der Praxis"
+                          value={formStep2Owner.vetAddress}
+                          onChange={e => setFormStep2Owner({ ...formStep2Owner, vetAddress: e.target.value })}
+                        />
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="Telefonnummer"
+                          value={formStep2Owner.vetPhone}
+                          onChange={e => setFormStep2Owner({ ...formStep2Owner, vetPhone: e.target.value })}
+                        />
+                      </div>
                     </div>
                     <div className="mt-4">
                       <label htmlFor="emergencyContact" className="block text-sm font-medium text-gray-700 mb-1">
@@ -850,7 +967,7 @@ function RegisterPage() {
                         id="careInstructions"
                         rows={4}
                         className="input"
-                        placeholder="Besondere Hinweise für Betreuer (Medikamente, Fütterungszeiten, Verhalten, etc.)"
+                        placeholder="Besondere Hinweise für Betreuer (Medikamente, Allergien, Unverträglichkeiten, Fütterungszeiten, Verhalten, etc.)"
                         value={formStep2Owner.careInstructions}
                         onChange={(e) => setFormStep2Owner({...formStep2Owner, careInstructions: e.target.value})}
                       ></textarea>
@@ -873,29 +990,13 @@ function RegisterPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {profileStep === 3 ? (
-                    <>
-                      <span
-                        className="text-primary-600 text-sm font-medium cursor-pointer"
-                        onClick={() => navigate('/')}
-                      >
-                        Überspringen
-                      </span>
-                      <Button onClick={completeRegistration} isLoading={loading} disabled={loading}>
-                        Speichern
-                      </Button>
-                    </>
+                    <Button onClick={completeRegistration} isLoading={loading} disabled={loading}>
+                      Speichern
+                    </Button>
                   ) : (
-                    <>
-                      <span
-                        className="text-primary-600 text-sm font-medium cursor-pointer"
-                        onClick={() => setProfileStep(profileStep + 1)}
-                      >
-                        Überspringen
-                      </span>
-                      <Button onClick={() => setProfileStep(profileStep + 1)} disabled={loading}>
-                        Weiter
-                      </Button>
-                    </>
+                    <Button onClick={() => setProfileStep(profileStep + 1)} disabled={loading}>
+                      Weiter
+                    </Button>
                   )}
                 </div>
               </div>
@@ -915,6 +1016,41 @@ function RegisterPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function PhotoDropzone({ index, photoUrl, onUpload, uploading, error }: {
+  index: number;
+  photoUrl?: string;
+  onUpload: (file: File) => Promise<void>;
+  uploading?: boolean;
+  error?: string | null;
+}) {
+  const onDrop = (acceptedFiles: File[]) => {
+    if (acceptedFiles && acceptedFiles[0]) {
+      onUpload(acceptedFiles[0]);
+    }
+  };
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'image/*': [] },
+    maxFiles: 1,
+    maxSize: 10 * 1024 * 1024,
+    disabled: uploading,
+  });
+  return (
+    <div {...getRootProps()} className={`mt-1 border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors ${isDragActive ? 'border-primary-500 bg-primary-50' : 'border-gray-300 bg-white'}` + (uploading ? ' opacity-50 pointer-events-none' : '')}>
+      <input {...getInputProps()} />
+      {photoUrl ? (
+        <img src={photoUrl} alt="Tierfoto" className="h-24 w-24 object-cover rounded-full mb-2" />
+      ) : (
+        <Upload className="mx-auto h-12 w-12 text-gray-400" />
+      )}
+      <p className="text-sm text-gray-600 mb-1">{isDragActive ? 'Datei hier ablegen ...' : 'Datei hierher ziehen oder klicken, um hochzuladen'}</p>
+      <p className="text-xs text-gray-500">PNG, JPG, GIF bis 10MB</p>
+      {uploading && <p className="text-xs text-primary-600 mt-2">Wird hochgeladen ...</p>}
+      {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
     </div>
   );
 }
