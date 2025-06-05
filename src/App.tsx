@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import LoadingSpinner from './components/ui/LoadingSpinner';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 
 // Lazy loaded pages
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -36,7 +37,14 @@ function App() {
           <Route path="/ueber-uns" element={<AboutPage />} />
           <Route path="/kontakt" element={<ContactPage />} />
           <Route path="/hilfe" element={<HelpPage />} />
-          <Route path="/dashboard-owner" element={<OwnerDashboardPage />} />
+          <Route 
+            path="/dashboard-owner" 
+            element={
+              <ProtectedRoute requireOwner={true}>
+                <OwnerDashboardPage />
+              </ProtectedRoute>
+            } 
+          />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>

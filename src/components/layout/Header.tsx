@@ -1,11 +1,15 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, PawPrint as Paw, MessageCircle, LogOut } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useAuth } from '../../lib/auth/AuthContext';
 
 function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { isAuthenticated, userProfile, signOut, loading } = useAuth();
   
   const isActive = (path: string) => location.pathname === path;
   
@@ -13,8 +17,33 @@ function Header() {
     setIsMenuOpen(!isMenuOpen);
   };
 
-  // Demo: Tierbesitzer ist eingeloggt
-  const isOwnerLoggedIn = true;
+  const handleSignOut = async () => {
+    try {
+      setIsLoggingOut(true);
+      await signOut();
+      navigate('/');
+    } catch (error) {
+      console.error('Logout fehlgeschlagen:', error);
+      // Auch bei Fehler zur Startseite navigieren
+      navigate('/');
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
+  // Bessere Owner-Prüfung mit Fallback
+  const isOwner = userProfile?.user_type === 'owner' || (!userProfile && isAuthenticated);
+  
+  // Debug: Log current state
+  if (import.meta.env.DEV) {
+    console.log('Header State:', { 
+      loading, 
+      isAuthenticated, 
+      hasUserProfile: !!userProfile, 
+      userType: userProfile?.user_type,
+      calculatedIsOwner: isOwner 
+    });
+  }
 
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">
@@ -27,11 +56,21 @@ function Header() {
           
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            {isOwnerLoggedIn ? (
+            {loading ? (
+              // Loading state - zeige informativen Loading-Text
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2 text-gray-500 text-sm">
+                  <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+                  <span>Laden...</span>
+                </div>
+              </div>
+            ) : isAuthenticated ? (
               <>
-                <NavLink to="/dashboard-owner" isActive={isActive('/dashboard-owner')}>
-                  Mein Profil
-                </NavLink>
+                {isOwner && (
+                  <NavLink to="/dashboard-owner" isActive={isActive('/dashboard-owner')}>
+                    Mein Profil
+                  </NavLink>
+                )}
                 <NavLink to="/suche" isActive={isActive('/suche')}>
                   Betreuer finden
                 </NavLink>
@@ -40,8 +79,9 @@ function Header() {
                 </Link>
                 <button
                   type="button"
-                  className="ml-4 text-gray-400 hover:text-red-600 transition-colors"
-                  onClick={() => alert('Logout (Demo)')}
+                  className="ml-4 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                  onClick={handleSignOut}
+                  disabled={isLoggingOut}
                   aria-label="Ausloggen"
                 >
                   <LogOut className="h-5 w-5" />
@@ -93,11 +133,21 @@ function Header() {
         {isMenuOpen && (
           <div className="md:hidden">
             <div className="pt-2 pb-4 space-y-1 animate-fade-in">
-              {isOwnerLoggedIn ? (
+              {loading ? (
+                // Loading state für mobile
+                <div className="space-y-2 px-3">
+                  <div className="flex items-center space-x-2 text-gray-500 text-sm">
+                    <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span>Navigation wird geladen...</span>
+                  </div>
+                </div>
+              ) : isAuthenticated ? (
                 <>
-                  <MobileNavLink to="/dashboard-owner" isActive={isActive('/dashboard-owner')} onClick={() => setIsMenuOpen(false)}>
-                    Mein Profil
-                  </MobileNavLink>
+                  {isOwner && (
+                    <MobileNavLink to="/dashboard-owner" isActive={isActive('/dashboard-owner')} onClick={() => setIsMenuOpen(false)}>
+                      Mein Profil
+                    </MobileNavLink>
+                  )}
                   <MobileNavLink to="/suche" isActive={isActive('/suche')} onClick={() => setIsMenuOpen(false)}>
                     Betreuer finden
                   </MobileNavLink>
@@ -106,8 +156,12 @@ function Header() {
                   </Link>
                   <button
                     type="button"
-                    className="ml-3 text-gray-400 hover:text-red-600 transition-colors px-3 py-2"
-                    onClick={() => alert('Logout (Demo)')}
+                    className="ml-3 text-gray-400 hover:text-red-600 transition-colors px-3 py-2 disabled:opacity-50"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      handleSignOut();
+                    }}
+                    disabled={isLoggingOut}
                     aria-label="Ausloggen"
                   >
                     <LogOut className="h-5 w-5" />
@@ -116,17 +170,17 @@ function Header() {
               ) : (
                 <>
                   <MobileNavLink to="/" isActive={isActive('/')} onClick={() => setIsMenuOpen(false)}>
-                    Home
+                    Startseite
                   </MobileNavLink>
                   <MobileNavLink to="/suche" isActive={isActive('/suche')} onClick={() => setIsMenuOpen(false)}>
-                    Find Caregivers
+                    Betreuer finden
                   </MobileNavLink>
                   <MobileNavLink 
                     to="/registrieren?type=caregiver"
                     isActive={isActive('/registrieren?type=caregiver')}
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    Become a Caregiver
+                    Betreuer werden
                   </MobileNavLink>
                   <div className="pt-2 flex flex-col space-y-2">
                     <Link
@@ -134,14 +188,13 @@ function Header() {
                       className="btn btn-outline w-full justify-center"
                       onClick={() => setIsMenuOpen(false)}
                     >
-                      Log In
+                      Login
                     </Link>
                     <Link
                       to="/registrieren"
                       className="btn btn-primary w-full justify-center"
-                      onClick={() => setIsMenuOpen(false)}
                     >
-                      Sign Up
+                      Anmelden
                     </Link>
                   </div>
                 </>

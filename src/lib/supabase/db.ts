@@ -236,3 +236,30 @@ export const ownerPreferencesService = {
     return { data, error };
   },
 };
+
+// PLZ-Funktionen
+export const plzService = {
+  // PLZ suchen
+  getByPlz: async (plz: string) => {
+    const { data, error } = await supabase
+      .from('plzs')
+      .select('*')
+      .eq('plz', plz)
+      .single(); // Use single() assuming plz is a primary key/unique
+
+    return { data, error };
+  },
+
+  // Neue PLZ und Ort hinzufügen
+  create: async (plz: string, city: string) => {
+    const { data, error } = await supabase
+      .from('plzs')
+      .insert({
+        plz: plz,
+        city: city,
+      }) // You might want .select() here if you need the inserted row data
+      ;
+
+    return { data, error };
+  },
+};

@@ -8,11 +8,21 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PU
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Supabase configuration missing:', {
+    hasUrl: !!supabaseUrl,
+    hasKey: !!supabaseAnonKey
+  });
   throw new Error('Supabase URL oder Anon Key fehlt! Bitte .env Datei prüfen und Dev-Server neu starten.');
 }
 
 // Supabase Client erstellen
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+});
 
 // Auth-Hilfsfunktionen
 export const auth = {

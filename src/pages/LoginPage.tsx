@@ -1,17 +1,23 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 import Button from '../components/ui/Button';
-import { auth } from '../lib/supabase/client';
+import { useAuth } from '../lib/auth/AuthContext';
 
 function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { signIn } = useAuth();
+  
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Get the page the user was trying to access before login
+  const from = (location.state as any)?.from?.pathname || '/';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,14 +30,10 @@ function LoginPage() {
     
     try {
       setLoading(true);
-      const { data, error } = await auth.signIn(email, password);
+      await signIn(email, password);
       
-      if (error) throw error;
-      
-      if (data) {
-        // Erfolgreich angemeldet, zur Startseite navigieren
-        navigate('/');
-      }
+      // Redirect always to the owner dashboard after successful login
+      navigate('/dashboard-owner', { replace: true });
     } catch (err: any) {
       console.error('Fehler bei der Anmeldung:', err);
       setError(err.message || 'Bei der Anmeldung ist ein Fehler aufgetreten.');
@@ -140,7 +142,7 @@ function LoginPage() {
                 variant="primary"
                 fullWidth
                 size="lg"
-                loading={loading}
+                isLoading={loading}
                 disabled={loading}
               >
                 Anmelden

@@ -4,13 +4,24 @@ import { MapPin, Phone, PawPrint, Edit, Calendar, Shield, Heart, MessageCircle, 
 import { mockPetOwners, mockBookings, mockCaregivers } from '../data/mockData';
 import { formatCurrency } from '../lib/utils';
 import { Link } from 'react-router-dom';
-import { useState } from 'react';
-import { ownerPreferencesService } from '../lib/supabase/db';
+import { useState, useEffect } from 'react';
+import { ownerPreferencesService, petService, userService } from '../lib/supabase/db';
 import { useDropzone } from 'react-dropzone';
+import { useAuth } from '../lib/auth/AuthContext';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { plzService } from '../lib/supabase/db';
 
-// Für Demo: Immer Owner 1
-const owner = mockPetOwners[0];
-const bookings = mockBookings.filter(b => b.petOwnerId === owner.id);
+// Mock data für Demo (später durch echte Daten ersetzen)
+const mockPets = [
+  {
+    id: '1',
+    name: 'Bruno',
+    type: 'Hund',
+    breed: 'Deutscher Schäferhund',
+    age: 3,
+    image: 'https://images.unsplash.com/photo-1551717743-49959800b1f6?w=400'
+  }
+];
 
 const ALL_SERVICES = [
   'Gassi-Service',
@@ -51,6 +62,8 @@ function PhotoDropzone({ photoUrl, onUpload }: {
 }
 
 function OwnerDashboardPage() {
+  const { user, userProfile, loading: authLoading, updateProfileState } = useAuth();
+  
   // Demo: initiale Services (später aus DB laden)
   const [services, setServices] = useState<string[]>(['Gassi-Service', 'Haustierbetreuung', 'Übernachtung']);
   const [saving, setSaving] = useState(false);
@@ -60,16 +73,16 @@ function OwnerDashboardPage() {
   const [otherWishError, setOtherWishError] = useState<string | null>(null);
   // Favoriten-State für Kontakte (Demo, lokal)
   const [favoriteContacts, setFavoriteContacts] = useState<string[]>([]);
-  const [pets, setPets] = useState(owner.pets);
+  const [pets, setPets] = useState(mockPets);
   const [showAddPet, setShowAddPet] = useState(false);
   const [newPet, setNewPet] = useState({ name: '', type: '', typeOther: '', breed: '', age: '', image: '' });
   const [activeTab, setActiveTab] = useState<'uebersicht' | 'einstellungen'>('uebersicht');
   const [editData, setEditData] = useState(false);
   const [ownerData, setOwnerData] = useState({
-    phoneNumber: owner.phoneNumber || '',
-    email: owner.email || '',
-    plz: owner.plz || '',
-    location: owner.location || ''
+    phoneNumber: '',
+    email: '',
+    plz: '',
+    location: ''
   });
   const [editVet, setEditVet] = useState(false);
   const [vetData, setVetData] = useState({
@@ -82,11 +95,9 @@ function OwnerDashboardPage() {
     name: 'Max Mustermann',
     phone: '0176 98765432'
   });
-  const [editPet, setEditPet] = useState<string | null>(null);
-  const [editPetData, setEditPetData] = useState({ name: '', type: '', typeOther: '', breed: '', age: '', image: '' });
   const [contacts, setContacts] = useState(() => 
     mockBookings
-      .filter((b) => b.petOwnerId === owner.id)
+      .filter((b) => b.petOwnerId === '1') // Mock-Filter
       .map((b) => mockCaregivers.find((c) => c.id === b.caregiverId))
       .filter((caregiver): caregiver is typeof caregiver & object => Boolean(caregiver))
   );
@@ -99,6 +110,67 @@ function OwnerDashboardPage() {
     petDetails: true,
     carePreferences: true
   });
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [editPet, setEditPet] = useState<string | null>(null);
+  const [editPetData, setEditPetData] = useState({ name: '', type: '', typeOther: '', breed: '', age: '', image: '' });
+
+  // Load user data on component mount and when userProfile changes
+  useEffect(() => {
+    // console.log('✨ OwnerDashboardPage userProfile effect triggered.'); // Clean up debug log
+    // console.log('🔍 Current userProfile:', userProfile); // Clean up debug log
+    // console.log('🔍 userProfile.postal_code:', userProfile?.postal_code); // Clean up debug log
+    
+    if (userProfile) {
+      setOwnerData({
+        phoneNumber: userProfile.phone_number || '',
+        email: userProfile.email || '',
+        plz: userProfile.plz || '',
+        location: userProfile.city || ''
+      });
+    } else if (user && !authLoading) {
+      // Fallback: Setze E-Mail vom Auth-User
+      setOwnerData(prev => ({
+        ...prev,
+        email: user.email || ''
+      }));
+    }
+  }, [userProfile, user, authLoading]);
+
+  if (authLoading) {
+    return <LoadingSpinner />;
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Nicht angemeldet</h2>
+          <p className="text-gray-600">Bitte melden Sie sich an, um Ihr Dashboard zu sehen.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback für fehlende Profile-Daten
+  const fallbackProfile = {
+    first_name: user.email?.split('@')[0] || 'Benutzer',
+    last_name: '',
+    email: user.email || '',
+    phone_number: '',
+    plz: '',
+    city: '',
+    user_type: 'owner' as const,
+    avatar_url: null
+  };
+
+  const profile = userProfile || fallbackProfile;
+  const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Unbekannter Benutzer';
+  const avatarUrl = profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=f3f4f6&color=374151`;
+
+  // Debug-Info wenn Profile fehlt
+  if (!userProfile) {
+    console.warn('⚠️ UserProfile missing, using fallback data for user:', user.id);
+  }
 
   const handleServiceToggle = (service: string) => {
     setServices((prev) =>
@@ -216,6 +288,142 @@ function OwnerDashboardPage() {
     }));
   };
 
+  const handlePhoneNumberChange = (value: string, field: 'phoneNumber' | 'emergencyPhone' | 'vetPhone') => {
+    // Nur Zahlen, Leerzeichen, Plus und Bindestriche erlauben
+    const phoneRegex = /^[+\d\s-]*$/;
+    if (phoneRegex.test(value)) {
+      if (field === 'phoneNumber') {
+        setOwnerData(d => ({ ...d, phoneNumber: value }));
+      } else if (field === 'emergencyPhone') {
+        setEmergencyData(d => ({ ...d, phone: value }));
+      } else if (field === 'vetPhone') {
+        setVetData(d => ({ ...d, phone: value }));
+      }
+    }
+  };
+
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleEmailChange = (value: string) => {
+    setOwnerData(d => ({ ...d, email: value }));
+    
+    if (value.trim() === '') {
+      setEmailError('E-Mail-Adresse ist ein Pflichtfeld');
+    } else if (!validateEmail(value)) {
+      setEmailError('Bitte geben Sie eine gültige E-Mail-Adresse ein');
+    } else {
+      setEmailError(null);
+    }
+  };
+
+  const handleSaveOwnerData = async () => {
+    if (!user) return; // Should not happen due to auth check, but for safety
+
+    setSaving(true);
+    setSaveMsg(null);
+
+    try {
+      // Prepare data for updateProfile
+      const dataToUpdate: { [key: string]: any } = {};
+
+      // Only include fields that have changed
+      if (ownerData.phoneNumber !== (userProfile?.phone_number || '')) dataToUpdate.phoneNumber = ownerData.phoneNumber;
+      if (ownerData.email !== (userProfile?.email || '')) dataToUpdate.email = ownerData.email;
+
+      // Handle PLZ and City logic
+      const plzChanged = ownerData.plz !== (userProfile?.plz || '');
+      const cityChanged = ownerData.location !== (userProfile?.city || '');
+
+      if (plzChanged || cityChanged) {
+          // Check if PLZ exists in plzs table
+          const { data: existingPlz, error: plzError } = await plzService.getByPlz(ownerData.plz);
+
+          if (plzError && plzError.code !== 'PGRST116') { // PGRST116 means not found, which is expected if new
+               console.error('Error checking PLZ in plzs table:', plzError);
+               throw new Error(`Fehler bei der PLZ-Prüfung: ${plzError.message}`);
+          }
+
+          if (!existingPlz) {
+              // PLZ does not exist, create it in plzs table
+              console.log('PLZ not found in plzs table, creating...');
+              const { error: createPlzError } = await plzService.create(ownerData.plz, ownerData.location);
+
+              if (createPlzError) {
+                  console.error('Error creating PLZ in plzs table:', createPlzError);
+                   // Continue updating user profile even if adding to plzs fails, but log error
+              } else {
+                   console.log('PLZ successfully created in plzs table.');
+              }
+          }
+
+          // Add PLZ and City to dataToUpdate for users table
+          dataToUpdate.plz = ownerData.plz;
+          dataToUpdate.location = ownerData.location;
+      }
+
+      // If no fields have changed, exit without saving
+      if (Object.keys(dataToUpdate).length === 0) {
+          setSaveMsg('Keine Änderungen zu speichern.');
+          setEditData(false);
+          setTimeout(() => setSaveMsg(null), 3000);
+          return;
+      }
+
+      // Call the service to update the user profile
+      const { data: updatedProfile, error: updateError } = await userService.updateUserProfile(user.id, dataToUpdate);
+
+      if (updateError) {
+        console.error('Fehler beim Speichern der Kontaktdaten:', updateError);
+        setSaveMsg(`Fehler beim Speichern: ${updateError.message || updateError}`);
+      } else if (updatedProfile && updatedProfile.length > 0) {
+        console.log('Kontaktdaten erfolgreich gespeichert:', updatedProfile[0]);
+        setSaveMsg('Kontaktdaten erfolgreich gespeichert!');
+        // Update the profile state in AuthContext
+        updateProfileState(updatedProfile[0]);
+        // Exit edit mode
+        setEditData(false);
+      } else {
+         // Handle cases where there's no error but no data returned (shouldn't happen with select())
+         console.error('Speichern erfolgreich, aber keine Daten zurückgegeben.', updatedProfile);
+         setSaveMsg('Speichern erfolgreich, aber Profil konnte nicht aktualisiert werden.');
+         setEditData(false); // Still exit edit mode
+      }
+    } catch (e) {
+      console.error('Exception beim Speichern der Kontaktdaten:', e);
+      setSaveMsg(`Ein unerwarteter Fehler ist aufgetreten: ${e instanceof Error ? e.message : e}`);
+    } finally {
+      setSaving(false);
+      // Clear save message after a few seconds
+      setTimeout(() => setSaveMsg(null), 5000);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    // Reset ownerData to current userProfile values
+    if (userProfile) {
+      setOwnerData({
+        phoneNumber: userProfile.phone_number || '',
+        email: userProfile.email || '',
+        plz: userProfile.plz || '',
+        location: userProfile.city || '',
+      });
+    } else if (user) {
+       // Fallback for users without a profile yet
+        setOwnerData(prev => ({
+          ...prev,
+          email: user.email || '' // Keep email from auth if profile is missing
+        }));
+    } else {
+       // Should not happen
+       setOwnerData({ phoneNumber: '', email: '', plz: '', location: '' });
+    }
+    setEditData(false); // Exit edit mode
+    setSaveMsg(null); // Clear any message
+  };
+
   return (
     <div className="bg-gray-50 min-h-screen py-10">
       <div className="container-custom max-w-4xl">
@@ -223,8 +431,8 @@ function OwnerDashboardPage() {
         <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
           <div className="flex flex-col lg:flex-row items-start gap-6">
             <img
-              src={owner.avatar}
-              alt={owner.name}
+              src={avatarUrl}
+              alt={fullName}
               className="w-32 h-32 rounded-full object-cover border-4 border-primary-100 shadow mx-auto lg:mx-0"
             />
             
@@ -232,11 +440,11 @@ function OwnerDashboardPage() {
               <div className="flex flex-col lg:flex-row gap-8">
                 {/* Erste Spalte: Name und Tiere */}
                 <div className="flex-1">
-                  <h1 className="text-2xl font-bold mb-4">{owner.name}</h1>
+                  <h1 className="text-2xl font-bold mb-4">{fullName}</h1>
                   
                   {/* Pet-Badges */}
                   <div className="flex flex-wrap gap-2">
-                    {owner.pets.map((pet) => (
+                    {pets.map((pet) => (
                       <span key={pet.id} className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-50 text-primary-700">
                         <PawPrint className="h-4 w-4 mr-1" />{pet.name} ({pet.type})
                       </span>
@@ -264,7 +472,14 @@ function OwnerDashboardPage() {
                       <>
                         <div className="flex items-center gap-3">
                           <MapPin className="h-4 w-4 text-gray-500" />
-                          <span className="text-gray-700">{ownerData.plz && ownerData.location ? `${ownerData.plz} ${ownerData.location}` : (ownerData.location || '—')}</span>
+                          <span className="text-gray-700">
+                            {ownerData.plz && ownerData.location ? 
+                              `${ownerData.plz} ${ownerData.location}` : 
+                              ownerData.plz ? ownerData.plz : 
+                              ownerData.location ? ownerData.location : 
+                              '—'
+                            }
+                          </span>
                         </div>
                         <div className="flex items-center gap-3">
                           <Phone className="h-4 w-4 text-gray-500" />
@@ -302,37 +517,48 @@ function OwnerDashboardPage() {
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Telefonnummer</label>
                           <input
-                            type="text"
+                            type="tel"
                             className="input w-full"
                             value={ownerData.phoneNumber}
-                            onChange={e => setOwnerData(d => ({ ...d, phoneNumber: e.target.value }))}
-                            placeholder="Telefonnummer"
+                            onChange={e => handlePhoneNumberChange(e.target.value, 'phoneNumber')}
+                            placeholder="+49 123 456789"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">E-Mail</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            E-Mail <span className="text-red-500">*</span>
+                          </label>
                           <input
                             type="email"
-                            className="input w-full"
+                            className={`input w-full ${emailError ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
                             value={ownerData.email}
-                            onChange={e => setOwnerData(d => ({ ...d, email: e.target.value }))}
-                            placeholder="E-Mail"
+                            onChange={e => handleEmailChange(e.target.value)}
+                            placeholder="ihre@email.de"
+                            required
                           />
+                          {emailError && (
+                            <p className="text-red-500 text-xs mt-1">{emailError}</p>
+                          )}
                         </div>
                         <div className="flex gap-2 pt-2">
                           <button
                             className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm"
-                            onClick={() => setEditData(false)}
+                            onClick={handleSaveOwnerData}
+                            disabled={!!emailError || !ownerData.email.trim() || saving}
                           >
-                            Speichern
+                            {saving ? 'Speichern...' : 'Speichern'}
                           </button>
                           <button
                             className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
-                            onClick={() => setEditData(false)}
+                            onClick={handleCancelEdit}
+                            disabled={saving}
                           >
                             Abbrechen
                           </button>
                         </div>
+                        {saveMsg && (
+                          <p className={`text-sm mt-2 ${saveMsg.includes('Erfolgreich') ? 'text-green-600' : 'text-red-600'}`}>{saveMsg}</p>
+                        )}
                       </div>
                     )}
                   </div>
@@ -567,7 +793,7 @@ function OwnerDashboardPage() {
 
             {/* Kontakte */}
             <div className="mb-8">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Heart className="h-5 w-5" />Meine Betreuer/in</h2>
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Heart className="h-5 w-5" />Meine Betreuer</h2>
               {contacts.length === 0 ? (
                 <div className="text-gray-500">Noch keine Kontakte.</div>
               ) : (
@@ -659,7 +885,13 @@ function OwnerDashboardPage() {
                       </div>
                       <div className="mb-2">
                         <span className="font-medium">Telefon:</span>
-                        <input type="text" className="input mt-1" value={vetData.phone} onChange={e => setVetData(d => ({ ...d, phone: e.target.value }))} />
+                        <input 
+                          type="tel" 
+                          className="input mt-1" 
+                          value={vetData.phone} 
+                          onChange={e => handlePhoneNumberChange(e.target.value, 'vetPhone')}
+                          placeholder="+49 123 456789"
+                        />
                       </div>
                       <div className="flex gap-2 mt-2">
                         <button className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm" onClick={() => setEditVet(false)}>Speichern</button>
@@ -696,7 +928,13 @@ function OwnerDashboardPage() {
                       </div>
                       <div className="mb-2">
                         <span className="font-medium">Telefon:</span>
-                        <input type="text" className="input mt-1" value={emergencyData.phone} onChange={e => setEmergencyData(d => ({ ...d, phone: e.target.value }))} />
+                        <input 
+                          type="tel" 
+                          className="input mt-1" 
+                          value={emergencyData.phone} 
+                          onChange={e => handlePhoneNumberChange(e.target.value, 'emergencyPhone')}
+                          placeholder="+49 123 456789"
+                        />
                       </div>
                       <div className="flex gap-2 mt-2">
                         <button className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm" onClick={() => setEditEmergency(false)}>Speichern</button>

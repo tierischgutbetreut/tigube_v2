@@ -65,7 +65,7 @@ function HomePage() {
                     <input
                       id="location"
                       type="text"
-                      placeholder="Gib bitte Deinen Wohnort ein"
+                      placeholder="Dein Wohnort"
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
                       value={location}
                       onChange={(e) => setLocation(e.target.value)}
@@ -107,7 +107,6 @@ function HomePage() {
                 </button>
               </form>
               <div className="flex gap-4 mt-2">
-                <Link to="/dashboard-owner" className="text-primary-600 underline text-sm">Zum Tierbesitzer-Dashboard (Demo)</Link>
               </div>
             </div>
             {/* Rechte Seite: Bild mit Overlay */}
@@ -152,7 +151,7 @@ Filtere nach Service, Preis und Verfügbarkeit – und finde passende Angebote."
               number="2"
               title="Kontakt aufnehmen & Inserat veröffentlichen"
               description="Du willst mit einem Betreuer schreiben oder ein Jobangebot veröffentlichen?
-Dann aktiviere tigube Premium ab 4,90 € und nutze alle Funktionen: Chat, Bilder hochladen, Bewertungen lesen & schreiben – ganz einfach."
+Dann aktiviere tigube Premium ab 4,90 € und nutze alle Funktionen: Chat, Bilder hochladen, Bewertungen lesen & schreiben – ganz einfach."
             />
             <StepCard
               number="3"
