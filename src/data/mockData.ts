@@ -87,6 +87,9 @@ export const mockPetOwners = [
     name: 'Laura Hoffmann',
     avatar: 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=600',
     location: 'Berlin',
+    plz: '10115',
+    email: 'laura.hoffmann@email.de',
+    phoneNumber: '030 12345678',
     pets: [
       {
         id: 'p1',

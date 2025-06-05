@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, PawPrint as Paw } from 'lucide-react';
+import { Menu, X, PawPrint as Paw, MessageCircle, LogOut } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 function Header() {
@@ -13,6 +13,9 @@ function Header() {
     setIsMenuOpen(!isMenuOpen);
   };
 
+  // Demo: Tierbesitzer ist eingeloggt
+  const isOwnerLoggedIn = true;
+
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">
       <div className="container-custom py-4">
@@ -24,27 +27,51 @@ function Header() {
           
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <NavLink to="/" isActive={isActive('/')}>
-              Startseite
-            </NavLink>
-            <NavLink to="/suche" isActive={isActive('/suche')}>
-            Betreuer finden
-            </NavLink>
-            <NavLink to="/registrieren?type=caregiver" isActive={isActive('/registrieren?type=caregiver')}>
-            Betreuer werden
-            </NavLink>
-            <Link
-              to="/anmelden"
-              className="btn btn-outline"
-            >
-              Login
-            </Link>
-            <Link
-              to="/registrieren"
-              className="btn btn-primary"
-            >
-              Anmelden
-            </Link>
+            {isOwnerLoggedIn ? (
+              <>
+                <NavLink to="/dashboard-owner" isActive={isActive('/dashboard-owner')}>
+                  Mein Profil
+                </NavLink>
+                <NavLink to="/suche" isActive={isActive('/suche')}>
+                  Betreuer finden
+                </NavLink>
+                <Link to="/nachrichten" className="inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-primary-700 transition-colors">
+                  <MessageCircle className="h-5 w-5" /> Nachrichten
+                </Link>
+                <button
+                  type="button"
+                  className="ml-4 text-gray-400 hover:text-red-600 transition-colors"
+                  onClick={() => alert('Logout (Demo)')}
+                  aria-label="Ausloggen"
+                >
+                  <LogOut className="h-5 w-5" />
+                </button>
+              </>
+            ) : (
+              <>
+                <NavLink to="/" isActive={isActive('/')}>
+                  Startseite
+                </NavLink>
+                <NavLink to="/suche" isActive={isActive('/suche')}>
+                  Betreuer finden
+                </NavLink>
+                <NavLink to="/registrieren?type=caregiver" isActive={isActive('/registrieren?type=caregiver')}>
+                  Betreuer werden
+                </NavLink>
+                <Link
+                  to="/anmelden"
+                  className="btn btn-outline"
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/registrieren"
+                  className="btn btn-primary"
+                >
+                  Anmelden
+                </Link>
+              </>
+            )}
           </nav>
           
           {/* Mobile menu button */}
@@ -66,35 +93,59 @@ function Header() {
         {isMenuOpen && (
           <div className="md:hidden">
             <div className="pt-2 pb-4 space-y-1 animate-fade-in">
-              <MobileNavLink to="/" isActive={isActive('/')} onClick={() => setIsMenuOpen(false)}>
-                Home
-              </MobileNavLink>
-              <MobileNavLink to="/suche" isActive={isActive('/suche')} onClick={() => setIsMenuOpen(false)}>
-                Find Caregivers
-              </MobileNavLink>
-              <MobileNavLink 
-                to="/registrieren?type=caregiver"
-                isActive={isActive('/registrieren?type=caregiver')}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Become a Caregiver
-              </MobileNavLink>
-              <div className="pt-2 flex flex-col space-y-2">
-                <Link
-                  to="/anmelden"
-                  className="btn btn-outline w-full justify-center"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Log In
-                </Link>
-                <Link
-                  to="/registrieren"
-                  className="btn btn-primary w-full justify-center"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Sign Up
-                </Link>
-              </div>
+              {isOwnerLoggedIn ? (
+                <>
+                  <MobileNavLink to="/dashboard-owner" isActive={isActive('/dashboard-owner')} onClick={() => setIsMenuOpen(false)}>
+                    Mein Profil
+                  </MobileNavLink>
+                  <MobileNavLink to="/suche" isActive={isActive('/suche')} onClick={() => setIsMenuOpen(false)}>
+                    Betreuer finden
+                  </MobileNavLink>
+                  <Link to="/nachrichten" className="flex items-center gap-2 px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-primary-700" onClick={() => setIsMenuOpen(false)}>
+                    <MessageCircle className="h-5 w-5" /> Nachrichten
+                  </Link>
+                  <button
+                    type="button"
+                    className="ml-3 text-gray-400 hover:text-red-600 transition-colors px-3 py-2"
+                    onClick={() => alert('Logout (Demo)')}
+                    aria-label="Ausloggen"
+                  >
+                    <LogOut className="h-5 w-5" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <MobileNavLink to="/" isActive={isActive('/')} onClick={() => setIsMenuOpen(false)}>
+                    Home
+                  </MobileNavLink>
+                  <MobileNavLink to="/suche" isActive={isActive('/suche')} onClick={() => setIsMenuOpen(false)}>
+                    Find Caregivers
+                  </MobileNavLink>
+                  <MobileNavLink 
+                    to="/registrieren?type=caregiver"
+                    isActive={isActive('/registrieren?type=caregiver')}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Become a Caregiver
+                  </MobileNavLink>
+                  <div className="pt-2 flex flex-col space-y-2">
+                    <Link
+                      to="/anmelden"
+                      className="btn btn-outline w-full justify-center"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Log In
+                    </Link>
+                    <Link
+                      to="/registrieren"
+                      className="btn btn-primary w-full justify-center"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Sign Up
+                    </Link>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

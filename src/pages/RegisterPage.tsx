@@ -881,8 +881,8 @@ function RegisterPage() {
                         <div className="space-y-2">
                           {formStep2Owner.otherServices.map((service, idx) => (
                             <div key={idx} className="flex gap-2 items-center">
-                              <input
-                                type="text"
+                        <input
+                          type="text"
                                 className="flex-1 input"
                                 placeholder={`Leistung ${idx + 1}`}
                                 value={service}
@@ -915,7 +915,7 @@ function RegisterPage() {
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <input
                           type="text"
-                          className="input"
+                        className="input"
                           placeholder="Name des Tierarztes"
                           value={formStep2Owner.vetName}
                           onChange={e => setFormStep2Owner({ ...formStep2Owner, vetName: e.target.value })}
@@ -990,13 +990,13 @@ function RegisterPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {profileStep === 3 ? (
-                    <Button onClick={completeRegistration} isLoading={loading} disabled={loading}>
-                      Speichern
-                    </Button>
+                      <Button onClick={completeRegistration} isLoading={loading} disabled={loading}>
+                        Speichern
+                      </Button>
                   ) : (
-                    <Button onClick={() => setProfileStep(profileStep + 1)} disabled={loading}>
-                      Weiter
-                    </Button>
+                      <Button onClick={() => setProfileStep(profileStep + 1)} disabled={loading}>
+                        Weiter
+                      </Button>
                   )}
                 </div>
               </div>
