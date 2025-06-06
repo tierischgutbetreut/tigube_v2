@@ -89,27 +89,27 @@ function Header() {
               </>
             ) : (
               <>
-                <NavLink to="/" isActive={isActive('/')}>
-                  Startseite
-                </NavLink>
-                <NavLink to="/suche" isActive={isActive('/suche')}>
-                  Betreuer finden
-                </NavLink>
-                <NavLink to="/registrieren?type=caregiver" isActive={isActive('/registrieren?type=caregiver')}>
-                  Betreuer werden
-                </NavLink>
-                <Link
-                  to="/anmelden"
-                  className="btn btn-outline"
-                >
-                  Login
-                </Link>
-                <Link
-                  to="/registrieren"
-                  className="btn btn-primary"
-                >
-                  Anmelden
-                </Link>
+            <NavLink to="/" isActive={isActive('/')}>
+              Startseite
+            </NavLink>
+            <NavLink to="/suche" isActive={isActive('/suche')}>
+            Betreuer finden
+            </NavLink>
+            <NavLink to="/registrieren?type=caregiver" isActive={isActive('/registrieren?type=caregiver')}>
+            Betreuer werden
+            </NavLink>
+            <Link
+              to="/anmelden"
+              className="btn btn-outline"
+            >
+              Login
+            </Link>
+            <Link
+              to="/registrieren"
+              className="btn btn-primary"
+            >
+              Anmelden
+            </Link>
               </>
             )}
           </nav>
@@ -169,34 +169,34 @@ function Header() {
                 </>
               ) : (
                 <>
-                  <MobileNavLink to="/" isActive={isActive('/')} onClick={() => setIsMenuOpen(false)}>
+              <MobileNavLink to="/" isActive={isActive('/')} onClick={() => setIsMenuOpen(false)}>
                     Startseite
-                  </MobileNavLink>
-                  <MobileNavLink to="/suche" isActive={isActive('/suche')} onClick={() => setIsMenuOpen(false)}>
+              </MobileNavLink>
+              <MobileNavLink to="/suche" isActive={isActive('/suche')} onClick={() => setIsMenuOpen(false)}>
                     Betreuer finden
-                  </MobileNavLink>
-                  <MobileNavLink 
-                    to="/registrieren?type=caregiver"
-                    isActive={isActive('/registrieren?type=caregiver')}
-                    onClick={() => setIsMenuOpen(false)}
-                  >
+              </MobileNavLink>
+              <MobileNavLink 
+                to="/registrieren?type=caregiver"
+                isActive={isActive('/registrieren?type=caregiver')}
+                onClick={() => setIsMenuOpen(false)}
+              >
                     Betreuer werden
-                  </MobileNavLink>
-                  <div className="pt-2 flex flex-col space-y-2">
-                    <Link
-                      to="/anmelden"
-                      className="btn btn-outline w-full justify-center"
-                      onClick={() => setIsMenuOpen(false)}
-                    >
+              </MobileNavLink>
+              <div className="pt-2 flex flex-col space-y-2">
+                <Link
+                  to="/anmelden"
+                  className="btn btn-outline w-full justify-center"
+                  onClick={() => setIsMenuOpen(false)}
+                >
                       Login
-                    </Link>
-                    <Link
-                      to="/registrieren"
-                      className="btn btn-primary w-full justify-center"
-                    >
+                </Link>
+                <Link
+                  to="/registrieren"
+                  className="btn btn-primary w-full justify-center"
+                >
                       Anmelden
-                    </Link>
-                  </div>
+                </Link>
+              </div>
                 </>
               )}
             </div>

@@ -1,6 +1,6 @@
 import Layout from '../components/layout/Layout';
 import Button from '../components/ui/Button';
-import { MapPin, Phone, PawPrint, Edit, Calendar, Shield, Heart, MessageCircle, Trash, Check, X, Plus, Upload, LogOut, Settings } from 'lucide-react';
+import { MapPin, Phone, PawPrint, Edit, Calendar, Shield, Heart, MessageCircle, Trash, Check, X, Plus, Upload, LogOut, Settings, Camera } from 'lucide-react';
 import { mockPetOwners, mockBookings, mockCaregivers } from '../data/mockData';
 import { formatCurrency } from '../lib/utils';
 import { Link } from 'react-router-dom';
@@ -11,18 +11,6 @@ import { useAuth } from '../lib/auth/AuthContext';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { plzService } from '../lib/supabase/db';
 
-// Mock data für Demo (später durch echte Daten ersetzen)
-const mockPets = [
-  {
-    id: '1',
-    name: 'Bruno',
-    type: 'Hund',
-    breed: 'Deutscher Schäferhund',
-    age: 3,
-    image: 'https://images.unsplash.com/photo-1551717743-49959800b1f6?w=400'
-  }
-];
-
 const ALL_SERVICES = [
   'Gassi-Service',
   'Haustierbetreuung',
@@ -31,6 +19,18 @@ const ALL_SERVICES = [
   'Haussitting',
   'Hundetagesbetreuung',
 ];
+
+// Typ für Haustier-Formulare
+interface PetFormData {
+  name: string;
+  type: string;
+  typeOther: string;
+  breed: string;
+  age: string;
+  image: string | File;
+  gender?: 'Rüde' | 'Hündin' | '';
+  neutered?: boolean;
+}
 
 function PhotoDropzone({ photoUrl, onUpload }: {
   photoUrl?: string;
@@ -65,17 +65,20 @@ function OwnerDashboardPage() {
   const { user, userProfile, loading: authLoading, updateProfileState } = useAuth();
   
   // Demo: initiale Services (später aus DB laden)
-  const [services, setServices] = useState<string[]>(['Gassi-Service', 'Haustierbetreuung', 'Übernachtung']);
-  const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [services, setServices] = useState<string[]>([]);
   const [otherWishes, setOtherWishes] = useState<string[]>([]);
   const [newOtherWish, setNewOtherWish] = useState('');
   const [otherWishError, setOtherWishError] = useState<string | null>(null);
+  const [prefsLoading, setPrefsLoading] = useState(false);
+  const [prefsError, setPrefsError] = useState<string | null>(null);
+  const [prefsSaveMsg, setPrefsSaveMsg] = useState<string | null>(null);
   // Favoriten-State für Kontakte (Demo, lokal)
   const [favoriteContacts, setFavoriteContacts] = useState<string[]>([]);
-  const [pets, setPets] = useState(mockPets);
+  const [pets, setPets] = useState<any[]>([]);
+  const [petsLoading, setPetsLoading] = useState(true);
+  const [petError, setPetError] = useState<string | null>(null);
   const [showAddPet, setShowAddPet] = useState(false);
-  const [newPet, setNewPet] = useState({ name: '', type: '', typeOther: '', breed: '', age: '', image: '' });
+  const [newPet, setNewPet] = useState<PetFormData>({ name: '', type: '', typeOther: '', breed: '', age: '', image: '', gender: '', neutered: false });
   const [activeTab, setActiveTab] = useState<'uebersicht' | 'einstellungen'>('uebersicht');
   const [editData, setEditData] = useState(false);
   const [ownerData, setOwnerData] = useState({
@@ -86,15 +89,21 @@ function OwnerDashboardPage() {
   });
   const [editVet, setEditVet] = useState(false);
   const [vetData, setVetData] = useState({
-    name: 'Dr. med. vet. Sabine Müller',
-    address: 'Tierklinik Berlin, Hauptstraße 123, 10115 Berlin',
-    phone: '030 12345678'
+    name: '',
+    address: '',
+    phone: ''
   });
+  const [vetLoading, setVetLoading] = useState(false);
+  const [vetError, setVetError] = useState<string | null>(null);
+  const [vetSaveMsg, setVetSaveMsg] = useState<string | null>(null);
   const [editEmergency, setEditEmergency] = useState(false);
   const [emergencyData, setEmergencyData] = useState({
-    name: 'Max Mustermann',
-    phone: '0176 98765432'
+    name: '',
+    phone: ''
   });
+  const [emergencyLoading, setEmergencyLoading] = useState(false);
+  const [emergencyError, setEmergencyError] = useState<string | null>(null);
+  const [emergencySaveMsg, setEmergencySaveMsg] = useState<string | null>(null);
   const [contacts, setContacts] = useState(() => 
     mockBookings
       .filter((b) => b.petOwnerId === '1') // Mock-Filter
@@ -112,7 +121,15 @@ function OwnerDashboardPage() {
   });
   const [emailError, setEmailError] = useState<string | null>(null);
   const [editPet, setEditPet] = useState<string | null>(null);
-  const [editPetData, setEditPetData] = useState({ name: '', type: '', typeOther: '', breed: '', age: '', image: '' });
+  const [editPetData, setEditPetData] = useState<PetFormData>({ name: '', type: '', typeOther: '', breed: '', age: '', image: '', gender: '', neutered: false });
+  // State für Edit-Modus und lokale Kopie der Betreuungsvorlieben
+  const [editPrefs, setEditPrefs] = useState(false);
+  const [editServices, setEditServices] = useState<string[]>([]);
+  const [editOtherWishes, setEditOtherWishes] = useState<string[]>([]);
+  const [editNewOtherWish, setEditNewOtherWish] = useState('');
+  const [editOtherWishError, setEditOtherWishError] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   // Load user data on component mount and when userProfile changes
   useEffect(() => {
@@ -135,6 +152,122 @@ function OwnerDashboardPage() {
       }));
     }
   }, [userProfile, user, authLoading]);
+
+  // Haustiere aus DB laden
+  useEffect(() => {
+    const fetchPets = async () => {
+      if (!user) return;
+      setPetsLoading(true);
+      setPetError(null);
+      try {
+        const { data, error } = await petService.getOwnerPets(user.id);
+        if (error) {
+          setPetError('Fehler beim Laden der Tiere!');
+          setPets([]);
+        } else {
+          // Mappe DB-Felder auf UI-Felder
+          setPets(
+            (data || []).map((pet: any) => ({
+              id: pet.id,
+              name: pet.name,
+              type: pet.type,
+              breed: pet.breed || '',
+              age: pet.age ?? '',
+              image: pet.photo_url || '',
+              description: pet.description || '',
+              gender: pet.gender || '',
+              neutered: pet.neutered || false,
+            }))
+          );
+        }
+      } catch (e) {
+        setPetError('Fehler beim Laden der Tiere!');
+        setPets([]);
+      } finally {
+        setPetsLoading(false);
+      }
+    };
+    fetchPets();
+  }, [user]);
+
+  // Tierarzt-Infos aus DB laden
+  useEffect(() => {
+    if (activeTab !== 'einstellungen' || !user) return;
+    setVetLoading(true);
+    setVetError(null);
+    ownerPreferencesService.getPreferences(user.id)
+      .then(({ data, error }) => {
+        if (error) {
+          setVetError('Fehler beim Laden der Tierarzt-Informationen!');
+          setVetData({ name: '', address: '', phone: '' });
+        } else if (data) {
+          // vet_info kann als JSON oder als einzelne Felder vorliegen
+          let name = '', address = '', phone = '';
+          if (data.vet_info) {
+            try {
+              const info = typeof data.vet_info === 'string' ? JSON.parse(data.vet_info) : data.vet_info;
+              name = info.name || '';
+              address = info.address || '';
+              phone = info.phone || '';
+            } catch {
+              // Fallback: evtl. plain string
+              name = data.vet_info;
+            }
+          }
+          setVetData({ name, address, phone });
+        }
+      })
+      .catch(() => setVetError('Fehler beim Laden der Tierarzt-Informationen!'))
+      .finally(() => setVetLoading(false));
+  }, [activeTab, user]);
+
+  // Notfallkontakt aus DB laden
+  useEffect(() => {
+    if (activeTab !== 'einstellungen' || !user) return;
+    setEmergencyLoading(true);
+    setEmergencyError(null);
+    ownerPreferencesService.getPreferences(user.id)
+      .then(({ data, error }) => {
+        if (error) {
+          setEmergencyError('Fehler beim Laden des Notfallkontakts!');
+          setEmergencyData({ name: '', phone: '' });
+        } else if (data) {
+          setEmergencyData({
+            name: data.emergency_contact_name || '',
+            phone: data.emergency_contact_phone || ''
+          });
+        }
+      })
+      .catch(() => setEmergencyError('Fehler beim Laden des Notfallkontakts!'))
+      .finally(() => setEmergencyLoading(false));
+  }, [activeTab, user]);
+
+  // Betreuungsvorlieben aus DB laden
+  useEffect(() => {
+    if (activeTab !== 'einstellungen' || !user) return;
+    setPrefsLoading(true);
+    setPrefsError(null);
+    ownerPreferencesService.getPreferences(user.id)
+      .then(({ data, error }) => {
+        if (error) {
+          setPrefsError('Fehler beim Laden der Betreuungsvorlieben!');
+          setServices([]);
+          setOtherWishes([]);
+        } else if (data) {
+          setServices(data.services || []);
+          // Sonstige Wünsche: als String (mit Komma oder Zeilenumbruch getrennt) oder Array
+          let wishes: string[] = [];
+          if (Array.isArray(data.other_services)) {
+            wishes = data.other_services;
+          } else if (typeof data.other_services === 'string') {
+            wishes = data.other_services.split(/,|\n/).map((w: string) => w.trim()).filter(Boolean);
+          }
+          setOtherWishes(wishes);
+        }
+      })
+      .catch(() => setPrefsError('Fehler beim Laden der Betreuungsvorlieben!'))
+      .finally(() => setPrefsLoading(false));
+  }, [activeTab, user]);
 
   if (authLoading) {
     return <LoadingSpinner />;
@@ -172,14 +305,18 @@ function OwnerDashboardPage() {
     console.warn('⚠️ UserProfile missing, using fallback data for user:', user.id);
   }
 
+  // handleServiceToggle: jetzt mit Autosave
   const handleServiceToggle = (service: string) => {
-    setServices((prev) =>
-      prev.includes(service)
+    setServices((prev) => {
+      const updated = prev.includes(service)
         ? prev.filter((s) => s !== service)
-        : [...prev, service]
-    );
+        : [...prev, service];
+      autosavePreferences(updated, otherWishes);
+      return updated;
+    });
   };
 
+  // handleAddOtherWish: jetzt mit Autosave
   const handleAddOtherWish = () => {
     const trimmed = newOtherWish.trim();
     if (!trimmed) return;
@@ -188,37 +325,42 @@ function OwnerDashboardPage() {
       setOtherWishError('Dieser Wunsch existiert bereits!');
       return;
     }
-    setOtherWishes((prev) => [...prev, trimmed]);
+    const updated = [...otherWishes, trimmed];
+    setOtherWishes(updated);
     setNewOtherWish('');
     setOtherWishError(null);
+    autosavePreferences(services, updated);
   };
 
+  // handleRemoveOtherWish: jetzt mit Autosave
   const handleRemoveOtherWish = (idx: number) => {
-    setOtherWishes((prev) => prev.filter((_, i) => i !== idx));
+    const updated = otherWishes.filter((_, i) => i !== idx);
+    setOtherWishes(updated);
     setOtherWishError(null);
+    autosavePreferences(services, updated);
   };
 
-  const handleOtherWishKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleAddOtherWish();
-    } else if (e.key === 'Escape') {
-      setNewOtherWish('');
-      setOtherWishError(null);
-    }
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    setSaveMsg(null);
-    // TODO: User-ID dynamisch holen
+  // Autosave-Funktion für Betreuungsvorlieben
+  const autosavePreferences = async (servicesToSave: string[], wishesToSave: string[]) => {
+    if (!user) return;
+    setPrefsLoading(true);
+    setPrefsSaveMsg(null);
+    setPrefsError(null);
     try {
-      // await ownerPreferencesService.savePreferences(userId, { services, otherWishes });
-      setSaveMsg('Erfolgreich gespeichert!');
-    } catch (e) {
-      setSaveMsg('Fehler beim Speichern!');
+      const { error } = await ownerPreferencesService.savePreferences(user.id, {
+        services: servicesToSave,
+        otherServices: wishesToSave.join(', '),
+      });
+      if (error) {
+        setPrefsError('Fehler beim Speichern der Betreuungsvorlieben!');
+      } else {
+        setPrefsSaveMsg('Betreuungsvorlieben erfolgreich gespeichert!');
+      }
+    } catch {
+      setPrefsError('Fehler beim Speichern der Betreuungsvorlieben!');
     } finally {
-      setSaving(false);
+      setPrefsLoading(false);
+      setTimeout(() => setPrefsSaveMsg(null), 4000);
     }
   };
 
@@ -230,17 +372,135 @@ function OwnerDashboardPage() {
     );
   };
 
-  const handleAddPet = () => {
+  // Hilfsfunktion für Pet-Image-Upload
+  async function uploadPetPhoto(file: File): Promise<string> {
+    const { supabase } = await import('../lib/supabase/client');
+    const fileExt = file.name.split('.').pop();
+    const filePath = `pet-${user!.id}-${Date.now()}.${fileExt}`;
+    const { error } = await supabase.storage.from('pet-photos').upload(filePath, file, { upsert: true });
+    if (error) throw error;
+    const { data: urlData } = supabase.storage.from('pet-photos').getPublicUrl(filePath);
+    return urlData.publicUrl;
+  }
+
+  // Haustier hinzufügen (DB)
+  const handleAddPet = async () => {
+    if (!user) return;
     if (!newPet.name.trim() || !newPet.type.trim() || (newPet.type === 'Andere' && !newPet.typeOther.trim())) return;
     const typeValue = newPet.type === 'Andere' ? newPet.typeOther : newPet.type;
-    setPets(prev => [...prev, { ...newPet, type: typeValue, id: Date.now().toString(), age: Number(newPet.age) }]);
-    setNewPet({ name: '', type: '', typeOther: '', breed: '', age: '', image: '' });
-    setShowAddPet(false);
+    let photoUrl = '';
+    if (newPet.image && typeof newPet.image !== 'string') {
+      photoUrl = await uploadPetPhoto(newPet.image);
+    } else if (typeof newPet.image === 'string') {
+      photoUrl = newPet.image;
+    }
+    const petData = {
+      name: newPet.name,
+      type: typeValue,
+      breed: newPet.breed,
+      age: Number(newPet.age),
+      photoUrl,
+      description: '',
+      gender: newPet.gender || null,
+      neutered: newPet.neutered || false,
+    };
+    try {
+      const { error } = await petService.addPet(user.id, petData);
+      if (error) throw error;
+      const { data } = await petService.getOwnerPets(user.id);
+      setPets((data || []).map((pet: any) => ({
+        id: pet.id,
+        name: pet.name,
+        type: pet.type,
+        breed: pet.breed || '',
+        age: pet.age ?? '',
+        image: pet.photo_url || '',
+        description: pet.description || '',
+        gender: pet.gender || '',
+        neutered: pet.neutered || false,
+      })));
+      setShowAddPet(false);
+      setNewPet({ name: '', type: '', typeOther: '', breed: '', age: '', image: '', gender: '', neutered: false });
+    } catch (e) {
+      setPetError('Fehler beim Hinzufügen des Tiers!');
+    }
   };
 
+  // Haustier bearbeiten (DB)
+  const handleSavePet = async () => {
+    if (!user) return;
+    if (!editPet) return; // Guard: keine ID, kein Update
+    if (!editPetData.name.trim()) return;
+    let photoUrl = '';
+    if (editPetData.image && typeof editPetData.image !== 'string') {
+      photoUrl = await uploadPetPhoto(editPetData.image);
+    } else if (typeof editPetData.image === 'string') {
+      photoUrl = editPetData.image;
+    }
+    const petData = {
+      name: editPetData.name,
+      type: editPetData.type === 'Andere' ? editPetData.typeOther : editPetData.type,
+      breed: editPetData.breed,
+      age: Number(editPetData.age),
+      photoUrl: photoUrl,
+      description: '',
+      gender: editPetData.gender || null,
+      neutered: editPetData.neutered || false,
+    };
+    try {
+      const { error } = await petService.updatePet(editPet, petData);
+      if (error) throw error;
+      const { data } = await petService.getOwnerPets(user.id);
+      setPets((data || []).map((pet: any) => ({
+        id: pet.id,
+        name: pet.name,
+        type: pet.type,
+        breed: pet.breed || '',
+        age: pet.age ?? '',
+        image: pet.photo_url || '',
+        description: pet.description || '',
+        gender: pet.gender || '',
+        neutered: pet.neutered || false,
+      })));
+      setEditPet(null);
+      setEditPetData({ name: '', type: '', typeOther: '', breed: '', age: '', image: '', gender: '', neutered: false });
+    } catch (e) {
+      setPetError('Fehler beim Bearbeiten des Tiers!');
+    }
+  };
+
+  // Haustier löschen (DB)
+  const handleDeletePet = async (petId: string) => {
+    if (!user) return;
+    try {
+      const { error } = await petService.deletePet(petId);
+      if (error) throw error;
+      const { data } = await petService.getOwnerPets(user.id);
+      setPets((data || []).map((pet: any) => ({
+        id: pet.id,
+        name: pet.name,
+        type: pet.type,
+        breed: pet.breed || '',
+        age: pet.age ?? '',
+        image: pet.photo_url || '',
+        description: pet.description || '',
+        gender: pet.gender || '',
+        neutered: pet.neutered || false,
+      })));
+      setEditPet(null);
+    } catch (e) {
+      setPetError('Fehler beim Löschen des Tiers!');
+    }
+  };
+
+  // Haustier-Foto-Upload für neues Tier
   const handlePetPhotoUpload = (file: File) => {
-    const url = URL.createObjectURL(file);
-    setNewPet(p => ({ ...p, image: url }));
+    setNewPet(p => ({ ...p, image: file }));
+  };
+
+  // Haustier-Foto-Upload für Edit
+  const handleEditPetPhotoUpload = (file: File) => {
+    setEditPetData(p => ({ ...p, image: file }));
   };
 
   const handleEditPet = (pet: any) => {
@@ -251,29 +511,10 @@ function OwnerDashboardPage() {
       typeOther: '',
       breed: pet.breed,
       age: pet.age.toString(),
-      image: pet.image
+      image: pet.image,
+      gender: pet.gender || '',
+      neutered: pet.neutered || false,
     });
-  };
-
-  const handleSavePet = () => {
-    if (!editPetData.name.trim()) return;
-    setPets(prev => prev.map(pet => 
-      pet.id === editPet 
-        ? { ...pet, ...editPetData, age: Number(editPetData.age) }
-        : pet
-    ));
-    setEditPet(null);
-    setEditPetData({ name: '', type: '', typeOther: '', breed: '', age: '', image: '' });
-  };
-
-  const handleDeletePet = (petId: string) => {
-    setPets(prev => prev.filter(pet => pet.id !== petId));
-    setEditPet(null);
-  };
-
-  const handleEditPetPhotoUpload = (file: File) => {
-    const url = URL.createObjectURL(file);
-    setEditPetData(p => ({ ...p, image: url }));
   };
 
   const handleDeleteContact = (caregiverId: string) => {
@@ -322,9 +563,6 @@ function OwnerDashboardPage() {
   const handleSaveOwnerData = async () => {
     if (!user) return; // Should not happen due to auth check, but for safety
 
-    setSaving(true);
-    setSaveMsg(null);
-
     try {
       // Prepare data for updateProfile
       const dataToUpdate: { [key: string]: any } = {};
@@ -366,9 +604,6 @@ function OwnerDashboardPage() {
 
       // If no fields have changed, exit without saving
       if (Object.keys(dataToUpdate).length === 0) {
-          setSaveMsg('Keine Änderungen zu speichern.');
-          setEditData(false);
-          setTimeout(() => setSaveMsg(null), 3000);
           return;
       }
 
@@ -377,10 +612,8 @@ function OwnerDashboardPage() {
 
       if (updateError) {
         console.error('Fehler beim Speichern der Kontaktdaten:', updateError);
-        setSaveMsg(`Fehler beim Speichern: ${updateError.message || updateError}`);
       } else if (updatedProfile && updatedProfile.length > 0) {
         console.log('Kontaktdaten erfolgreich gespeichert:', updatedProfile[0]);
-        setSaveMsg('Kontaktdaten erfolgreich gespeichert!');
         // Update the profile state in AuthContext
         updateProfileState(updatedProfile[0]);
         // Exit edit mode
@@ -388,16 +621,10 @@ function OwnerDashboardPage() {
       } else {
          // Handle cases where there's no error but no data returned (shouldn't happen with select())
          console.error('Speichern erfolgreich, aber keine Daten zurückgegeben.', updatedProfile);
-         setSaveMsg('Speichern erfolgreich, aber Profil konnte nicht aktualisiert werden.');
          setEditData(false); // Still exit edit mode
       }
     } catch (e) {
       console.error('Exception beim Speichern der Kontaktdaten:', e);
-      setSaveMsg(`Ein unerwarteter Fehler ist aufgetreten: ${e instanceof Error ? e.message : e}`);
-    } finally {
-      setSaving(false);
-      // Clear save message after a few seconds
-      setTimeout(() => setSaveMsg(null), 5000);
     }
   };
 
@@ -421,7 +648,183 @@ function OwnerDashboardPage() {
        setOwnerData({ phoneNumber: '', email: '', plz: '', location: '' });
     }
     setEditData(false); // Exit edit mode
-    setSaveMsg(null); // Clear any message
+  };
+
+  // Tierarzt-Infos speichern
+  const handleSaveVet = async () => {
+    if (!user) return;
+    setVetLoading(true);
+    setVetSaveMsg(null);
+    setVetError(null);
+    try {
+      const { error } = await ownerPreferencesService.savePreferences(user.id, {
+        vetName: vetData.name,
+        vetAddress: vetData.address,
+        vetPhone: vetData.phone,
+        services: [], // Pflichtfeld, aber hier nicht relevant
+      });
+      if (error) {
+        setVetError('Fehler beim Speichern der Tierarzt-Informationen!');
+      } else {
+        setVetSaveMsg('Tierarzt-Informationen erfolgreich gespeichert!');
+        setEditVet(false);
+      }
+    } catch {
+      setVetError('Fehler beim Speichern der Tierarzt-Informationen!');
+    } finally {
+      setVetLoading(false);
+      setTimeout(() => setVetSaveMsg(null), 4000);
+    }
+  };
+
+  // Notfallkontakt speichern
+  const handleSaveEmergency = async () => {
+    if (!user) return;
+    setEmergencyLoading(true);
+    setEmergencySaveMsg(null);
+    setEmergencyError(null);
+    try {
+      const { error } = await ownerPreferencesService.savePreferences(user.id, {
+        emergencyContactName: emergencyData.name,
+        emergencyContactPhone: emergencyData.phone,
+        services: [], // Pflichtfeld, aber hier nicht relevant
+      });
+      if (error) {
+        setEmergencyError('Fehler beim Speichern des Notfallkontakts!');
+      } else {
+        setEmergencySaveMsg('Notfallkontakt erfolgreich gespeichert!');
+        setEditEmergency(false);
+      }
+    } catch {
+      setEmergencyError('Fehler beim Speichern des Notfallkontakts!');
+    } finally {
+      setEmergencyLoading(false);
+      setTimeout(() => setEmergencySaveMsg(null), 4000);
+    }
+  };
+
+  // handleOtherWishKeyDown für das Wünsche-Input (Enter: hinzufügen, Escape: leeren)
+  const handleOtherWishKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddOtherWish();
+    } else if (e.key === 'Escape') {
+      setNewOtherWish('');
+      setOtherWishError(null);
+    }
+  };
+
+  // Edit-Modus aktivieren: lokale Kopie der aktuellen Werte
+  const handleEditPrefs = () => {
+    setEditPrefs(true);
+    setEditServices(services);
+    setEditOtherWishes(otherWishes);
+    setEditNewOtherWish('');
+    setEditOtherWishError(null);
+  };
+
+  // Edit-Modus abbrechen: zurücksetzen
+  const handleCancelEditPrefs = () => {
+    setEditPrefs(false);
+    setEditServices([]);
+    setEditOtherWishes([]);
+    setEditNewOtherWish('');
+    setEditOtherWishError(null);
+  };
+
+  // Checkbox-Änderung im Edit-Modus
+  const handleEditServiceToggle = (service: string) => {
+    setEditServices((prev) =>
+      prev.includes(service)
+        ? prev.filter((s) => s !== service)
+        : [...prev, service]
+    );
+  };
+
+  // Wünsche hinzufügen/entfernen im Edit-Modus
+  const handleEditAddOtherWish = () => {
+    const trimmed = editNewOtherWish.trim();
+    if (!trimmed) return;
+    const exists = editOtherWishes.some(w => w.trim().toLowerCase() === trimmed.toLowerCase());
+    if (exists) {
+      setEditOtherWishError('Dieser Wunsch existiert bereits!');
+      return;
+    }
+    setEditOtherWishes((prev) => [...prev, trimmed]);
+    setEditNewOtherWish('');
+    setEditOtherWishError(null);
+  };
+  const handleEditRemoveOtherWish = (idx: number) => {
+    setEditOtherWishes((prev) => prev.filter((_, i) => i !== idx));
+    setEditOtherWishError(null);
+  };
+  const handleEditOtherWishKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleEditAddOtherWish();
+    } else if (e.key === 'Escape') {
+      setEditNewOtherWish('');
+      setEditOtherWishError(null);
+    }
+  };
+
+  // Prüfen, ob Änderungen vorliegen
+  const prefsChanged =
+    JSON.stringify(editServices) !== JSON.stringify(services) ||
+    JSON.stringify(editOtherWishes) !== JSON.stringify(otherWishes);
+
+  // Speichern der Änderungen
+  const handleSaveEditPrefs = async () => {
+    if (!user) return;
+    setPrefsLoading(true);
+    setPrefsSaveMsg(null);
+    setPrefsError(null);
+    try {
+      const { error } = await ownerPreferencesService.savePreferences(user.id, {
+        services: editServices,
+        otherServices: editOtherWishes.join(', '),
+      });
+      if (error) {
+        setPrefsError('Fehler beim Speichern der Betreuungsvorlieben!');
+      } else {
+        setPrefsSaveMsg('Betreuungsvorlieben erfolgreich gespeichert!');
+        setServices(editServices);
+        setOtherWishes(editOtherWishes);
+        setEditPrefs(false);
+      }
+    } catch {
+      setPrefsError('Fehler beim Speichern der Betreuungsvorlieben!');
+    } finally {
+      setPrefsLoading(false);
+      setTimeout(() => setPrefsSaveMsg(null), 4000);
+    }
+  };
+
+  // Profilbild-Upload
+  async function uploadProfilePhoto(file: File): Promise<string> {
+    const { supabase } = await import('../lib/supabase/client');
+    const fileExt = file.name.split('.').pop();
+    const filePath = `profile-${user!.id}-${Date.now()}.${fileExt}`;
+    const { error } = await supabase.storage.from('profile-photos').upload(filePath, file, { upsert: true });
+    if (error) throw error;
+    const { data: urlData } = supabase.storage.from('profile-photos').getPublicUrl(filePath);
+    return urlData.publicUrl;
+  }
+
+  const handleProfilePhotoUpload = async (file: File) => {
+    if (!user) return;
+    setAvatarUploading(true);
+    setAvatarError(null);
+    try {
+      const url = await uploadProfilePhoto(file);
+      const { data, error } = await userService.updateUserProfile(user.id, { profilePhotoUrl: url });
+      if (error) throw error;
+      if (data && data[0]) updateProfileState(data[0]);
+    } catch (e: any) {
+      setAvatarError('Fehler beim Hochladen des Profilbilds!');
+    } finally {
+      setAvatarUploading(false);
+    }
   };
 
   return (
@@ -430,11 +833,28 @@ function OwnerDashboardPage() {
         {/* Profil-Header */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
           <div className="flex flex-col lg:flex-row items-start gap-6">
-            <img
-              src={avatarUrl}
-              alt={fullName}
-              className="w-32 h-32 rounded-full object-cover border-4 border-primary-100 shadow mx-auto lg:mx-0"
-            />
+            <div className="relative w-32 h-32 mx-auto lg:mx-0">
+              <img
+                src={avatarUrl}
+                alt={fullName}
+                className="w-32 h-32 rounded-full object-cover border-4 border-primary-100 shadow"
+              />
+              {/* Overlay-Button für Upload */}
+              <label className="absolute bottom-2 right-2 bg-white rounded-full p-2 shadow cursor-pointer hover:bg-primary-50 transition-colors border border-gray-200">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => {
+                    if (e.target.files && e.target.files[0]) handleProfilePhotoUpload(e.target.files[0]);
+                  }}
+                  disabled={avatarUploading}
+                />
+                <Camera className="h-5 w-5 text-primary-600" />
+              </label>
+              {avatarUploading && <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-full"><LoadingSpinner /></div>}
+              {avatarError && <div className="absolute left-0 right-0 -bottom-8 text-xs text-red-500 text-center">{avatarError}</div>}
+            </div>
             
             <div className="flex-1 w-full">
               <div className="flex flex-col lg:flex-row gap-8">
@@ -544,21 +964,17 @@ function OwnerDashboardPage() {
                           <button
                             className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm"
                             onClick={handleSaveOwnerData}
-                            disabled={!!emailError || !ownerData.email.trim() || saving}
+                            disabled={!!emailError || !ownerData.email.trim()}
                           >
-                            {saving ? 'Speichern...' : 'Speichern'}
+                            Speichern
                           </button>
                           <button
                             className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
                             onClick={handleCancelEdit}
-                            disabled={saving}
                           >
                             Abbrechen
                           </button>
                         </div>
-                        {saveMsg && (
-                          <p className={`text-sm mt-2 ${saveMsg.includes('Erfolgreich') ? 'text-green-600' : 'text-red-600'}`}>{saveMsg}</p>
-                        )}
                       </div>
                     )}
                   </div>
@@ -604,114 +1020,148 @@ function OwnerDashboardPage() {
             {/* Haustiere */}
             <div className="mb-8">
               <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><PawPrint className="h-5 w-5" />Meine Tiere</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {pets.map((pet) => (
-                  <div key={pet.id} className="bg-white rounded-xl shadow-sm p-4 relative">
-                    {editPet !== pet.id ? (
-                      <>
-                        {/* Edit-Button oben rechts */}
-                        <button
-                          type="button"
-                          className="absolute top-4 right-4 text-gray-400 hover:text-primary-600 transition-colors"
-                          aria-label="Tier bearbeiten"
-                          onClick={() => handleEditPet(pet)}
-                        >
-                          <Edit className="h-3.5 w-3.5" />
-                        </button>
-                        
-                        <div className="flex gap-4 items-center">
-                          <img src={pet.image} alt={pet.name} className="w-20 h-20 rounded-full object-cover border-2 border-primary-100" />
-                          <div>
-                            <div className="font-bold text-lg">{pet.name}</div>
-                            <div className="text-gray-600 text-sm">{pet.type} • {pet.breed}</div>
-                            <div className="text-gray-500 text-sm">Alter: {pet.age} Jahre</div>
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="space-y-3">
-                          <div>
-                            <PhotoDropzone
-                              photoUrl={editPetData.image}
-                              onUpload={handleEditPetPhotoUpload}
-                            />
-                          </div>
-                          <input
-                            type="text"
-                            className="input w-full"
-                            placeholder="Name"
-                            value={editPetData.name}
-                            onChange={e => setEditPetData(p => ({ ...p, name: e.target.value }))}
-                          />
-                          <select
-                            className="input w-full"
-                            value={editPetData.type}
-                            onChange={e => setEditPetData(p => ({ ...p, type: e.target.value, typeOther: '' }))}
+              {petsLoading ? (
+                <div className="text-gray-500">Tiere werden geladen ...</div>
+              ) : petError ? (
+                <div className="text-red-500">{petError}</div>
+              ) : pets.length === 0 ? (
+                <div className="text-gray-500 italic">Hier ist noch gähnende Leere…  Füge jetzt dein erstes Tier hinzu!</div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {pets.map((pet) => (
+                    <div key={pet.id} className="bg-white rounded-xl shadow-sm p-4 relative">
+                      {editPet !== pet.id ? (
+                        <>
+                          {/* Edit-Button oben rechts */}
+                          <button
+                            type="button"
+                            className="absolute top-4 right-4 text-gray-400 hover:text-primary-600 transition-colors"
+                            aria-label="Tier bearbeiten"
+                            onClick={() => handleEditPet(pet)}
                           >
-                            <option value="">Art auswählen</option>
-                            <option value="Hund">Hund</option>
-                            <option value="Katze">Katze</option>
-                            <option value="Vogel">Vogel</option>
-                            <option value="Kaninchen">Kaninchen</option>
-                            <option value="Andere">Andere</option>
-                          </select>
-                          {editPetData.type === 'Andere' && (
+                            <Edit className="h-3.5 w-3.5" />
+                          </button>
+                          
+                          <div className="flex gap-4 items-center">
+                            <img src={typeof pet.image === 'string' ? pet.image : ''} alt={pet.name} className="w-20 h-20 rounded-full object-cover border-2 border-primary-100" />
+                            <div>
+                              <div className="font-bold text-lg">{pet.name}</div>
+                              <div className="text-gray-600 text-sm">{pet.type} • {pet.breed}</div>
+                              <div className="text-gray-500 text-sm">Alter: {pet.age} Jahre</div>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="space-y-3">
+                            <div>
+                              <PhotoDropzone
+                                photoUrl={typeof editPetData.image === 'string' ? editPetData.image : ''}
+                                onUpload={handleEditPetPhotoUpload}
+                              />
+                            </div>
                             <input
                               type="text"
                               className="input w-full"
-                              placeholder="Bitte Tierart angeben"
-                              value={editPetData.typeOther}
-                              onChange={e => setEditPetData(p => ({ ...p, typeOther: e.target.value }))}
+                              placeholder="Name"
+                              value={editPetData.name}
+                              onChange={e => setEditPetData(p => ({ ...p, name: e.target.value }))}
                             />
-                          )}
-                          <input
-                            type="text"
-                            className="input w-full"
-                            placeholder="Rasse"
-                            value={editPetData.breed}
-                            onChange={e => setEditPetData(p => ({ ...p, breed: e.target.value }))}
-                          />
-                          <input
-                            type="number"
-                            className="input w-full"
-                            placeholder="Alter (Jahre)"
-                            value={editPetData.age}
-                            onChange={e => setEditPetData(p => ({ ...p, age: e.target.value }))}
-                          />
-                          <div className="flex gap-2 pt-2">
-                            <button
-                              type="button"
-                              className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm"
-                              onClick={handleSavePet}
-                              disabled={!editPetData.name.trim()}
+                            <select
+                              className="input w-full"
+                              value={editPetData.type}
+                              onChange={e => setEditPetData(p => ({ ...p, type: e.target.value, typeOther: '' }))}
                             >
-                              <Check className="h-4 w-4 inline mr-1" /> Speichern
-                            </button>
-                            <button
-                              type="button"
-                              className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
-                              onClick={() => setEditPet(null)}
-                            >
-                              <X className="h-4 w-4 inline mr-1" /> Abbrechen
-                            </button>
+                              <option value="">Art auswählen</option>
+                              <option value="Hund">Hund</option>
+                              <option value="Katze">Katze</option>
+                              <option value="Vogel">Vogel</option>
+                              <option value="Kaninchen">Kaninchen</option>
+                              <option value="Andere">Andere</option>
+                            </select>
+                            {editPetData.type === 'Andere' && (
+                              <input
+                                type="text"
+                                className="input w-full"
+                                placeholder="Bitte Tierart angeben"
+                                value={editPetData.typeOther}
+                                onChange={e => setEditPetData(p => ({ ...p, typeOther: e.target.value }))}
+                              />
+                            )}
+                            <input
+                              type="text"
+                              className="input w-full"
+                              placeholder="Rasse"
+                              value={editPetData.breed}
+                              onChange={e => setEditPetData(p => ({ ...p, breed: e.target.value }))}
+                            />
+                            <input
+                              type="number"
+                              className="input w-full"
+                              placeholder="Alter (Jahre)"
+                              value={editPetData.age}
+                              onChange={e => setEditPetData(p => ({ ...p, age: e.target.value }))}
+                            />
+                            {editPetData.type === 'Hund' && (
+                              <div className="flex gap-4 items-center mt-2">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Geschlecht</label>
+                                  <select
+                                    className="input"
+                                    value={editPetData.gender || ''}
+                                    onChange={e => setEditPetData(p => ({ ...p, gender: e.target.value as 'Rüde' | 'Hündin' }))}
+                                  >
+                                    <option value="">Auswählen</option>
+                                    <option value="Rüde">Rüde</option>
+                                    <option value="Hündin">Hündin</option>
+                                  </select>
+                                </div>
+                                <div className="flex items-center mt-6">
+                                  <input
+                                    type="checkbox"
+                                    id="neutered-edit"
+                                    checked={!!editPetData.neutered}
+                                    onChange={e => setEditPetData(p => ({ ...p, neutered: e.target.checked }))}
+                                    className="mr-2"
+                                  />
+                                  <label htmlFor="neutered-edit" className="text-sm">kastriert/sterilisiert</label>
+                                </div>
+                              </div>
+                            )}
+                            <div className="flex gap-2 pt-2">
+                              <button
+                                type="button"
+                                className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm"
+                                onClick={handleSavePet}
+                                disabled={!editPetData.name.trim()}
+                              >
+                                <Check className="h-4 w-4 inline mr-1" /> Speichern
+                              </button>
+                              <button
+                                type="button"
+                                className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
+                                onClick={() => setEditPet(null)}
+                              >
+                                <X className="h-4 w-4 inline mr-1" /> Abbrechen
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                        
-                        {/* Delete-Button unten rechts */}
-                        <button
-                          type="button"
-                          className="absolute bottom-4 right-4 text-red-400 hover:text-red-600 transition-colors"
-                          aria-label="Tier löschen"
-                          onClick={() => handleDeletePet(pet.id)}
-                        >
-                          <Trash className="h-5 w-5" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
+                          
+                          {/* Delete-Button unten rechts */}
+                          <button
+                            type="button"
+                            className="absolute bottom-4 right-4 text-red-400 hover:text-red-600 transition-colors"
+                            aria-label="Tier löschen"
+                            onClick={() => handleDeletePet(pet.id)}
+                          >
+                            <Trash className="h-5 w-5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="mt-4">
                 {!showAddPet ? (
                   <button
@@ -765,8 +1215,34 @@ function OwnerDashboardPage() {
                       value={newPet.age}
                       onChange={e => setNewPet(p => ({ ...p, age: e.target.value }))}
                     />
+                    {newPet.type === 'Hund' && (
+                      <div className="flex gap-4 items-center mt-2">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Geschlecht</label>
+                          <select
+                            className="input"
+                            value={newPet.gender || ''}
+                            onChange={e => setNewPet(p => ({ ...p, gender: e.target.value as 'Rüde' | 'Hündin' }))}
+                          >
+                            <option value="">Auswählen</option>
+                            <option value="Rüde">Rüde</option>
+                            <option value="Hündin">Hündin</option>
+                          </select>
+                        </div>
+                        <div className="flex items-center mt-6">
+                          <input
+                            type="checkbox"
+                            id="neutered-new"
+                            checked={!!newPet.neutered}
+                            onChange={e => setNewPet(p => ({ ...p, neutered: e.target.checked }))}
+                            className="mr-2"
+                          />
+                          <label htmlFor="neutered-new" className="text-sm">kastriert/sterilisiert</label>
+                        </div>
+                      </div>
+                    )}
                     <PhotoDropzone
-                      photoUrl={newPet.image}
+                      photoUrl={typeof newPet.image === 'string' ? newPet.image : ''}
                       onUpload={handlePetPhotoUpload}
                     />
                     <div className="flex gap-2 mt-2">
@@ -781,7 +1257,7 @@ function OwnerDashboardPage() {
                       <button
                         type="button"
                         className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
-                        onClick={() => { setShowAddPet(false); setNewPet({ name: '', type: '', typeOther: '', breed: '', age: '', image: '' }); }}
+                        onClick={() => { setShowAddPet(false); setNewPet({ name: '', type: '', typeOther: '', breed: '', age: '', image: '', gender: '', neutered: false }); }}
                       >
                         <X className="h-4 w-4 inline" /> Abbrechen
                       </button>
@@ -859,19 +1335,26 @@ function OwnerDashboardPage() {
                 <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Shield className="h-5 w-5" />Tierarzt-Informationen</h2>
                 <div className="bg-white rounded-xl shadow-sm p-4 text-gray-600 relative">
                   {/* Edit-Button oben rechts */}
-                  <button
-                    type="button"
-                    className="absolute top-4 right-4 text-gray-400 hover:text-primary-600 transition-colors"
-                    aria-label="Tierarzt-Informationen bearbeiten"
-                    onClick={() => setEditVet(true)}
-                  >
-                    <Edit className="h-3.5 w-3.5" />
-                  </button>
-                  {!editVet ? (
+                  {!editVet && (
+                    <button
+                      type="button"
+                      className="absolute top-4 right-4 text-gray-400 hover:text-primary-600 transition-colors"
+                      aria-label="Tierarzt-Informationen bearbeiten"
+                      onClick={() => setEditVet(true)}
+                    >
+                      <Edit className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {vetLoading ? (
+                    <div className="text-gray-500">Tierarzt-Informationen werden geladen ...</div>
+                  ) : vetError ? (
+                    <div className="text-red-500">{vetError}</div>
+                  ) : !editVet ? (
                     <>
-                      <div className="mb-2"><span className="font-medium">Name:</span> {vetData.name}</div>
-                      <div className="mb-2"><span className="font-medium">Adresse:</span> {vetData.address}</div>
-                      <div className="mb-2"><span className="font-medium">Telefon:</span> {vetData.phone}</div>
+                      <div className="mb-2"><span className="font-medium">Name:</span> {vetData.name || '—'}</div>
+                      <div className="mb-2"><span className="font-medium">Adresse:</span> {vetData.address || '—'}</div>
+                      <div className="mb-2"><span className="font-medium">Telefon:</span> {vetData.phone || '—'}</div>
+                      {vetSaveMsg && <div className="text-green-600 text-sm mt-2">{vetSaveMsg}</div>}
                     </>
                   ) : (
                     <>
@@ -889,14 +1372,15 @@ function OwnerDashboardPage() {
                           type="tel" 
                           className="input mt-1" 
                           value={vetData.phone} 
-                          onChange={e => handlePhoneNumberChange(e.target.value, 'vetPhone')}
+                          onChange={e => setVetData(d => ({ ...d, phone: e.target.value }))}
                           placeholder="+49 123 456789"
                         />
                       </div>
                       <div className="flex gap-2 mt-2">
-                        <button className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm" onClick={() => setEditVet(false)}>Speichern</button>
-                        <button className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm" onClick={() => setEditVet(false)}>Abbrechen</button>
+                        <button className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm" onClick={handleSaveVet} disabled={vetLoading}>Speichern</button>
+                        <button className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm" onClick={() => setEditVet(false)} disabled={vetLoading}>Abbrechen</button>
                       </div>
+                      {vetSaveMsg && <div className="text-green-600 text-sm mt-2">{vetSaveMsg}</div>}
                     </>
                   )}
                 </div>
@@ -907,18 +1391,25 @@ function OwnerDashboardPage() {
                 <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Phone className="h-5 w-5" />Notfallkontakt</h2>
                 <div className="bg-white rounded-xl shadow-sm p-4 text-gray-600 relative">
                   {/* Edit-Button oben rechts */}
-                  <button
-                    type="button"
-                    className="absolute top-4 right-4 text-gray-400 hover:text-primary-600 transition-colors"
-                    aria-label="Notfallkontakt bearbeiten"
-                    onClick={() => setEditEmergency(true)}
-                  >
-                    <Edit className="h-3.5 w-3.5" />
-                  </button>
-                  {!editEmergency ? (
+                  {!editEmergency && (
+                    <button
+                      type="button"
+                      className="absolute top-4 right-4 text-gray-400 hover:text-primary-600 transition-colors"
+                      aria-label="Notfallkontakt bearbeiten"
+                      onClick={() => setEditEmergency(true)}
+                    >
+                      <Edit className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {emergencyLoading ? (
+                    <div className="text-gray-500">Notfallkontakt wird geladen ...</div>
+                  ) : emergencyError ? (
+                    <div className="text-red-500">{emergencyError}</div>
+                  ) : !editEmergency ? (
                     <>
-                      <div className="mb-2"><span className="font-medium">Name:</span> {emergencyData.name}</div>
-                      <div><span className="font-medium">Telefon:</span> {emergencyData.phone}</div>
+                      <div className="mb-2"><span className="font-medium">Name:</span> {emergencyData.name || '—'}</div>
+                      <div><span className="font-medium">Telefon:</span> {emergencyData.phone || '—'}</div>
+                      {emergencySaveMsg && <div className="text-green-600 text-sm mt-2">{emergencySaveMsg}</div>}
                     </>
                   ) : (
                     <>
@@ -932,14 +1423,15 @@ function OwnerDashboardPage() {
                           type="tel" 
                           className="input mt-1" 
                           value={emergencyData.phone} 
-                          onChange={e => handlePhoneNumberChange(e.target.value, 'emergencyPhone')}
+                          onChange={e => setEmergencyData(d => ({ ...d, phone: e.target.value }))}
                           placeholder="+49 123 456789"
                         />
                       </div>
                       <div className="flex gap-2 mt-2">
-                        <button className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm" onClick={() => setEditEmergency(false)}>Speichern</button>
-                        <button className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm" onClick={() => setEditEmergency(false)}>Abbrechen</button>
+                        <button className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm" onClick={handleSaveEmergency} disabled={emergencyLoading}>Speichern</button>
+                        <button className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm" onClick={() => setEditEmergency(false)} disabled={emergencyLoading}>Abbrechen</button>
                       </div>
+                      {emergencySaveMsg && <div className="text-green-600 text-sm mt-2">{emergencySaveMsg}</div>}
                     </>
                   )}
                 </div>
@@ -952,85 +1444,155 @@ function OwnerDashboardPage() {
                 <Calendar className="h-5 w-5" />
                 Betreuungsvorlieben
               </h2>
-              <div className="bg-white rounded-xl shadow-sm p-6">
-                <div className="mb-6">
-                  <h3 className="text-lg font-medium mb-3">Gewünschte Services</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {ALL_SERVICES.map((service) => (
-                      <label key={service} className="flex items-center space-x-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={services.includes(service)}
-                          onChange={() => handleServiceToggle(service)}
-                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                        />
-                        <span className="text-gray-700">{service}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-medium mb-3">Sonstige Wünsche</h3>
-                  {otherWishes.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {otherWishes.map((wish, idx) => (
-                        <span
-                          key={idx}
-                          className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-50 text-primary-700"
-                        >
-                          {wish}
-                          <button
-                            type="button"
-                            className="ml-2 text-primary-500 hover:text-primary-700"
-                            onClick={() => handleRemoveOtherWish(idx)}
-                            aria-label={`${wish} entfernen`}
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </span>
-                      ))}
+              <div className="bg-white rounded-xl shadow-sm p-4 relative">
+                {/* Edit-Button oben rechts */}
+                {!editPrefs && (
+                  <button
+                    type="button"
+                    className="absolute top-4 right-4 text-gray-400 hover:text-primary-600 transition-colors"
+                    aria-label="Betreuungsvorlieben bearbeiten"
+                    onClick={handleEditPrefs}
+                  >
+                    <Edit className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                {prefsLoading ? (
+                  <div className="text-gray-500">Betreuungsvorlieben werden geladen ...</div>
+                ) : prefsError ? (
+                  <div className="text-red-500">{prefsError}</div>
+                ) : !editPrefs ? (
+                  <>
+                    <div className="mb-6">
+                      <h3 className="text-lg font-medium mb-3">Gewünschte Services</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {ALL_SERVICES.map((service) => (
+                          <label key={service} className="flex items-center space-x-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={services.includes(service)}
+                              disabled
+                              className="h-4 w-4 text-primary-600 border-gray-300 rounded cursor-not-allowed"
+                            />
+                            <span className="text-gray-700">{service}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  )}
-                  
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      className="input flex-1"
-                      placeholder="Neuen Wunsch eingeben..."
-                      value={newOtherWish}
-                      onChange={(e) => {
-                        setNewOtherWish(e.target.value);
-                        setOtherWishError(null);
-                      }}
-                      onKeyDown={handleOtherWishKeyDown}
-                    />
-                    <button
-                      type="button"
-                      className="p-2 text-green-600 hover:text-green-700 disabled:opacity-50"
-                      onClick={handleAddOtherWish}
-                      disabled={!newOtherWish.trim()}
-                      aria-label="Wunsch hinzufügen"
-                    >
-                      <Check className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      className="p-2 text-gray-400 hover:text-gray-600"
-                      onClick={() => {
-                        setNewOtherWish('');
-                        setOtherWishError(null);
-                      }}
-                      aria-label="Eingabe löschen"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                  
-                  {otherWishError && (
-                    <p className="text-red-500 text-sm mt-1">{otherWishError}</p>
-                  )}
-                </div>
+                    <div>
+                      <h3 className="text-lg font-medium mb-3">Sonstige Wünsche</h3>
+                      {otherWishes.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {otherWishes.map((wish, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-50 text-primary-700"
+                            >
+                              {wish}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {prefsSaveMsg && <span className="text-green-600 text-sm mt-2">{prefsSaveMsg}</span>}
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-6">
+                      <h3 className="text-lg font-medium mb-3">Gewünschte Services</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {ALL_SERVICES.map((service) => (
+                          <label key={service} className="flex items-center space-x-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={editServices.includes(service)}
+                              onChange={() => handleEditServiceToggle(service)}
+                              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                            />
+                            <span className="text-gray-700">{service}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-medium mb-3">Sonstige Wünsche</h3>
+                      {editOtherWishes.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {editOtherWishes.map((wish, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-50 text-primary-700"
+                            >
+                              {wish}
+                              <button
+                                type="button"
+                                className="ml-2 text-primary-500 hover:text-primary-700"
+                                onClick={() => handleEditRemoveOtherWish(idx)}
+                                aria-label={`${wish} entfernen`}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          className="input flex-1"
+                          placeholder="Neuen Wunsch eingeben..."
+                          value={editNewOtherWish}
+                          onChange={(e) => {
+                            setEditNewOtherWish(e.target.value);
+                            setEditOtherWishError(null);
+                          }}
+                          onKeyDown={handleEditOtherWishKeyDown}
+                        />
+                        <button
+                          type="button"
+                          className="p-2 text-green-600 hover:text-green-700 disabled:opacity-50"
+                          onClick={handleEditAddOtherWish}
+                          disabled={!editNewOtherWish.trim()}
+                          aria-label="Wunsch hinzufügen"
+                        >
+                          <Check className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          className="p-2 text-gray-400 hover:text-gray-600"
+                          onClick={() => {
+                            setEditNewOtherWish('');
+                            setEditOtherWishError(null);
+                          }}
+                          aria-label="Eingabe löschen"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      {editOtherWishError && (
+                        <p className="text-red-500 text-sm mt-1">{editOtherWishError}</p>
+                      )}
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                      <button
+                        type="button"
+                        className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm"
+                        onClick={handleSaveEditPrefs}
+                        disabled={!prefsChanged || prefsLoading}
+                      >
+                        {prefsLoading ? 'Speichern...' : 'Speichern'}
+                      </button>
+                      <button
+                        type="button"
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
+                        onClick={handleCancelEditPrefs}
+                        disabled={prefsLoading}
+                      >
+                        Abbrechen
+                      </button>
+                      {prefsSaveMsg && <span className="text-green-600 text-sm mt-2">{prefsSaveMsg}</span>}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
