@@ -106,6 +106,9 @@ function HomePage() {
                   <Search className="w-5 h-5" /> Finde einen Tiersitter
                 </button>
               </form>
+              <div className="mt-4">
+                {/* Demo-Button entfernt */}
+              </div>
               <div className="flex gap-4 mt-2">
               </div>
             </div>

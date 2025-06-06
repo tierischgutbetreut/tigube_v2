@@ -269,3 +269,44 @@ export const plzService = {
     return { data, error };
   },
 };
+
+// Caretaker-Profil-Funktionen
+export const caretakerProfileService = {
+  // Profil anlegen oder aktualisieren
+  saveProfile: async (userId: string, profile: {
+    services: string[];
+    animalTypes: string[];
+    prices: Record<string, any>;
+    serviceRadius: number;
+    availability: Record<string, string[]>;
+    homePhotos: string[];
+    qualifications: string[];
+    experienceDescription: string;
+  }) => {
+    const { data, error } = await supabase
+      .from('caretaker_profiles')
+      .upsert({
+        id: userId,
+        services: profile.services,
+        animal_types: profile.animalTypes,
+        prices: profile.prices,
+        service_radius: profile.serviceRadius,
+        availability: profile.availability,
+        home_photos: profile.homePhotos,
+        qualifications: profile.qualifications,
+        experience_description: profile.experienceDescription,
+      }, { onConflict: 'id' })
+      .select();
+    return { data, error };
+  },
+
+  // Caretaker-Profil abrufen
+  getProfile: async (userId: string) => {
+    const { data, error } = await supabase
+      .from('caretaker_profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    return { data, error };
+  },
+};

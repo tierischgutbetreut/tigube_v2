@@ -19,6 +19,7 @@ const ContactPage = lazy(() => import('./pages/ContactPage'));
 const HelpPage = lazy(() => import('./pages/HelpPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const OwnerDashboardPage = lazy(() => import('./pages/OwnerDashboardPage'));
+const CaretakerDashboardPage = lazy(() => import('./pages/CaretakerDashboardPage'));
 
 function App() {
   return (
@@ -44,6 +45,14 @@ function App() {
                 <OwnerDashboardPage />
               </ProtectedRoute>
             } 
+          />
+          <Route
+            path="/dashboard-caretaker"
+            element={
+              <ProtectedRoute requireCaretaker={true}>
+                <CaretakerDashboardPage />
+              </ProtectedRoute>
+            }
           />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
