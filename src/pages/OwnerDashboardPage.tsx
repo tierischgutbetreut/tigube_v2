@@ -33,9 +33,17 @@ interface PetFormData {
 }
 
 function PhotoDropzone({ photoUrl, onUpload }: {
-  photoUrl?: string;
+  photoUrl?: string | File;
   onUpload: (file: File) => void;
 }) {
+  let previewUrl: string | undefined = undefined;
+  if (photoUrl) {
+    if (typeof photoUrl === 'string') {
+      previewUrl = photoUrl;
+    } else if (photoUrl instanceof File) {
+      previewUrl = URL.createObjectURL(photoUrl);
+    }
+  }
   const onDrop = (acceptedFiles: File[]) => {
     if (acceptedFiles && acceptedFiles[0]) {
       onUpload(acceptedFiles[0]);
@@ -50,8 +58,8 @@ function PhotoDropzone({ photoUrl, onUpload }: {
   return (
     <div {...getRootProps()} className={`mt-1 border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors ${isDragActive ? 'border-primary-500 bg-primary-50' : 'border-gray-300 bg-white'}`}>
       <input {...getInputProps()} />
-      {photoUrl ? (
-        <img src={photoUrl} alt="Tierfoto" className="h-24 w-24 object-cover rounded-full mb-2" />
+      {previewUrl ? (
+        <img src={previewUrl} alt="Tierfoto" className="h-24 w-24 object-cover rounded-full mb-2" />
       ) : (
         <Upload className="mx-auto h-12 w-12 text-gray-400" />
       )}
@@ -298,7 +306,9 @@ function OwnerDashboardPage() {
 
   const profile = userProfile || fallbackProfile;
   const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Unbekannter Benutzer';
-  const avatarUrl = profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=f3f4f6&color=374151`;
+  const avatarUrl = profile.profile_photo_url
+    || profile.avatar_url
+    || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=f3f4f6&color=374151`;
 
   // Debug-Info wenn Profile fehlt
   if (!userProfile) {
@@ -399,9 +409,9 @@ function OwnerDashboardPage() {
       type: typeValue,
       breed: newPet.breed,
       age: Number(newPet.age),
-      photoUrl,
+      photoUrl: photoUrl,
       description: '',
-      gender: newPet.gender || null,
+      gender: newPet.gender || '',
       neutered: newPet.neutered || false,
     };
     try {
@@ -444,7 +454,7 @@ function OwnerDashboardPage() {
       age: Number(editPetData.age),
       photoUrl: photoUrl,
       description: '',
-      gender: editPetData.gender || null,
+      gender: editPetData.gender || '',
       neutered: editPetData.neutered || false,
     };
     try {
@@ -1043,7 +1053,13 @@ function OwnerDashboardPage() {
                           </button>
                           
                           <div className="flex gap-4 items-center">
-                            <img src={typeof pet.image === 'string' ? pet.image : ''} alt={pet.name} className="w-20 h-20 rounded-full object-cover border-2 border-primary-100" />
+                            {pet.image ? (
+                              <img src={pet.image} alt={pet.name} className="w-20 h-20 rounded-full object-cover border-2 border-primary-100" />
+                            ) : (
+                              <div className="w-20 h-20 rounded-full bg-gray-100 border-2 border-primary-100 flex items-center justify-center text-gray-400 text-2xl font-bold">
+                                {pet.name ? pet.name.charAt(0) : <PawPrint className="h-8 w-8" />}
+                              </div>
+                            )}
                             <div>
                               <div className="font-bold text-lg">{pet.name}</div>
                               <div className="text-gray-600 text-sm">{pet.type} • {pet.breed}</div>
@@ -1056,7 +1072,7 @@ function OwnerDashboardPage() {
                           <div className="space-y-3">
                             <div>
                               <PhotoDropzone
-                                photoUrl={typeof editPetData.image === 'string' ? editPetData.image : ''}
+                                photoUrl={editPetData.image}
                                 onUpload={handleEditPetPhotoUpload}
                               />
                             </div>
@@ -1242,7 +1258,7 @@ function OwnerDashboardPage() {
                       </div>
                     )}
                     <PhotoDropzone
-                      photoUrl={typeof newPet.image === 'string' ? newPet.image : ''}
+                      photoUrl={newPet.image}
                       onUpload={handlePetPhotoUpload}
                     />
                     <div className="flex gap-2 mt-2">

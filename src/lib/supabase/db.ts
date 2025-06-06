@@ -29,6 +29,8 @@ export type PetData = {
   weight?: number;
   photoUrl?: string;
   description?: string;
+  gender?: string;
+  neutered?: boolean;
 };
 
 export type OwnerPreferences = {
@@ -127,6 +129,8 @@ export const petService = {
         weight: petData.weight || null,
         photo_url: petData.photoUrl || null,
         description: petData.description || null,
+        gender: petData.gender || null,
+        neutered: petData.neutered ?? false,
       })
       .select();
 
@@ -155,6 +159,8 @@ export const petService = {
     if (petData.weight !== undefined) updateData.weight = petData.weight;
     if (petData.photoUrl !== undefined) updateData.photo_url = petData.photoUrl;
     if (petData.description !== undefined) updateData.description = petData.description;
+    if (petData.gender !== undefined) updateData.gender = petData.gender;
+    if (petData.neutered !== undefined) updateData.neutered = petData.neutered;
 
     const { data, error } = await supabase
       .from('pets')
