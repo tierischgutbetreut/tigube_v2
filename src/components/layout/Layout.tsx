@@ -29,11 +29,11 @@ function Layout({ children }: LayoutProps) {
     root.style.setProperty('--chat--color-primary', '#5A6B4B');
     root.style.setProperty('--chat--color-secondary', '#2563eb');
     root.style.setProperty('--chat--toggle--size', '56px');
-    root.style.setProperty('--chat--window--width', '360px');
-    root.style.setProperty('--chat--window--height', '520px');
+    root.style.setProperty('--chat--window--width', '420px');
+    root.style.setProperty('--chat--window--height', '620px');
     root.style.setProperty('--chat--border-radius', '0.75rem');
-    root.style.setProperty('--chat--message--font-size', '0.95rem');
-    root.style.setProperty('--chat--heading--font-size', '1.25em');
+    root.style.setProperty('--chat--message--font-size', '0.88rem');
+    root.style.setProperty('--chat--heading--font-size', '1.1em');
   }, []);
 
   // Chat-Widget bei jedem Seitenwechsel neu initialisieren
