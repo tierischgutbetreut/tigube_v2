@@ -79,3 +79,8 @@
     @apply px-4 sm:px-6 lg:px-8 mx-auto max-w-7xl;
   }
 }
+
+/* n8n Branding im Chat-Widget ausblenden */
+#n8n-chat .n8n-chat__footer {
+  display: none !important;
+}
