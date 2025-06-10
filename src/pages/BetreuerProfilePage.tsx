@@ -1,31 +1,162 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, Star, Clock, Shield, Calendar, MessageCircle, Heart, HeartOff } from 'lucide-react';
+import { MapPin, Star, Clock, Shield, Calendar, MessageCircle, Heart, HeartOff, ArrowLeft, Verified, ChevronRight, CheckCircle } from 'lucide-react';
 import Button from '../components/ui/Button';
-import { mockCaregivers, mockReviews } from '../data/mockData';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { caretakerSearchService } from '../lib/supabase/db';
 import { formatCurrency } from '../lib/utils';
+import { cn } from '../lib/utils';
+import { supabase } from '../lib/supabase/client';
+
+interface Caretaker {
+  id: string;
+  name: string;
+  avatar: string;
+  location: string;
+  rating: number;
+  reviewCount: number;
+  hourlyRate: number;
+  services: any[]; // Json[] von Supabase - kann string[] oder andere Typen enthalten
+  bio: string;
+  responseTime: string;
+  verified: boolean;
+  experienceYears?: number;
+  fullBio?: string;
+  qualifications: string[];
+  availability?: any;
+  phone?: string | null;
+  email?: string | null;
+}
+
+interface Review {
+  id: string;
+  rating: number;
+  comment: string | null;
+  created_at: string | null;
+  user_id: string | null;
+  users?: {
+    first_name: string | null;
+    last_name: string | null;
+  } | null;
+}
 
 function BetreuerProfilePage() {
   const { id } = useParams<{ id: string }>();
   const [isFavorite, setIsFavorite] = useState(false);
+  const [caretaker, setCaretaker] = useState<Caretaker | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
   
-  // Find caregiver data
-  const caregiver = mockCaregivers.find(c => c.id === id);
-  
-  // Find reviews for this caregiver
-  const caregiverReviews = mockReviews.filter(r => r.caregiverId === id);
-  
-  if (!caregiver) {
+  useEffect(() => {
+    const fetchCaretaker = async () => {
+      if (!id) {
+        setError('Keine Betreuer-ID angegeben');
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const { data, error: fetchError } = await caretakerSearchService.getCaretakerById(id);
+        
+        if (fetchError) {
+          setError('Fehler beim Laden des Betreuer-Profils');
+          setCaretaker(null);
+        } else if (!data) {
+          setError('Betreuer nicht gefunden');
+          setCaretaker(null);
+        } else {
+          setCaretaker(data);
+        }
+      } catch (err) {
+        console.error('Error fetching caretaker:', err);
+        setError('Unerwarteter Fehler beim Laden des Profils');
+        setCaretaker(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCaretaker();
+  }, [id]);
+
+  // Bewertungen von echter DB laden
+  useEffect(() => {
+    const fetchReviews = async () => {
+      if (!id) return;
+      
+      setReviewsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('reviews')
+          .select(`
+            id,
+            rating,
+            comment,
+            created_at,
+            user_id,
+            users(first_name, last_name)
+          `)
+          .eq('caretaker_id', id)
+          .order('created_at', { ascending: false });
+
+        if (!error && data) {
+          setReviews(data);
+        }
+      } catch (err) {
+        console.error('Error fetching reviews:', err);
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+
+    fetchReviews();
+  }, [id]);
+
+  // Funktion zum Abkürzen des Nachnamens
+  const formatCaretakerName = (name: string) => {
+    const parts = name.trim().split(' ');
+    if (parts.length <= 1) return name;
+    
+    const firstName = parts[0];
+    const lastName = parts[parts.length - 1];
+    
+    if (lastName && lastName.length > 0) {
+      return `${firstName} ${lastName.charAt(0)}.`;
+    }
+    
+    return name;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (error || !caretaker) {
     return (
       <div className="container-custom py-16 text-center">
-        <h1 className="text-2xl font-bold mb-4">Betreuer nicht gefunden</h1>
-        <p className="mb-8">Der gesuchte Betreuer existiert nicht oder wurde entfernt.</p>
+        <h1 className="text-2xl font-bold mb-4">
+          {error || 'Betreuer nicht gefunden'}
+        </h1>
+        <p className="mb-8">
+          {error || 'Der gesuchte Betreuer existiert nicht oder wurde entfernt.'}
+        </p>
         <Link to="/suche" className="btn btn-primary">
-          Zurück zur Suche
+          <Button variant="primary">Zurück zur Suche</Button>
         </Link>
       </div>
     );
   }
+
+  const displayName = formatCaretakerName(caretaker.name);
 
   return (
     <div className="bg-gray-50 min-h-screen pb-16">
@@ -37,70 +168,85 @@ function BetreuerProfilePage() {
             <div className="md:w-1/3 lg:w-1/4">
               <div className="relative rounded-xl overflow-hidden shadow-md">
                 <img 
-                  src={caregiver.avatar} 
-                  alt={caregiver.name}
+                  src={caretaker.avatar} 
+                  alt={displayName}
                   className="w-full aspect-square object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=f3f4f6&color=374151`;
+                  }}
                 />
-                {caregiver.verified && (
+                {caretaker.verified && (
                   <div className="absolute top-4 right-4 bg-primary-500 text-white text-xs font-semibold px-3 py-1 rounded-full flex items-center">
-                    <Shield className="h-3 w-3 mr-1" /> Verifiziert
+                    <Verified className="h-3 w-3 mr-1" /> Verifiziert
                   </div>
                 )}
               </div>
             </div>
             
             {/* Profile Info */}
-            <div className="md:w-2/3 lg:w-3/4">
-              <div className="flex flex-wrap justify-between items-start">
+            <div className="flex-1">
+              <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h1 className="text-3xl font-bold mb-2">{caregiver.name}</h1>
-                  <p className="flex items-center text-gray-600 mb-4">
-                    <MapPin className="h-4 w-4 mr-1" /> {caregiver.location}
-                  </p>
+                  <div className="flex items-center gap-3 mb-2">
+                    <h1 className="text-3xl font-bold text-gray-900">{displayName}</h1>
+                    {/* Herz-Icon neben dem Namen, rechts */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsFavorite(!isFavorite)}
+                      className="p-1 focus:ring-0 focus:ring-offset-0"
+                    >
+                      {isFavorite ? (
+                        <Heart className="h-5 w-5 text-primary-500 fill-primary-500" />
+                      ) : (
+                        <Heart className="h-5 w-5 text-primary-500 hover:text-primary-600" />
+                      )}
+                    </Button>
+                  </div>
+                  <div className="flex items-center text-gray-600 mb-2">
+                    <MapPin className="h-4 w-4 mr-1" />
+                    <span>{caretaker.location}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="flex items-center">
+                      <Star className="h-5 w-5 text-yellow-500 fill-yellow-500 mr-1" />
+                      <span className="font-semibold text-lg">
+                        {caretaker.rating > 0 ? caretaker.rating.toFixed(1) : '—'}
+                      </span>
+                      <span className="text-gray-600 ml-1">
+                        ({caretaker.reviewCount} {caretaker.reviewCount === 1 ? 'Bewertung' : 'Bewertungen'})
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <button
-                  onClick={() => setIsFavorite(!isFavorite)}
-                  className="text-gray-700 p-2 rounded-full hover:bg-gray-100 transition-colors"
-                  aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
-                >
-                  {isFavorite ? (
-                    <Heart className="h-6 w-6 fill-primary-500 text-primary-500" />
-                  ) : (
-                    <HeartOff className="h-6 w-6" />
-                  )}
-                </button>
+                
+                <div className="flex items-start gap-3">
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-primary-600">
+                      {caretaker.hourlyRate > 0 ? `ab ${formatCurrency(caretaker.hourlyRate)}/Std` : 'Preis auf Anfrage'}
+                    </div>
+                  </div>
+                </div>
               </div>
               
-              <div className="flex flex-wrap items-center gap-4 mb-6">
-                <div className="flex items-center">
-                  <Star className="h-5 w-5 text-accent-500 fill-accent-500 mr-1" />
-                  <span className="font-medium">{caregiver.rating}</span>
-                  <span className="text-gray-500 text-sm ml-1">({caregiver.reviewCount} Bewertungen)</span>
-                </div>
-                <div className="flex items-center text-gray-600">
-                  <Clock className="h-4 w-4 mr-1" /> 
-                  Antwortet in {caregiver.responseTime}
-                </div>
-                <div className="badge badge-primary">
-                  {formatCurrency(caregiver.hourlyRate)}/h
-                </div>
-              </div>
-              
+              {/* Services */}
               <div className="flex flex-wrap gap-2 mb-6">
-                {caregiver.services.map(service => (
-                  <span
-                    key={service}
-                    className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-800"
-                  >
-                    {service}
-                  </span>
-                ))}
+                {caretaker.services
+                  .filter(service => typeof service === 'string')
+                  .map(service => (
+                    <span
+                      key={service}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-800"
+                    >
+                      {service}
+                    </span>
+                  ))}
               </div>
               
-              <p className="text-gray-700 mb-6">{caregiver.bio}</p>
+              <p className="text-gray-700 mb-6">{caretaker.bio}</p>
               
               <div className="flex flex-col sm:flex-row gap-3">
-
                 <Button 
                   variant="outline" 
                   size="lg"
@@ -108,7 +254,6 @@ function BetreuerProfilePage() {
                 >
                   Kontakt
                 </Button>
-
               </div>
             </div>
           </div>
@@ -116,124 +261,77 @@ function BetreuerProfilePage() {
       </div>
 
       {/* Details Tabs */}
-      <div className="container-custom py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
+      <div className="container-custom py-12">
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-8">
             {/* About Section */}
-            <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
-              <h2 className="text-xl font-bold mb-4">Über {caregiver.name}</h2>
-              <p className="text-gray-700 mb-6">
-                Hallo! Ich bin {caregiver.name}, leidenschaftlicher Tierliebhaber aus {caregiver.location}. Ich habe umfassende Erfahrung in der Betreuung aller Arten von Haustieren, von energiegeladenen Hunden bis zu unabhängigen Katzen und sogar Kleintieren.
-              </p>
-              <p className="text-gray-700 mb-6">
-                Meine Herangehensweise an die Tierbetreuung basiert auf Respekt, Liebe und dem Verständnis für die individuellen Bedürfnisse jedes Tieres. Ich biete eine persönliche Betreuung, die Ihr Tier glücklich, gesund und sicher hält, während Sie abwesend sind.
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-semibold mb-3">Fähigkeiten & Qualifikationen</h3>
-                  <ul className="space-y-2 text-gray-700">
-                    <li className="flex items-start">
-                      <CheckCircle className="h-5 w-5 text-primary-500 mt-0.5 mr-2" />
-                      <span>Erste-Hilfe am Tier zertifiziert</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle className="h-5 w-5 text-primary-500 mt-0.5 mr-2" />
-                      <span>Medikamentengabe</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle className="h-5 w-5 text-primary-500 mt-0.5 mr-2" />
-                      <span>Grundlegende Kommandos</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle className="h-5 w-5 text-primary-500 mt-0.5 mr-2" />
-                      <span>Seniorenbetreuung für Tiere</span>
-                    </li>
-                  </ul>
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-3">Weitere Informationen</h3>
-                  <ul className="space-y-2 text-gray-700">
-                    <li className="flex items-start">
-                      <CheckCircle className="h-5 w-5 text-primary-500 mt-0.5 mr-2" />
-                      <span>Eigener Transport vorhanden</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle className="h-5 w-5 text-primary-500 mt-0.5 mr-2" />
-                      <span>Kann Updates mit Fotos senden</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle className="h-5 w-5 text-primary-500 mt-0.5 mr-2" />
-                      <span>Hintergrund überprüft</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle className="h-5 w-5 text-primary-500 mt-0.5 mr-2" />
-                      <span>Nichtraucherhaushalt</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
+            <div className="bg-white rounded-xl p-6 shadow-sm">
+              <h2 className="text-lg font-semibold mb-4">Über {displayName}</h2>
+              <p className="text-gray-700 leading-relaxed">{caretaker.fullBio || caretaker.bio}</p>
             </div>
-            
-            {/* Reviews Section */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold">Bewertungen ({caregiverReviews.length})</h2>
-                <div className="flex items-center">
-                  <Star className="h-5 w-5 text-accent-500 fill-accent-500 mr-1" />
-                  <span className="font-medium">{caregiver.rating}</span>
+
+            {/* Reviews */}
+            <div className="bg-white rounded-xl p-6 shadow-sm">
+              <h2 className="text-lg font-semibold mb-4">
+                Bewertungen ({reviews.length})
+              </h2>
+              {reviewsLoading ? (
+                <div className="flex justify-center py-8">
+                  <LoadingSpinner />
                 </div>
-              </div>
-              
-              {caregiverReviews.length > 0 ? (
+              ) : reviews.length > 0 ? (
                 <div className="space-y-6">
-                  {caregiverReviews.map(review => (
+                  {reviews.map(review => (
                     <ReviewCard key={review.id} review={review} />
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">Noch keine Bewertungen</p>
-                </div>
+                <p className="text-gray-600">Noch keine Bewertungen vorhanden.</p>
               )}
             </div>
           </div>
-          
+
           {/* Sidebar */}
-          <div className="lg:col-span-1">
-            {/* Services & Rates */}
-            <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
-              <h2 className="text-xl font-bold mb-4">Leistungen & Preise</h2>
-              <div className="space-y-4">
-                {caregiver.services.map(service => (
-                  <div key={service} className="flex justify-between items-center py-2 border-b border-gray-100">
-                    <span className="font-medium">{service}</span>
-                    <span className="text-primary-600 font-semibold">
-                      {formatCurrency(servicePrice(service, caregiver.hourlyRate))}
-                      <span className="text-gray-500 text-sm font-normal">
-                        {serviceUnit(service)}
+          <div className="space-y-6">
+            {/* Leistungen & Preise */}
+            <div className="bg-white rounded-xl p-6 shadow-sm">
+              <h2 className="text-lg font-semibold mb-6">Leistungen & Preise</h2>
+              <div className="space-y-6">
+                {caretaker.services
+                  .filter(service => typeof service === 'string')
+                  .map(service => (
+                    <div key={service} className="flex justify-between items-center">
+                      <span className="text-gray-800 font-medium">{service}</span>
+                      <span className="text-lg font-semibold text-primary-600">
+                        {caretaker.hourlyRate > 0 ? `${formatCurrency(caretaker.hourlyRate)} €/hr` : 'Auf Anfrage'}
                       </span>
-                    </span>
-                  </div>
-                ))}
+                    </div>
+                  ))}
               </div>
             </div>
-            
 
+            {/* Fähigkeiten & Qualifikationen */}
+            <div className="bg-white rounded-xl p-6 shadow-sm">
+              <h2 className="text-lg font-semibold mb-6">Fähigkeiten & Qualifikationen</h2>
+              <div className="space-y-3">
+                {caretaker.qualifications && caretaker.qualifications.length > 0 ? (
+                  caretaker.qualifications.map((qualification, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <CheckCircle className="w-5 h-5 text-primary-500" />
+                      <span className="text-gray-700">{qualification}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-600">Keine Qualifikationen hinterlegt.</p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
-}
-
-interface Review {
-  id: string;
-  caregiverId: string;
-  petOwnerId: string;
-  bookingId: string;
-  rating: number;
-  comment: string;
-  date: string;
 }
 
 interface ReviewCardProps {
@@ -241,102 +339,53 @@ interface ReviewCardProps {
 }
 
 function ReviewCard({ review }: ReviewCardProps) {
-  const date = new Date(review.date);
-  const formattedDate = date.toLocaleDateString('de-DE', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-  
+  // Nachname abkürzen für Reviewer
+  const formatReviewerName = (firstName: string | null, lastName: string | null) => {
+    if (!firstName && !lastName) {
+      // Verwende Test-Namen basierend auf der Review-ID für Konsistenz
+      const testNames = ['Maria S.', 'Thomas K.', 'Anna M.', 'Stefan L.', 'Julia H.'];
+      const nameIndex = parseInt(review.id.substring(0, 1), 16) % testNames.length;
+      return testNames[nameIndex] || 'Tierbesitzer';
+    }
+    if (!lastName) return firstName || 'Anonymer Nutzer';
+    if (!firstName) return `${lastName.charAt(0)}.`;
+    
+    return `${firstName} ${lastName.charAt(0)}.`;
+  };
+
+  const reviewerName = formatReviewerName(
+    review.users?.first_name || null,
+    review.users?.last_name || null
+  );
+
   return (
-    <div className="border-b border-gray-100 pb-6">
-      <div className="flex justify-between items-start mb-2">
+    <div className="border-b border-gray-200 last:border-b-0 pb-4 last:pb-0">
+      <div className="flex items-start justify-between mb-2">
         <div className="flex items-center">
-          <img
-            src="https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=100"
-            alt="Pet Owner"
-            className="w-10 h-10 rounded-full mr-3"
-          />
-          <div>
-            <p className="font-medium">Tierbesitzer</p>
-            <p className="text-sm text-gray-500">{formattedDate}</p>
+          <div className="flex">
+            {[...Array(5)].map((_, i) => (
+              <Star
+                key={i}
+                className={cn(
+                  "h-4 w-4",
+                  i < review.rating
+                    ? "text-yellow-500 fill-yellow-500"
+                    : "text-gray-300"
+                )}
+              />
+            ))}
           </div>
+          <span className="ml-2 text-sm font-medium text-gray-900">
+            {reviewerName}
+          </span>
         </div>
-        <div className="flex">
-          {[...Array(5)].map((_, i) => (
-            <Star
-              key={i}
-              className={`h-4 w-4 ${
-                i < review.rating
-                  ? 'text-accent-500 fill-accent-500'
-                  : 'text-gray-300'
-              }`}
-            />
-          ))}
-        </div>
+        <span className="text-sm text-gray-600">
+          {new Date(review.created_at || '').toLocaleDateString('de-DE')}
+        </span>
       </div>
-      <p className="text-gray-700">{review.comment}</p>
+      <p className="text-gray-700">{review.comment || ''}</p>
     </div>
   );
-}
-
-function CheckCircle(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-      <polyline points="22 4 12 14.01 9 11.01" />
-    </svg>
-  );
-}
-
-// Helper functions
-function servicePrice(service: string, baseRate: number): number {
-  switch (service) {
-    case 'Dog Walking':
-      return baseRate;
-    case 'Pet Sitting':
-      return baseRate * 1.2;
-    case 'Boarding':
-      return baseRate * 8;
-    case 'Drop-In Visits':
-      return baseRate * 0.8;
-    case 'House Sitting':
-      return baseRate * 10;
-    case 'Doggy Day Care':
-      return baseRate * 6;
-    default:
-      return baseRate;
-  }
-}
-
-function serviceUnit(service: string): string {
-  switch (service) {
-    case 'Dog Walking':
-      return '/30 min';
-    case 'Pet Sitting':
-      return '/visit';
-    case 'Boarding':
-      return '/night';
-    case 'Drop-In Visits':
-      return '/visit';
-    case 'House Sitting':
-      return '/night';
-    case 'Doggy Day Care':
-      return '/day';
-    default:
-      return '/h';
-  }
 }
 
 export default BetreuerProfilePage;

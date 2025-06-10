@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Search, MapPin, Clock, Shield, Heart, Dog, Cat, Rabbit, Calendar, Briefcase, PawPrint } from 'lucide-react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { Search, MapPin, Clock, Shield, Heart, Dog, Cat, Rabbit, Calendar, Briefcase, PawPrint, CheckCircle, X } from 'lucide-react';
 import Button from '../components/ui/Button';
 
 function HomePage() {
   const navigate = useNavigate();
-  const [location, setLocation] = useState('');
+  const location = useLocation();
+  const [showMessage, setShowMessage] = useState(!!location.state?.message);
+  const [formLocation, setFormLocation] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [service, setService] = useState('Hundebetreuung');
@@ -16,7 +18,7 @@ function HomePage() {
     const queryParams = new URLSearchParams();
     if (petType) queryParams.append('petType', petType);
     if (service) queryParams.append('service', service);
-    if (location) queryParams.append('location', location);
+    if (formLocation) queryParams.append('location', formLocation);
     if (startDate) queryParams.append('startDate', startDate);
     if (endDate) queryParams.append('endDate', endDate);
     navigate(`/suche?${queryParams.toString()}`);
@@ -24,6 +26,24 @@ function HomePage() {
 
   return (
     <div className="flex flex-col min-h-screen">
+      {/* Success Message */}
+      {showMessage && location.state?.message && (
+        <div className="bg-green-50 border border-green-200 px-4 py-3 relative">
+          <div className="flex items-center justify-between container-custom">
+            <div className="flex items-center">
+              <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+              <span className="text-green-800">{location.state.message}</span>
+            </div>
+            <button
+              onClick={() => setShowMessage(false)}
+              className="text-green-600 hover:text-green-800"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Hero Section */}
       <section className="relative bg-white py-16 md:py-24">
         <div className="container-custom">
@@ -67,8 +87,8 @@ function HomePage() {
                       type="text"
                       placeholder="Dein Wohnort"
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
+                      value={formLocation}
+                      onChange={(e) => setFormLocation(e.target.value)}
                       required
                     />
                   </div>
@@ -223,7 +243,7 @@ Dank Profil-Bewertungen und sicheren Abläufen bekommst du genau die Fürsorge, 
                   <Button 
                     variant="outline" 
                     size="lg"
-                    onClick={() => navigate('/registrieren?type=caregiver')}
+                    onClick={() => navigate('/registrieren?type=caretaker')}
                   >
                     Betreuer werden
                   </Button>
@@ -232,7 +252,7 @@ Dank Profil-Bewertungen und sicheren Abläufen bekommst du genau die Fürsorge, 
               <div className="lg:col-span-2 relative hidden lg:block">
                 <img 
                   src="https://images.pexels.com/photos/2123773/pexels-photo-2123773.jpeg?auto=compress&cs=tinysrgb"
-                  alt="Happy dog with caregiver" 
+                  alt="Happy dog with caretaker" 
                   className="w-full h-full object-cover"
                 />
               </div>

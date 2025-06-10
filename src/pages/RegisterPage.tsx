@@ -1,15 +1,23 @@
 import React, { useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { PawPrint as Paw, ChevronLeft, ChevronRight, Upload, Check, AlertCircle, Trash2, Eye, EyeOff, Edit, CopyPlus, Plus } from 'lucide-react';
+import { PawPrint as Paw, ChevronLeft, ChevronRight, Upload, Check, AlertCircle, Trash2, Eye, EyeOff, Edit, CopyPlus, Plus, X } from 'lucide-react';
 import Button from '../components/ui/Button';
+import ServiceSelector from '../components/ui/ServiceSelector';
+import AvailabilityScheduler from '../components/ui/AvailabilityScheduler';
+import RangeSlider from '../components/ui/RangeSlider';
+import PhotoGalleryUpload from '../components/ui/PhotoGalleryUpload';
+import AboutMeEditor from '../components/ui/AboutMeEditor';
+import Badge from '../components/ui/Badge';
 import { auth, supabase } from '../lib/supabase/client';
 import { userService, petService, ownerPreferencesService, caretakerProfileService } from '../lib/supabase/db';
 import { useDropzone } from 'react-dropzone';
 import { plzService } from '../lib/supabase/db';
+import { useAuth } from '../lib/auth/AuthContext';
 
 function RegisterPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { updateProfileState } = useAuth();
   const initialType = searchParams.get('type') || 'owner';
   
   const [userType, setUserType] = useState<'owner' | 'caretaker'>(initialType === 'caretaker' ? 'caretaker' : 'owner');
@@ -40,7 +48,9 @@ function RegisterPage() {
       age: '',
       weight: '',
       photoUrl: '',
-      description: ''
+      description: '',
+      gender: '',
+      neutered: false,
     }],
     services: [] as string[],
     otherServices: [''],
@@ -68,12 +78,14 @@ function RegisterPage() {
       'Haustierbetreuung': string;
       'Übernachtung': string;
     };
-    serviceRadius: string;
+    serviceRadius: number;
     availability: WeeklyAvailability;
-    homePhotos: File[];
+    homePhotos: (string | File)[];
     qualifications: string[];
     newQualification?: string;
     experienceDescription?: string;
+    shortAboutMe?: string;
+    longAboutMe?: string;
   }>(
     {
       plz: '',
@@ -87,7 +99,7 @@ function RegisterPage() {
         'Haustierbetreuung': '',
         'Übernachtung': '',
       },
-      serviceRadius: '',
+      serviceRadius: 10,
       availability: {
         Mo: [],
         Di: [],
@@ -101,6 +113,8 @@ function RegisterPage() {
       qualifications: [],
       newQualification: '',
       experienceDescription: '',
+      shortAboutMe: '',
+      longAboutMe: '',
     }
   );
 
@@ -108,7 +122,7 @@ function RegisterPage() {
   const [userId, setUserId] = useState<string | null>(null);
 
   // Neue Variable für Multistep-Formular
-  const [profileStep, setProfileStep] = useState(1); // 1=Kontakt, 2=Tierdetails, 3=Betreuungswünsche
+  const [profileStep, setProfileStep] = useState(1); // 1=Kontakt, 2=Services&Preise, 3=Erfahrung, 4=Fotos&Profile
 
   const [showPassword, setShowPassword] = useState(false);
 
@@ -135,6 +149,9 @@ function RegisterPage() {
   const [availability, setAvailability] = useState<AvailabilityState>(parseWeeklyAvailability(formStep2Caretaker.availability || defaultAvailability));
   const [editSlot, setEditSlot] = useState<{ day: string; idx: number | null }>({ day: '', idx: null });
   const [slotDraft, setSlotDraft] = useState<TimeSlot>({ start: '', end: '' });
+
+  // State für das aktuelle Inputfeld (neuer Wunsch)
+  const [otherServiceInput, setOtherServiceInput] = useState('');
 
   function handleSlotChange(day: string, idx: number, field: 'start' | 'end', value: string) {
     setAvailability(avail => {
@@ -193,17 +210,18 @@ function RegisterPage() {
           age: '',
           weight: '',
           photoUrl: '',
-          description: ''
+          description: '',
+          gender: '',
+          neutered: false,
         }
       ]
     });
   };
 
   // Funktion zum Aktualisieren der Tierinformationen
-  const updatePet = (index: number, field: string, value: string) => {
+  const updatePet = (index: number, field: string, value: string | boolean) => {
     const updatedPets = [...formStep2Owner.pets];
     updatedPets[index] = { ...updatedPets[index], [field]: value };
-    
     setFormStep2Owner({
       ...formStep2Owner,
       pets: updatedPets
@@ -337,13 +355,14 @@ function RegisterPage() {
         const plz = userType === 'owner' ? formStep2Owner.plz : formStep2Caretaker.plz;
         const city = userType === 'owner' ? formStep2Owner.city : formStep2Caretaker.city;
         if (plz && city) {
-          const { data: existingPlz, error: plzError } = await plzService.getByPlz(plz);
+          // Prüfe, ob PLZ+Stadt-Kombination existiert
+          const { data: existingPlzCity, error: plzError } = await plzService.getByPlzAndCity(plz, city);
           if (plzError && plzError.code !== 'PGRST116') {
-            // PGRST116 = Not found, das ist ok
             throw new Error(`Fehler bei der PLZ-Prüfung: ${plzError.message}`);
           }
-          if (!existingPlz) {
-            await plzService.create(plz, city);
+          if (!existingPlzCity) {
+            const { error: createPlzError } = await plzService.create(plz, city);
+            if (createPlzError) throw createPlzError;
           }
         }
 
@@ -437,11 +456,18 @@ function RegisterPage() {
             homePhotos: homePhotoUrls,
             qualifications: formStep2Caretaker.qualifications,
             experienceDescription: formStep2Caretaker.experienceDescription || '',
+            shortAboutMe: formStep2Caretaker.shortAboutMe || '',
+            longAboutMe: formStep2Caretaker.longAboutMe || '',
           });
           if (caretakerError) throw caretakerError;
         }
 
         // Nach Dashboard navigieren
+        const { data: freshProfile, error: freshProfileError1 } = await userService.getUserProfile(userId);
+        if (!freshProfileError1 && freshProfile) {
+          updateProfileState(freshProfile);
+        }
+        
         navigate(userType === 'owner' ? '/dashboard-owner' : '/dashboard-caretaker');
       } catch (err: any) {
         console.error('Fehler beim Vervollständigen des Profils:', err);
@@ -541,13 +567,14 @@ function RegisterPage() {
         const plz = userType === 'owner' ? formStep2Owner.plz : formStep2Caretaker.plz;
         const city = userType === 'owner' ? formStep2Owner.city : formStep2Caretaker.city;
         if (plz && city) {
-          const { data: existingPlz, error: plzError } = await plzService.getByPlz(plz);
+          // Prüfe, ob PLZ+Stadt-Kombination existiert
+          const { data: existingPlzCity, error: plzError } = await plzService.getByPlzAndCity(plz, city);
           if (plzError && plzError.code !== 'PGRST116') {
-            // PGRST116 = Not found, das ist ok
             throw new Error(`Fehler bei der PLZ-Prüfung: ${plzError.message}`);
           }
-          if (!existingPlz) {
-            await plzService.create(plz, city);
+          if (!existingPlzCity) {
+            const { error: createPlzError } = await plzService.create(plz, city);
+            if (createPlzError) throw createPlzError;
           }
         }
 
@@ -641,11 +668,18 @@ function RegisterPage() {
             homePhotos: homePhotoUrls,
             qualifications: formStep2Caretaker.qualifications,
             experienceDescription: formStep2Caretaker.experienceDescription || '',
+            shortAboutMe: formStep2Caretaker.shortAboutMe || '',
+            longAboutMe: formStep2Caretaker.longAboutMe || '',
           });
           if (caretakerError) throw caretakerError;
         }
 
         // Nach Dashboard navigieren
+        const { data: freshProfile, error: freshProfileError2 } = await userService.getUserProfile(userId);
+        if (!freshProfileError2 && freshProfile) {
+          updateProfileState(freshProfile);
+        }
+        
         navigate(userType === 'owner' ? '/dashboard-owner' : '/dashboard-caretaker');
       } catch (err: any) {
         console.error('Fehler beim Vervollständigen des Profils:', err);
@@ -740,8 +774,9 @@ function RegisterPage() {
             {step === 2 && (
               <>
                 {profileStep === 1 && <p className="text-gray-600">Kontaktinformationen</p>}
-                {profileStep === 2 && <p className="text-gray-600">Tierdetails</p>}
-                {profileStep === 3 && <p className="text-gray-600">Betreuungswünsche</p>}
+                {profileStep === 2 && <p className="text-gray-600">{userType === 'owner' ? 'Tierdetails' : 'Services & Preise'}</p>}
+                {profileStep === 3 && <p className="text-gray-600">{userType === 'owner' ? 'Betreuungswünsche' : 'Erfahrung & Qualifikationen'}</p>}
+                {profileStep === 4 && <p className="text-gray-600">Fotos & Persönliches Profil</p>}
               </>
             )}
           </div>
@@ -913,7 +948,12 @@ function RegisterPage() {
                               className="input"
                               placeholder="Deine Postleitzahl"
                               value={formStep2Owner.plz}
-                              onChange={(e) => setFormStep2Owner({...formStep2Owner, plz: e.target.value})}
+                              pattern="[0-9]{5}"
+                              maxLength={5}
+                              onChange={e => {
+                                const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 5);
+                                setFormStep2Owner({ ...formStep2Owner, plz: val });
+                              }}
                             />
                           </div>
                           <div className="col-span-2">
@@ -940,7 +980,11 @@ function RegisterPage() {
                             className="input"
                             placeholder="Deine Telefonnummer"
                             value={formStep2Owner.phoneNumber}
-                            onChange={(e) => setFormStep2Owner({...formStep2Owner, phoneNumber: e.target.value})}
+                            pattern="[0-9+() ]*"
+                            onChange={e => {
+                              const val = e.target.value.replace(/[^0-9+() ]/g, '');
+                              setFormStep2Owner({ ...formStep2Owner, phoneNumber: val });
+                            }}
                           />
                         </div>
                         <div className="mt-4">
@@ -983,7 +1027,12 @@ function RegisterPage() {
                               className="input"
                               placeholder="Deine Postleitzahl"
                               value={formStep2Caretaker.plz}
-                              onChange={(e) => setFormStep2Caretaker({ ...formStep2Caretaker, plz: e.target.value })}
+                              pattern="[0-9]{5}"
+                              maxLength={5}
+                              onChange={e => {
+                                const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 5);
+                                setFormStep2Caretaker({ ...formStep2Caretaker, plz: val });
+                              }}
                             />
                           </div>
                           <div className="col-span-2">
@@ -1010,7 +1059,11 @@ function RegisterPage() {
                             className="input"
                             placeholder="Deine Telefonnummer"
                             value={formStep2Caretaker.phoneNumber}
-                            onChange={(e) => setFormStep2Caretaker({ ...formStep2Caretaker, phoneNumber: e.target.value })}
+                            pattern="[0-9+() ]*"
+                            onChange={e => {
+                              const val = e.target.value.replace(/[^0-9+() ]/g, '');
+                              setFormStep2Caretaker({ ...formStep2Caretaker, phoneNumber: val });
+                            }}
                           />
                         </div>
                         <div className="mt-4">
@@ -1191,6 +1244,37 @@ function RegisterPage() {
                                 onChange={(e) => updatePet(index, 'description', e.target.value)}
                               ></textarea>
                             </div>
+                            {pet.type === 'dog' && (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                                <div>
+                                  <label htmlFor={`petGender-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
+                                    Geschlecht
+                                  </label>
+                                  <select
+                                    id={`petGender-${index}`}
+                                    className="input"
+                                    value={pet.gender || ''}
+                                    onChange={e => updatePet(index, 'gender', e.target.value)}
+                                  >
+                                    <option value="">Geschlecht wählen</option>
+                                    <option value="male">Rüde</option>
+                                    <option value="female">Hündin</option>
+                                  </select>
+                                </div>
+                                <div className="flex items-center mt-6 md:mt-0">
+                                  <input
+                                    type="checkbox"
+                                    id={`petNeutered-${index}`}
+                                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                    checked={!!pet.neutered}
+                                    onChange={e => updatePet(index, 'neutered', e.target.checked)}
+                                  />
+                                  <label htmlFor={`petNeutered-${index}`} className="ml-2 block text-sm text-gray-700">
+                                    Kastriert/Sterilisiert
+                                  </label>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ))}
                         <div className="pt-4">
@@ -1207,34 +1291,45 @@ function RegisterPage() {
                     )}
                     {userType === 'caretaker' && (
                       <div className="p-4 bg-gray-50 rounded-lg mb-6 space-y-8">
-                        {/* Leistungen */}
-                        <div>
-                          <h3 className="text-lg font-semibold mb-2">Deine Leistungen</h3>
-                          <p className="text-sm text-gray-600 mb-3">Welche Leistungen bietest du an?</p>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {["Gassi-Service", "Haustierbetreuung", "Übernachtung", "Kurzbesuche", "Haussitting", "Hundetagesbetreuung"].map(service => (
-                              <label key={service} className="flex items-center p-3 border border-gray-300 rounded-lg hover:border-primary-500 cursor-pointer transition-colors">
-                                <input type="checkbox" className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" checked={formStep2Caretaker.services.includes(service)} onChange={() => setFormStep2Caretaker(prev => ({ ...prev, services: prev.services.includes(service) ? prev.services.filter(s => s !== service) : [...prev.services, service] }))} />
-                                <span className="ml-3 text-gray-700">{service}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                        {/* Tierarten */}
-                        <div>
-                          <p className="text-sm text-gray-600 mb-3">Welche Tiere betreust du?</p>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            {["Hunde", "Katzen", "Vögel", "Kaninchen", "Fische", "Kleintiere"].map(animal => (
-                              <label key={animal} className="flex items-center p-3 border border-gray-300 rounded-lg hover:border-primary-500 cursor-pointer transition-colors">
-                                <input type="checkbox" className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" checked={formStep2Caretaker.animalTypes.includes(animal)} onChange={() => setFormStep2Caretaker(prev => ({ ...prev, animalTypes: prev.animalTypes.includes(animal) ? prev.animalTypes.filter(a => a !== animal) : [...prev.animalTypes, animal] }))} />
-                                <span className="ml-3 text-gray-700">{animal}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
+                        {/* Leistungen mit Badge-System */}
+                        <ServiceSelector
+                          title="Deine Leistungen"
+                          description="Welche Leistungen bietest du an?"
+                          predefinedServices={[
+                            "Gassi-Service",
+                            "Haustierbetreuung", 
+                            "Übernachtung",
+                            "Kurzbesuche",
+                            "Haussitting",
+                            "Hundetagesbetreuung"
+                          ]}
+                          selectedServices={formStep2Caretaker.services}
+                          onServicesChange={(services) => 
+                            setFormStep2Caretaker(prev => ({ ...prev, services }))
+                          }
+                          placeholder="Z.B. Medikamentengabe, Tierphysiotherapie..."
+                        />
+                        {/* Tierarten mit Badge-System */}
+                        <ServiceSelector
+                          title="Welche Tiere betreust du?"
+                          description="Wähle die Tierarten aus, die du gerne betreust"
+                          predefinedServices={[
+                            "Hunde",
+                            "Katzen", 
+                            "Vögel",
+                            "Kaninchen",
+                            "Fische",
+                            "Kleintiere"
+                          ]}
+                          selectedServices={formStep2Caretaker.animalTypes}
+                          onServicesChange={(animalTypes) => 
+                            setFormStep2Caretaker(prev => ({ ...prev, animalTypes }))
+                          }
+                          placeholder="Z.B. Reptilien, Hamster, Meerschweinchen..."
+                        />
                         {/* Preise */}
                         <div>
-                          <h4 className="text-sm font-medium text-gray-700 mb-2">Lege deine Preise fest</h4>
+                          <h3 className="text-lg font-semibold mb-2">Lege deine Preise fest</h3>
                           <div className="space-y-3">
                             {Object.entries(formStep2Caretaker.prices).map(([service, value]) => (
                               <div key={service} className="flex items-center gap-4">
@@ -1244,211 +1339,324 @@ function RegisterPage() {
                             ))}
                           </div>
                         </div>
-                        {/* Einsatzgebiet */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Einsatzgebiet (Km)</label>
-                          <input type="number" min="0" className="input w-32" placeholder="z.B. 5" value={formStep2Caretaker.serviceRadius} onChange={e => setFormStep2Caretaker(prev => ({ ...prev, serviceRadius: e.target.value }))} />
-                        </div>
-                        {/* Verfügbarkeit */}
-                        <div className="mb-6">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Verfügbarkeit</label>
-                          <span className="text-xs text-gray-500">Hier können Sie festlegen, wann Sie regelmäßig für Termine zur Verfügung stehen.</span>
-                          <div className="overflow-x-auto mt-2">
-                            <table className="min-w-full text-sm">
-                              <thead>
-                                <tr className="bg-gray-50">
-                                  <th className="p-2 text-left">Tag</th>
-                                  <th className="p-2 text-left">Von</th>
-                                  <th className="p-2 text-left">Bis</th>
-                                  <th className="p-2"></th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {days.map(day => (
-                                  <React.Fragment key={day}>
-                                    {availability[day].length === 0 ? (
-                                      <tr className="border-b">
-                                        <td className="p-2 font-semibold w-24">{day}</td>
-                                        <td className="p-2 text-gray-400" colSpan={2}>Nicht verfügbar</td>
-                                        <td className="p-2">
-                                          <button className="text-primary-600 hover:bg-primary-50 rounded p-1" onClick={() => handleAddSlot(day)} title="Zeitfenster hinzufügen">
-                                            <Plus className="w-5 h-5" />
-                                          </button>
-                                        </td>
-                                      </tr>
-                                    ) : availability[day].map((slot, idx) => (
-                                      <tr key={day + idx} className="border-b">
-                                        <td className="p-2 font-semibold w-24">{day}{idx > 0 && <span className="text-xs text-gray-400 ml-1">({idx + 1})</span>}</td>
-                                        <td className="p-2">
-                                          {editSlot.day === day && editSlot.idx === idx ? (
-                                            <input type="time" className="input w-28" value={slotDraft.start} onChange={e => setSlotDraft(d => ({ ...d, start: e.target.value }))} />
-                                          ) : (
-                                            <span>{slot.start}</span>
-                                          )}
-                                        </td>
-                                        <td className="p-2">
-                                          {editSlot.day === day && editSlot.idx === idx ? (
-                                            <input type="time" className="input w-28" value={slotDraft.end} onChange={e => setSlotDraft(d => ({ ...d, end: e.target.value }))} />
-                                          ) : (
-                                            <span>{slot.end}</span>
-                                          )}
-                                        </td>
-                                        <td className="p-2 flex gap-1">
-                                          {editSlot.day === day && editSlot.idx === idx ? (
-                                            <>
-                                              <button className="text-green-600 hover:bg-green-50 rounded p-1" onClick={handleSaveSlot} title="Speichern"><Edit className="w-4 h-4" /></button>
-                                              <button className="text-gray-400 hover:bg-gray-100 rounded p-1" onClick={handleCancelSlotEdit} title="Abbrechen"><Trash2 className="w-4 h-4" /></button>
-                                            </>
-                                          ) : (
-                                            <>
-                                              <button className="text-primary-600 hover:bg-primary-50 rounded p-1" onClick={() => handleEditSlot(day, idx)} title="Bearbeiten"><Edit className="w-4 h-4" /></button>
-                                              <button className="text-red-500 hover:bg-red-50 rounded p-1" onClick={() => handleDeleteSlot(day, idx)} title="Löschen"><Trash2 className="w-4 h-4" /></button>
-                                              <button className="text-gray-400 hover:bg-gray-100 rounded p-1" onClick={() => handleCopySlots(day, days.find(d => d !== day) || day)} title="Kopieren"><CopyPlus className="w-4 h-4" /></button>
-                                            </>
-                                          )}
-                                        </td>
-                                      </tr>
-                                    ))}
-                                    {editSlot.day === day && editSlot.idx === null && (
-                                      <tr key={day + 'add'}>
-                                        <td className="p-2 font-semibold w-24">{day}</td>
-                                        <td className="p-2"><input type="time" className="input w-28" value={slotDraft.start} onChange={e => setSlotDraft(d => ({ ...d, start: e.target.value }))} /></td>
-                                        <td className="p-2"><input type="time" className="input w-28" value={slotDraft.end} onChange={e => setSlotDraft(d => ({ ...d, end: e.target.value }))} /></td>
-                                        <td className="p-2 flex gap-1">
-                                          <button className="text-green-600 hover:bg-green-50 rounded p-1" onClick={handleSaveSlot} title="Speichern"><Edit className="w-4 h-4" /></button>
-                                          <button className="text-gray-400 hover:bg-gray-100 rounded p-1" onClick={handleCancelSlotEdit} title="Abbrechen"><Trash2 className="w-4 h-4" /></button>
-                                        </td>
-                                      </tr>
-                                    )}
-                                  </React.Fragment>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                        <div className="flex justify-end mt-4">
-                          <button
-                            type="button"
-                            className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm"
-                            onClick={() => {
-                              setFormStep2Caretaker(prev => ({ ...prev, availability: convertAvailabilityToWeekly(availability) }));
-                            }}
-                          >
-                            Verfügbarkeit übernehmen
-                          </button>
-                        </div>
+                        {/* Einsatzgebiet mit Slider */}
+                        <RangeSlider
+                          label="Einsatzgebiet"
+                          value={formStep2Caretaker.serviceRadius}
+                          onChange={(value) => setFormStep2Caretaker(prev => ({ ...prev, serviceRadius: value }))}
+                          min={0}
+                          max={200}
+                          step={5}
+                          unit="km"
+                          description="Wie weit sind Sie bereit zu fahren?"
+                        />
+                        {/* Verfügbarkeit mit verbessertem System */}
+                        <AvailabilityScheduler
+                          availability={availability}
+                          onAvailabilityChange={(newAvailability) => {
+                            setAvailability(newAvailability);
+                            setFormStep2Caretaker(prev => ({ 
+                              ...prev, 
+                              availability: convertAvailabilityToWeekly(newAvailability) 
+                            }));
+                          }}
+                        />
                       </div>
                     )}
                   </>
                 )}
-                {profileStep === 3 && (
+                {profileStep === 3 && userType === 'owner' && (
                   <div className="p-4 bg-gray-50 rounded-lg mb-6">
-                    <h2 className="text-xl font-bold mb-6">Verifizierung & Profil</h2>
-                    {/* Fotos von Zuhause */}
-                    <div className="mb-6">
-                      <label className="block font-semibold mb-2">Fotos von deinem Zuhause (für Übernachtung/Haussitting)</label>
-                      <PhotoDropzone
-                        index={-2}
-                        photoUrl={undefined}
-                        onUpload={async (file) => {
-                          setFormStep2Caretaker(prev => ({
-                            ...prev,
-                            homePhotos: [...(prev.homePhotos || []), file]
-                          }));
-                        }}
-                        uploading={false}
-                        error={null}
-                      />
-                      {/* Vorschau & Löschen */}
-                      {formStep2Caretaker.homePhotos && formStep2Caretaker.homePhotos.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {formStep2Caretaker.homePhotos.map((file, idx) => (
-                            <div key={idx} className="relative">
-                              <img src={typeof file === 'string' ? file : URL.createObjectURL(file)} alt="Wohnung" className="h-20 w-20 object-cover rounded border" />
-                              <button type="button" className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow" onClick={() => {
-                                if (typeof file === 'string') {
-                                  handleDeleteHomePhoto(file, idx);
-                                } else {
-                                  setFormStep2Caretaker(prev => ({ ...prev, homePhotos: prev.homePhotos.filter((f, i) => (typeof f === 'string' ? f !== file : i !== idx)) }));
-                                }
-                              }}>
-                                <Trash2 className="w-4 h-4 text-red-500" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      <p className="text-xs text-gray-500 mt-2">Lade mehrere Fotos deiner Wohnumgebung hoch</p>
-                    </div>
-                    {/* Qualifikationen */}
-                    <div className="mb-6">
-                      <label className="block font-semibold mb-2">Erfahrung & Qualifikationen</label>
-                      <div className="space-y-2 mb-3">
-                        {["Erste-Hilfe am Tier zertifiziert", "Professioneller Hundetrainer", "Tierarzterfahrung", "Tierheim-Erfahrung"].map(q => (
-                          <label key={q} className="flex items-center gap-2">
-                            <input type="checkbox" className="h-4 w-4 text-primary-600 border-gray-300 rounded" checked={formStep2Caretaker.qualifications?.includes(q)} onChange={() => setFormStep2Caretaker(prev => ({ ...prev, qualifications: prev.qualifications?.includes(q) ? prev.qualifications.filter((x: string) => x !== q) : [...(prev.qualifications || []), q] }))} />
-                            <span>{q}</span>
+                    <h2 className="text-xl font-bold mb-6">Betreuungswünsche</h2>
+                    {/* Services */}
+                    <div className="mb-4">
+                      <label className="block font-semibold mb-2">Gewünschte Leistungen</label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {["Gassi-Service", "Haustierbetreuung", "Übernachtung", "Kurzbesuche", "Haussitting", "Hundetagesbetreuung"].map(service => (
+                          <label key={service} className="flex items-center p-3 border border-gray-300 rounded-lg hover:border-primary-500 cursor-pointer transition-colors">
+                            <input type="checkbox" className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" checked={formStep2Owner.services.includes(service)} onChange={() => toggleService(service)} />
+                            <span className="ml-3 text-gray-700">{service}</span>
                           </label>
                         ))}
                       </div>
-                      {/* Eigene Qualifikation hinzufügen */}
-                      <div className="flex gap-2 mb-1">
-                        <input
-                          type="text"
-                          className="input flex-1"
-                          placeholder="Eigene Qualifikation hinzufügen..."
-                          value={formStep2Caretaker.newQualification || ''}
-                          onChange={e => setFormStep2Caretaker(prev => ({ ...prev, newQualification: e.target.value }))}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter' && formStep2Caretaker.newQualification?.trim()) {
-                              setFormStep2Caretaker(prev => ({
-                                ...prev,
-                                qualifications: [...(prev.qualifications || []), prev.newQualification!],
-                                newQualification: ''
-                              }));
-                            }
-                          }}
-                        />
-                        <Button
-                          type="button"
-                          onClick={() => {
-                            if (formStep2Caretaker.newQualification?.trim()) {
-                              setFormStep2Caretaker(prev => ({
-                                ...prev,
-                                qualifications: [...(prev.qualifications || []), prev.newQualification!],
-                                newQualification: ''
-                              }));
-                            }
-                          }}
-                        >
-                          Hinzufügen
-                        </Button>
-                      </div>
-                      <p className="text-xs text-gray-500">Füge weitere Qualifikationen oder Erfahrungen hinzu, die für die Tierbetreuung relevant sind</p>
-                      {/* Liste eigene Qualifikationen */}
-                      {formStep2Caretaker.qualifications && formStep2Caretaker.qualifications.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {formStep2Caretaker.qualifications.map((q: string, idx: number) => (
-                            <span key={idx} className="bg-primary-100 text-primary-700 px-2 py-1 rounded text-xs flex items-center gap-1">
-                              {q}
-                              <button type="button" className="ml-1" onClick={() => setFormStep2Caretaker(prev => ({ ...prev, qualifications: prev.qualifications.filter((x: string, i: number) => i !== idx) }))}>
-                                <Trash2 className="w-3 h-3 text-red-500" />
-                              </button>
-                            </span>
+                    </div>
+                    {/* Sonstige Leistungen */}
+                    <div className="mb-4">
+                      <label className="block font-semibold mb-2">Weitere Wünsche</label>
+                      {/* Badges */}
+                      {formStep2Owner.otherServices.filter(wish => wish.trim()).length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {formStep2Owner.otherServices.filter(wish => wish.trim()).map((wish, idx) => (
+                            <Badge
+                              key={idx}
+                              variant="primary"
+                              removable
+                              onRemove={() => handleRemoveOtherService(formStep2Owner.otherServices.indexOf(wish))}
+                            >
+                              {wish}
+                            </Badge>
                           ))}
                         </div>
                       )}
+                      {/* Input für neuen Wunsch */}
+                      <div className="flex gap-2 mb-1 items-center">
+                        <input
+                          type="text"
+                          className="input flex-1"
+                          placeholder="Sonstige Leistung..."
+                          value={otherServiceInput}
+                          onChange={e => setOtherServiceInput(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && otherServiceInput.trim()) {
+                              setFormStep2Owner(prev => ({ ...prev, otherServices: [...prev.otherServices, otherServiceInput.trim()] }));
+                              setOtherServiceInput('');
+                            }
+                          }}
+                        />
+                        {otherServiceInput.trim() && (
+                          <button
+                            type="button"
+                            className="p-2 rounded hover:bg-green-100 text-green-600"
+                            onClick={() => {
+                              setFormStep2Owner(prev => ({ ...prev, otherServices: [...prev.otherServices, otherServiceInput.trim()] }));
+                              setOtherServiceInput('');
+                            }}
+                            title="Hinzufügen"
+                          >
+                            <Check className="w-5 h-5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    {/* Beschreibung der Erfahrung */}
-                    <div className="mb-2">
-                      <label className="block font-semibold mb-2">Beschreibe deine Erfahrung</label>
+                    {/* Tierarztinformationen */}
+                    <div className="mb-6">
+                      <h3 className="font-semibold text-base mb-2 mt-4">Tierarztinformationen</h3>
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          className="input w-full"
+                          placeholder="Name der Tierarztpraxis"
+                          value={formStep2Owner.vetName}
+                          onChange={e => setFormStep2Owner(prev => ({ ...prev, vetName: e.target.value }))}
+                        />
+                        <input
+                          type="text"
+                          className="input w-full"
+                          placeholder="Adresse der Tierarztpraxis"
+                          value={formStep2Owner.vetAddress}
+                          onChange={e => setFormStep2Owner(prev => ({ ...prev, vetAddress: e.target.value }))}
+                        />
+                        <input
+                          type="text"
+                          className="input w-full"
+                          placeholder="Telefonnummer der Tierarztpraxis"
+                          value={formStep2Owner.vetPhone}
+                          onChange={e => setFormStep2Owner(prev => ({ ...prev, vetPhone: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                    {/* Notfallkontakt */}
+                    <div className="mb-6">
+                      <h3 className="font-semibold text-base mb-2 mt-4">Notfallkontakt</h3>
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          className="input w-full"
+                          placeholder="Name des Notfallkontakts"
+                          value={formStep2Owner.emergencyContactName}
+                          onChange={e => setFormStep2Owner(prev => ({ ...prev, emergencyContactName: e.target.value }))}
+                        />
+                        <input
+                          type="text"
+                          className="input w-full"
+                          placeholder="Telefonnummer des Notfallkontakts"
+                          value={formStep2Owner.emergencyContactPhone}
+                          onChange={e => setFormStep2Owner(prev => ({ ...prev, emergencyContactPhone: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                    {/* Pflegehinweise */}
+                    <div className="mb-4">
+                      <label className="block font-semibold mb-2">Pflegehinweise</label>
+                      <textarea className="input w-full min-h-[80px]" value={formStep2Owner.careInstructions} onChange={e => setFormStep2Owner(prev => ({ ...prev, careInstructions: e.target.value }))} placeholder="Gibt es Besonderheiten, Allergien, Medikamente oder Wünsche?" />
+                    </div>
+                  </div>
+                )}
+                {profileStep === 3 && userType === 'caretaker' && (
+                  <div className="p-4 bg-gray-50 rounded-lg mb-6 space-y-6">
+                    <h2 className="text-xl font-bold mb-6">Deine Erfahrung & Qualifikationen</h2>
+                    
+                    {/* Qualifikationen */}
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-900 mb-2">Qualifikationen & Zertifikate</h4>
+                        <p className="text-xs text-gray-500 mb-4">
+                          Wähle deine Qualifikationen aus oder füge eigene hinzu
+                        </p>
+                        
+                        {/* Vordefinierte Qualifikationen zum Abhaken */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                          {[
+                            "Tierpfleger-Ausbildung",
+                            "Hundetrainer-Zertifikat", 
+                            "Erste-Hilfe für Tiere",
+                            "Veterinärassistent/in",
+                            "Hundefriseur-Ausbildung",
+                            "Tierpsychologie-Kurs"
+                          ].map(qualification => (
+                            <label 
+                              key={qualification} 
+                              className="flex items-center p-3 border border-gray-300 rounded-lg hover:border-primary-500 cursor-pointer transition-colors"
+                            >
+                              <input 
+                                type="checkbox" 
+                                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" 
+                                checked={formStep2Caretaker.qualifications.includes(qualification)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setFormStep2Caretaker(prev => ({
+                                      ...prev,
+                                      qualifications: [...prev.qualifications, qualification]
+                                    }));
+                                  } else {
+                                    setFormStep2Caretaker(prev => ({
+                                      ...prev,
+                                      qualifications: prev.qualifications.filter(q => q !== qualification)
+                                    }));
+                                  }
+                                }}
+                              />
+                              <span className="ml-3 text-gray-700 text-sm">{qualification}</span>
+                            </label>
+                          ))}
+                        </div>
+                        
+                        {/* Qualifikationen Badges */}
+                        {formStep2Caretaker.qualifications.length > 0 && (
+                          <div className="mb-4">
+                            <h5 className="text-xs font-medium text-gray-700 mb-2">Ausgewählte Qualifikationen:</h5>
+                            <div className="flex flex-wrap gap-2">
+                              {formStep2Caretaker.qualifications.map((qual, idx) => (
+                                <span key={idx} className="bg-primary-100 text-primary-700 px-3 py-1 rounded-full text-sm flex items-center gap-2">
+                                  {qual}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setFormStep2Caretaker(prev => ({
+                                        ...prev,
+                                        qualifications: prev.qualifications.filter((_, i) => i !== idx)
+                                      }));
+                                    }}
+                                    className="text-red-500 hover:text-red-700"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Input für zusätzliche Qualifikationen */}
+                        <div>
+                          <h5 className="text-xs font-medium text-gray-700 mb-2">Weitere Qualifikationen hinzufügen:</h5>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              className="input flex-1"
+                              placeholder="Z.B. Katzenverhaltensberatung, Aquaristik-Zertifikat..."
+                              value={formStep2Caretaker.newQualification || ''}
+                              onChange={e => setFormStep2Caretaker(prev => ({ ...prev, newQualification: e.target.value }))}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' && formStep2Caretaker.newQualification?.trim()) {
+                                  setFormStep2Caretaker(prev => ({
+                                    ...prev,
+                                    qualifications: [...prev.qualifications, prev.newQualification!.trim()],
+                                    newQualification: ''
+                                  }));
+                                }
+                              }}
+                            />
+                            {formStep2Caretaker.newQualification?.trim() && (
+                              <button
+                                type="button"
+                                className="p-2 rounded hover:bg-green-100 text-green-600"
+                                onClick={() => {
+                                  setFormStep2Caretaker(prev => ({
+                                    ...prev,
+                                    qualifications: [...prev.qualifications, prev.newQualification!.trim()],
+                                    newQualification: ''
+                                  }));
+                                }}
+                                title="Hinzufügen"
+                              >
+                                <Check className="w-5 h-5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Erfahrungsbeschreibung */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Deine Erfahrung mit Tieren
+                      </label>
+                      <p className="text-xs text-gray-500 mb-3">
+                        Erzähle von deiner bisherigen Erfahrung: Hattest du schon mal eigene Tiere? Hast du schon mal Tiere betreut?
+                      </p>
                       <textarea
-                        className="input w-full min-h-[100px]"
-                        placeholder="Erzähle den Tierbesitzern von deiner Erfahrung mit Tieren, inkl. beruflicher Erfahrung oder eigenen Tieren"
+                        className="input w-full"
+                        rows={4}
+                        placeholder="Beschreibe deine Erfahrung mit Tieren. Zum Beispiel: Welche Tiere hattest du bereits? Wie lange betreust du schon Tiere? Was ist dir bei der Betreuung besonders wichtig?"
                         value={formStep2Caretaker.experienceDescription || ''}
                         onChange={e => setFormStep2Caretaker(prev => ({ ...prev, experienceDescription: e.target.value }))}
                       />
+                      <div className="text-xs text-gray-500 mt-1">
+                        {(formStep2Caretaker.experienceDescription || '').length} Zeichen
+                      </div>
                     </div>
+                  </div>
+                )}
+                {profileStep === 4 && userType === 'caretaker' && (
+                  <div className="p-4 bg-gray-50 rounded-lg mb-6 space-y-8">
+                    <h2 className="text-xl font-bold mb-6">Fotos & Persönliches Profil</h2>
+                    
+                    {/* Fotos von der Betreuungsumgebung */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-2">Fotos deiner Betreuungsumgebung</h4>
+                      <p className="text-xs text-gray-500 mb-4">
+                        Zeige Tierbesitzern, wo ihre Lieblinge betreut werden. Lade Fotos von deinem Zuhause, Garten oder anderen Betreuungsorten hoch.
+                      </p>
+                      <PhotoGalleryUpload
+                        photos={formStep2Caretaker.homePhotos}
+                        onPhotosChange={(photos) => setFormStep2Caretaker(prev => ({ ...prev, homePhotos: photos }))}
+                        maxPhotos={10}
+                      />
+                    </div>
+
+                    {/* Kurzer "Über mich"-Text */}
+                    <AboutMeEditor
+                      title="Kurze Vorstellung"
+                      value={formStep2Caretaker.shortAboutMe || ''}
+                      onChange={(value) => setFormStep2Caretaker(prev => ({ ...prev, shortAboutMe: value }))}
+                      placeholder="Beschreibe dich in wenigen Worten. Was macht dich zu einem besonderen Tierbetreuer?"
+                      maxLength={140}
+                      description="Diese kurze Beschreibung erscheint in den Suchergebnissen"
+                      required={true}
+                    />
+
+                    {/* Langer "Über mich"-Text */}
+                    <AboutMeEditor
+                      title="Ausführliche Beschreibung"
+                      value={formStep2Caretaker.longAboutMe || ''}
+                      onChange={(value) => setFormStep2Caretaker(prev => ({ ...prev, longAboutMe: value }))}
+                      placeholder="Erzähle deine Geschichte! Warum liebst du Tiere? Was ist dir bei der Betreuung wichtig? Teile persönliche Erfahrungen und schaffe Vertrauen bei Tierbesitzern."
+                      minLength={500}
+                      description="Diese ausführliche Beschreibung hilft Tierbesitzern, dich besser kennenzulernen"
+                      required={true}
+                    />
                   </div>
                 )}
                 {/* Multistep-Navigation */}
@@ -1465,7 +1673,8 @@ function RegisterPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    {profileStep === 3 ? (
+                    {/* Anpassung: Für Besitzer 3 Schritte, für Caretaker 4 Schritte */}
+                    {((userType === 'owner' && profileStep === 3) || (userType === 'caretaker' && profileStep === 4)) ? (
                       <Button onClick={completeRegistration} isLoading={loading} disabled={loading}>
                         Speichern
                       </Button>

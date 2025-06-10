@@ -203,7 +203,7 @@ function ContactPage() {
                     <option value="">Bitte wählen Sie ein Thema</option>
                     <option value="general">Allgemeine Anfrage</option>
                     <option value="support">Technischer Support</option>
-                    <option value="caregiver">Fragen für Betreuer</option>
+                    <option value="caretaker">Fragen für Betreuer</option>
                     <option value="owner">Fragen für Tierbesitzer</option>
                     <option value="partnership">Partnerschaft</option>
                     <option value="press">Presse</option>

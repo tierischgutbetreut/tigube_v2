@@ -7,7 +7,7 @@ export type UserRegistration = {
   password: string;
   firstName: string;
   lastName: string;
-  userType: 'owner' | 'caregiver';
+  userType: 'owner' | 'caretaker';
 };
 
 export type UserProfileUpdate = {
@@ -17,7 +17,7 @@ export type UserProfileUpdate = {
   plz?: string;
   city?: string;
   profileCompleted?: boolean;
-  userType?: 'owner' | 'caregiver';
+  userType?: 'owner' | 'caretaker';
   profilePhotoUrl?: string;
 };
 
@@ -111,6 +111,86 @@ export const userService = {
       .single();
 
     return { data, error };
+  },
+
+  // Benutzer komplett löschen
+  deleteUser: async (userId: string) => {
+    try {
+      // Aktuelles Session-Token abrufen
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        return { error: new Error('No valid session found') };
+      }
+
+      console.log('Versuche Edge Function aufzurufen...');
+      
+      try {
+        // Versuche Edge Function für komplette Löschung (DB + Auth)
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ user_id: userId }),
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          console.log('User komplett gelöscht via Edge Function:', result);
+          await supabase.auth.signOut();
+          return { error: null };
+        }
+        
+        console.warn('Edge Function nicht verfügbar oder fehlgeschlagen, verwende Fallback...');
+      } catch (edgeFunctionError) {
+        console.warn('Edge Function Fehler, verwende Fallback:', edgeFunctionError);
+      }
+
+      // Fallback: Nur Database-Daten löschen
+      console.log('Führe Database-only Cleanup durch...');
+
+      // Lösche Haustiere
+      await supabase
+        .from('pets')
+        .delete()
+        .eq('owner_id', userId);
+
+      // Lösche Owner Preferences
+      await supabase
+        .from('owner_preferences')
+        .delete()
+        .eq('owner_id', userId);
+
+      // Lösche Caretaker Profiles (falls vorhanden)
+      await supabase
+        .from('caretaker_profiles')
+        .delete()
+        .eq('user_id', userId);
+
+      // Lösche User Profile
+      const { error: deleteError } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', userId);
+
+      if (deleteError) {
+        console.error('Fehler beim Löschen der User-Daten:', deleteError);
+        return { error: deleteError };
+      }
+
+      console.log('Database cleanup erfolgreich. Auth-User bleibt bestehen.');
+
+      // Lokales Ausloggen
+      await supabase.auth.signOut();
+
+      return { error: null };
+    } catch (error: any) {
+      console.error('Fehler beim Löschen des Users:', error);
+      return { error };
+    }
   },
 };
 
@@ -245,26 +325,68 @@ export const ownerPreferencesService = {
 
 // PLZ-Funktionen
 export const plzService = {
-  // PLZ suchen
+  // PLZ suchen (alle Städte zu einer PLZ)
+  getAllByPlz: async (plz: string) => {
+    const { data, error } = await supabase
+      .from('plzs')
+      .select('*')
+      .eq('plz', plz);
+
+    return { data, error };
+  },
+
+  // PLZ und Stadt-Kombination suchen
+  getByPlzAndCity: async (plz: string, city: string) => {
+    const { data, error } = await supabase
+      .from('plzs')
+      .select('*')
+      .eq('plz', plz)
+      .eq('city', city)
+      .single();
+
+    return { data, error };
+  },
+
+  // PLZ suchen (erste gefundene - für Rückwärtskompatibilität)
   getByPlz: async (plz: string) => {
     const { data, error } = await supabase
       .from('plzs')
       .select('*')
       .eq('plz', plz)
-      .single(); // Use single() assuming plz is a primary key/unique
+      .limit(1)
+      .single();
 
     return { data, error };
   },
 
-  // Neue PLZ und Ort hinzufügen
+  // Neue PLZ und Ort hinzufügen (nur wenn PLZ+Stadt-Kombination noch nicht existiert)
   create: async (plz: string, city: string) => {
+    // Prüfe erst, ob die PLZ+Stadt-Kombination bereits existiert
+    const { data: existing, error: checkError } = await supabase
+      .from('plzs')
+      .select('*')
+      .eq('plz', plz)
+      .eq('city', city)
+      .maybeSingle();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      return { data: null, error: checkError };
+    }
+
+    // Falls bereits vorhanden, gib die vorhandenen Daten zurück
+    if (existing) {
+      return { data: existing, error: null };
+    }
+
+    // Andernfalls erstelle neuen Eintrag
     const { data, error } = await supabase
       .from('plzs')
       .insert({
         plz: plz,
         city: city,
-      }) // You might want .select() here if you need the inserted row data
-      ;
+      })
+      .select()
+      .single();
 
     return { data, error };
   },
@@ -282,6 +404,8 @@ export const caretakerProfileService = {
     homePhotos: string[];
     qualifications: string[];
     experienceDescription: string;
+    shortAboutMe?: string;
+    longAboutMe?: string;
   }) => {
     const { data, error } = await supabase
       .from('caretaker_profiles')
@@ -295,6 +419,8 @@ export const caretakerProfileService = {
         home_photos: profile.homePhotos,
         qualifications: profile.qualifications,
         experience_description: profile.experienceDescription,
+        short_about_me: profile.shortAboutMe || null,
+        long_about_me: profile.longAboutMe || null,
       }, { onConflict: 'id' })
       .select();
     return { data, error };
@@ -308,5 +434,167 @@ export const caretakerProfileService = {
       .eq('id', userId)
       .single();
     return { data, error };
+  },
+};
+
+// Caretaker-Such-Service
+// Search filter interface
+interface SearchFilters {
+  location?: string;
+  services?: string[];
+  minPrice?: number;
+  maxPrice?: number;
+  minRating?: number;
+  limit?: number;
+  offset?: number;
+}
+
+export const caretakerSearchService = {
+  searchCaretakers: async (filters: SearchFilters = {}) => {
+    console.log('🔍 Searching caretakers with filters:', filters);
+
+    try {
+      console.log('🔄 Fetching caretakers from view...');
+      const { data: caretakers, error } = await supabase
+        .from('caretaker_search_view')
+        .select('*');
+      
+      if (error) {
+        console.error('❌ View error:', error);
+        return { data: [], error };
+      }
+      
+      console.log('📊 Caretakers found:', caretakers?.length);
+      
+      if (!caretakers || caretakers.length === 0) {
+        console.log('⚠️ No caretakers found');
+        return { data: [], error: null };
+      }
+
+      console.log('🔄 Transforming caretaker data...');
+      const transformedResults = caretakers.map((caretaker: any) => ({
+        id: caretaker.id,
+        name: caretaker.full_name || `${caretaker.first_name || ''} ${caretaker.last_name || ''}`.trim() || 'Unbekannt',
+        avatar: caretaker.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(caretaker.first_name || 'U')}&background=f3f4f6&color=374151`,
+        location: caretaker.city && caretaker.plz ? `${caretaker.city} ${caretaker.plz}` : (caretaker.city || 'Unbekannt'),
+        rating: Number(caretaker.rating) || 0,
+        reviewCount: caretaker.review_count || 0,
+        hourlyRate: Number(caretaker.hourly_rate) || 0,
+        services: Array.isArray(caretaker.services) ? caretaker.services : [],
+        bio: caretaker.short_about_me || 'Keine Beschreibung verfügbar.',
+        responseTime: 'unter 1 Stunde',
+        verified: caretaker.is_verified || false,
+      }));
+
+      console.log('🎯 Transformed results:', transformedResults);
+
+      // Wende Filter an
+      let filteredResults = transformedResults;
+      
+      if (filters.location) {
+        const locationLower = filters.location.toLowerCase();
+        filteredResults = filteredResults.filter((caretaker: any) => 
+          caretaker.location.toLowerCase().includes(locationLower)
+        );
+        console.log('📍 After location filter:', filteredResults);
+      }
+
+      if (filters.services && filters.services.length > 0) {
+        filteredResults = filteredResults.filter((caretaker: any) => 
+          filters.services!.some(service => caretaker.services.includes(service))
+        );
+        console.log('🏷️ After service filter:', filteredResults);
+      }
+
+      if (filters.minPrice !== undefined) {
+        filteredResults = filteredResults.filter((caretaker: any) => caretaker.hourlyRate >= filters.minPrice!);
+      }
+      
+      if (filters.maxPrice !== undefined) {
+        filteredResults = filteredResults.filter((caretaker: any) => caretaker.hourlyRate <= filters.maxPrice!);
+      }
+
+      if (filters.minRating !== undefined) {
+        filteredResults = filteredResults.filter((caretaker: any) => caretaker.rating >= filters.minRating!);
+      }
+
+      console.log('🎊 Final filtered results:', filteredResults);
+      return { data: filteredResults, error: null };
+    } catch (error) {
+      console.error('🚨 Unexpected error in searchCaretakers:', error);
+      return { data: [], error: error as Error };
+    }
+  },
+
+  getCaretakerById: async (id: string) => {
+    console.log('🔍 Getting caretaker by ID:', id);
+    
+    try {
+      const { data: result, error } = await supabase
+        .from('caretaker_search_view')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      console.log('📊 Single caretaker result:', result);
+      console.log('❌ Error:', error);
+      
+      if (error) {
+        return { data: null, error };
+      }
+
+      if (!result) {
+        return { data: null, error: new Error('Caretaker not found') };
+      }
+
+      const transformedData = {
+        id: result.id,
+        name: result.full_name || `${result.first_name || ''} ${result.last_name || ''}`.trim() || 'Unbekannt',
+        avatar: result.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(result.first_name || 'U')}&background=f3f4f6&color=374151`,
+        location: result.city && result.plz ? `${result.city} ${result.plz}` : (result.city || 'Unbekannt'),
+        rating: Number(result.rating) || 0,
+        reviewCount: result.review_count || 0,
+        hourlyRate: Number(result.hourly_rate) || 0,
+        services: Array.isArray(result.services) ? result.services : [],
+        bio: result.short_about_me || 'Keine Beschreibung verfügbar.',
+        responseTime: 'unter 1 Stunde',
+        verified: result.is_verified || false,
+        experienceYears: result.experience_years || 0,
+        fullBio: result.long_about_me || result.short_about_me || 'Keine ausführliche Beschreibung verfügbar.',
+        qualifications: Array.isArray(result.qualifications) ? result.qualifications : [],
+        phone: null, // Nicht in der View verfügbar
+        email: null, // Nicht in der View verfügbar
+      };
+
+      console.log('✅ Transformed single caretaker:', transformedData);
+      return { data: transformedData, error: null };
+    } catch (error) {
+      console.error('🚨 Unexpected error in getCaretakerById:', error);
+      return { data: null, error: error as Error };
+    }
+  },
+
+  getAvailableServices: async () => {
+    const { data, error } = await supabase
+      .from('caretaker_profiles')
+      .select('services')
+      .not('services', 'is', null);
+
+    if (error) {
+      return { data: [], error };
+    }
+
+    const allServices = new Set<string>();
+    data?.forEach(profile => {
+      if (Array.isArray(profile.services)) {
+        profile.services.forEach(service => {
+          if (typeof service === 'string') {
+            allServices.add(service);
+          }
+        });
+      }
+    });
+
+    return { data: Array.from(allServices), error: null };
   },
 };

@@ -1,295 +1,328 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { MapPin, Filter, Star, Clock, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { Search, MapPin, Star, Filter, X } from 'lucide-react';
 import Button from '../components/ui/Button';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { cn } from '../lib/utils';
-import { mockCaregivers } from '../data/mockData';
+import { searchCaretakers as searchCaretakersService, type CaretakerDisplayData } from '../lib/supabase/caretaker-search';
+
+// Using the type from the service
+type Caretaker = CaretakerDisplayData;
+
+interface CaretakerCardProps {
+  caretaker: Caretaker;
+}
 
 function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialLocation = searchParams.get('location') || '';
+  const navigate = useNavigate();
   
+  // Initialize filters from URL params
+  const initialLocation = searchParams.get('location') || '';
+  const initialServices = searchParams.get('services')?.split(',').filter(Boolean) || [];
+  const initialMinPrice = parseInt(searchParams.get('minPrice') || '0');
+  const initialMaxPrice = parseInt(searchParams.get('maxPrice') || '100');
+  
+  // States
   const [location, setLocation] = useState(initialLocation);
-  const [activeFilters, setActiveFilters] = useState<string[]>([]);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 100]);
+  const [activeFilters, setActiveFilters] = useState<string[]>(initialServices);
+  const [priceRange, setPriceRange] = useState<[number, number]>([initialMinPrice, initialMaxPrice]);
   const [showFilters, setShowFilters] = useState(false);
-  const [caregivers, setCaregivers] = useState(mockCaregivers);
+  const [caretakers, setCaretakers] = useState<Caretaker[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [totalResults, setTotalResults] = useState(0);
 
-  useEffect(() => {
-    // In a real app, this would fetch caregivers based on filters
-    const filteredCaregivers = mockCaregivers.filter(caregiver => {
-      // Filter by service type
-      if (activeFilters.length > 0 && !activeFilters.some(filter => caregiver.services.includes(filter))) {
-        return false;
-      }
-      
-      // Filter by price range
-      if (caregiver.hourlyRate < priceRange[0] || caregiver.hourlyRate > priceRange[1]) {
-        return false;
-      }
-      
-      // Filter by location
-      if (location && !caregiver.location.toLowerCase().includes(location.toLowerCase())) {
-        return false;
-      }
-      
-      return true;
-    });
-    
-    setCaregivers(filteredCaregivers);
-    
-    // Update URL params
-    const params = new URLSearchParams();
-    if (location) params.set('location', location);
-    if (activeFilters.length > 0) params.set('services', activeFilters.join(','));
-    params.set('minPrice', priceRange[0].toString());
-    params.set('maxPrice', priceRange[1].toString());
-    setSearchParams(params, { replace: true });
-  }, [location, activeFilters, priceRange]);
+  // Filter options
+  const serviceOptions = [
+    'Gassi-Service',
+    'Haustierbetreuung', 
+    'Übernachtung',
+    'Kurzbesuche',
+    'Haussitting',
+    'Katzenbetreuung',
+    'Hundetagesbetreuung',
+    'Kleintierbetreuung'
+  ];
 
-  const toggleFilter = (filter: string) => {
-    if (activeFilters.includes(filter)) {
-      setActiveFilters(activeFilters.filter(f => f !== filter));
-    } else {
-      setActiveFilters([...activeFilters, filter]);
+  // Search function using database
+  const performSearch = async () => {
+    console.log('🔍 performSearch called');
+    setLoading(true);
+    setError(null);
+    try {
+      console.log('📞 Calling searchCaretakersService...');
+      const data = await searchCaretakersService();
+      console.log('📊 Service returned:', data);
+      
+      console.log(`✅ Setting ${data?.length || 0} caretakers to state`);
+      setCaretakers(data || []);
+      setTotalResults(data?.length || 0);
+    } catch (err) {
+      console.error('🚨 Unexpected error:', err);
+      setError('Unerwarteter Fehler beim Suchen. Bitte versuche es erneut.');
+      setCaretakers([]);
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="bg-gray-50 min-h-screen pb-16">
-      {/* Search Header */}
-      <div className="bg-primary-600 py-6">
-        <div className="container-custom">
-          <div className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4">
-            <div className="relative flex-grow">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <MapPin className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
-                type="text"
-                placeholder="PLZ oder Stadt eingeben"
-                className="block w-full bg-white border border-gray-300 rounded-lg pl-10 py-3 focus:ring-primary-500 focus:border-primary-500"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-              />
-            </div>
-            <Button
-              variant="outline"
-              className="bg-white"
-              leftIcon={<Filter className="h-4 w-4" />}
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              Filter
-            </Button>
-          </div>
-        </div>
-      </div>
+  // Nur einmal beim Mount suchen
+  useEffect(() => {
+    console.log('🚀 Component mounted, starting search...');
+    performSearch();
+  }, []);
+  
+  // Debug: State-Änderungen loggen
+  useEffect(() => {
+    console.log('📌 State updated:', {
+      caretakers: caretakers,
+      caretakersLength: caretakers.length,
+      loading: loading,
+      error: error,
+      totalResults: totalResults
+    });
+  }, [caretakers, loading, error, totalResults]);
 
-      <div className="container-custom py-8">
-        {/* Filter Section */}
-        {showFilters && (
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-8 animate-fade-in">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Filter</h2>
-              <button
-                onClick={() => setShowFilters(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="h-5 w-5" />
-              </button>
+  const handleFilterToggle = (filter: string) => {
+    setActiveFilters(prev => 
+      prev.includes(filter) 
+        ? prev.filter(f => f !== filter)
+        : [...prev, filter]
+    );
+  };
+
+  const handleRemoveFilter = (filter: string) => {
+    setActiveFilters(prev => prev.filter(f => f !== filter));
+  };
+
+  const clearAllFilters = () => {
+    setActiveFilters([]);
+    setPriceRange([0, 100]);
+    setLocation('');
+  };
+
+  return (
+    <div className="bg-gray-50 min-h-screen">
+      {/* Search Header */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="container-custom py-4">
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Location Search */}
+            <div className="flex-1">
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="PLZ oder Stadt eingeben"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                />
+              </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="font-medium mb-3">Leistungen</h3>
-                <div className="space-y-2">
-                  {["Gassi-Service", "Haustierbetreuung", "Übernachtung", "Kurzbesuche", "Haussitting", "Hundetagesbetreuung"].map((service, idx) => (
-                    <label key={service} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        className="rounded text-primary-600 focus:ring-primary-500 h-4 w-4"
-                        checked={activeFilters.includes([
-                          "Dog Walking",
-                          "Pet Sitting",
-                          "Boarding",
-                          "Drop-In Visits",
-                          "House Sitting",
-                          "Doggy Day Care"
-                        ][idx])}
-                        onChange={() => toggleFilter([
-                          "Dog Walking",
-                          "Pet Sitting",
-                          "Boarding",
-                          "Drop-In Visits",
-                          "House Sitting",
-                          "Doggy Day Care"
-                        ][idx])}
-                      />
-                      <span className="ml-2 text-gray-700">{service}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
+            {/* Filter Button */}
+            <Button 
+              variant="outline" 
+              leftIcon={<Filter className="h-5 w-5" />}
+              onClick={() => setShowFilters(!showFilters)}
+              className={cn(
+                "lg:w-auto",
+                (activeFilters.length > 0 || priceRange[0] > 0 || priceRange[1] < 100) && "border-primary-500 text-primary-600"
+              )}
+            >
+              Filter {(activeFilters.length > 0 || priceRange[0] > 0 || priceRange[1] < 100) && `(${activeFilters.length + (priceRange[0] > 0 || priceRange[1] < 100 ? 1 : 0)})`}
+            </Button>
+          </div>
+
+          {/* Active Filters */}
+          {(activeFilters.length > 0 || priceRange[0] > 0 || priceRange[1] < 100) && (
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="text-sm text-gray-600">Aktive Filter:</span>
               
-              <div>
-                <h3 className="font-medium mb-3">Preisbereich (€/Stunde)</h3>
-                <div className="px-2">
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="5"
-                    value={priceRange[1]}
-                    onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                  />
-                  <div className="flex justify-between mt-2">
-                    <span className="text-sm text-gray-600">€{priceRange[0]}</span>
-                    <span className="text-sm text-gray-600">€{priceRange[1]}</span>
-                  </div>
+              {activeFilters.map(filter => (
+                <div key={filter} className="flex items-center bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm">
+                  {filter}
+                  <button
+                    onClick={() => handleRemoveFilter(filter)}
+                    className="ml-2 hover:text-primary-900"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
                 </div>
-                
-                <div className="mt-6">
-                  <h3 className="font-medium mb-3">Bewertung</h3>
+              ))}
+              
+              {(priceRange[0] > 0 || priceRange[1] < 100) && (
+                <div className="flex items-center bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm">
+                  Preis: €{priceRange[0]}-{priceRange[1]}/Std
+                  <button
+                    onClick={() => setPriceRange([0, 100])}
+                    className="ml-2 hover:text-primary-900"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearAllFilters}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Alle entfernen
+              </Button>
+            </div>
+          )}
+
+          {/* Filter Panel */}
+          {showFilters && (
+            <div className="mt-4 p-6 bg-gray-50 rounded-xl border">
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Service Filters */}
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-3">Services</h3>
                   <div className="space-y-2">
-                    {[5, 4, 3].map((rating) => (
-                      <label key={rating} className="flex items-center">
+                    {serviceOptions.map(service => (
+                      <label key={service} className="flex items-center">
                         <input
                           type="checkbox"
-                          className="rounded text-primary-600 focus:ring-primary-500 h-4 w-4"
+                          checked={activeFilters.includes(service)}
+                          onChange={() => handleFilterToggle(service)}
+                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                         />
-                        <span className="ml-2 flex items-center">
-                          {[...Array(rating)].map((_, i) => (
-                            <Star key={i} className="h-4 w-4 text-accent-500 fill-accent-500" />
-                          ))}
-                          {[...Array(5 - rating)].map((_, i) => (
-                            <Star key={i} className="h-4 w-4 text-gray-300" />
-                          ))}
-                          <span className="ml-1 text-gray-700">und mehr</span>
-                        </span>
+                        <span className="ml-2 text-sm text-gray-700">{service}</span>
                       </label>
                     ))}
                   </div>
                 </div>
+
+                {/* Price Range */}
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-3">Preis pro Stunde</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex-1">
+                        <label className="block text-sm text-gray-600 mb-1">Von</label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="50"
+                          value={priceRange[0]}
+                          onChange={(e) => setPriceRange([parseInt(e.target.value), priceRange[1]])}
+                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                        />
+                        <div className="text-center text-sm text-gray-600 mt-1">€{priceRange[0]}</div>
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-sm text-gray-600 mb-1">Bis</label>
+                        <input
+                          type="range"
+                          min="10"
+                          max="100"
+                          value={priceRange[1]}
+                          onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])}
+                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                        />
+                        <div className="text-center text-sm text-gray-600 mt-1">€{priceRange[1]}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-            
-            <div className="flex justify-end mt-6 space-x-4">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setActiveFilters([]);
-                  setPriceRange([0, 100]);
-                  setLocation('');
-                }}
-              >
-                Alle zurücksetzen
-              </Button>
-              <Button onClick={() => setShowFilters(false)}>Filter anwenden</Button>
-            </div>
-          </div>
-        )}
-
-        {/* Results Count */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold mb-2">Tierbetreuer in {location || 'allen Orten'}</h1>
-          <p className="text-gray-600">{caregivers.length} Betreuer verfügbar</p>
-        </div>
-
-        {/* Active Filters */}
-        {activeFilters.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-6">
-            {activeFilters.map(filter => (
-              <span
-                key={filter}
-                className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-100 text-primary-800"
-              >
-                {(() => {
-                  switch (filter) {
-                    case 'Dog Walking': return 'Gassi-Service';
-                    case 'Pet Sitting': return 'Haustierbetreuung';
-                    case 'Boarding': return 'Übernachtung';
-                    case 'Drop-In Visits': return 'Kurzbesuche';
-                    case 'House Sitting': return 'Haussitting';
-                    case 'Doggy Day Care': return 'Hundetagesbetreuung';
-                    default: return filter;
-                  }
-                })()}
-                <button
-                  onClick={() => toggleFilter(filter)}
-                  className="ml-1 focus:outline-none"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
-            <button
-              onClick={() => setActiveFilters([])}
-              className="text-sm text-primary-600 hover:text-primary-800"
-            >
-              Alle entfernen
-            </button>
-          </div>
-        )}
-
-        {/* Caregiver List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {caregivers.length > 0 ? (
-            caregivers.map(caregiver => (
-              <CaregiverCard key={caregiver.id} caregiver={caregiver} />
-            ))
-          ) : (
-            <div className="col-span-full text-center py-16">
-              <div className="text-gray-500 mb-4">
-                <SearchIcon className="h-12 w-12 mx-auto text-gray-400" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-1">Keine Betreuer gefunden</h3>
-              <p className="text-gray-600 mb-4">Passe die Filter an oder suche an einem anderen Ort</p>
-              <Button
-                onClick={() => {
-                  setActiveFilters([]);
-                  setPriceRange([0, 100]);
-                  setLocation('');
-                }}
-              >
-                Filter zurücksetzen
-              </Button>
             </div>
           )}
         </div>
+      </div>
+
+      {/* Results */}
+      <div className="container-custom py-8">
+        {/* Results Header */}
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            {loading ? (
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
+                <span className="text-gray-600">Suche läuft...</span>
+              </div>
+            ) : error ? (
+              <p className="text-red-600">{error}</p>
+            ) : (
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">Tierbetreuer in allen Orten</h1>
+                <p className="text-gray-600">
+                  {totalResults} {totalResults === 1 ? 'Betreuer verfügbar' : 'Betreuer verfügbar'}
+                  {location && ` in ${location}`}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Loading State */}
+        {loading && (
+          <div className="flex justify-center py-12">
+            <LoadingSpinner />
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && !loading && (
+          <div className="text-center py-12">
+            <p className="text-red-600 mb-4">{error}</p>
+            <Button onClick={performSearch}>
+              Erneut versuchen
+            </Button>
+          </div>
+        )}
+
+        {/* No Results */}
+        {!loading && !error && caretakers.length === 0 && (
+          <div className="text-center py-12">
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Keine Betreuer gefunden</h3>
+            <p className="text-gray-600 mb-6">
+              Versuche es mit anderen Suchkriterien oder erweitere deine Filter.
+            </p>
+            
+            <Button onClick={clearAllFilters}>
+              Filter zurücksetzen
+            </Button>
+            
+            <Button onClick={performSearch} className="ml-2">
+              Suche wiederholen
+            </Button>
+          </div>
+        )}
+
+        {/* Results Grid */}
+        {!loading && !error && caretakers.length > 0 && (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {caretakers.map(caretaker => (
+              <CaretakerCard key={caretaker.id} caretaker={caretaker} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-interface Caregiver {
-  id: string;
-  name: string;
-  avatar: string;
-  location: string;
-  rating: number;
-  reviewCount: number;
-  hourlyRate: number;
-  services: string[];
-  bio: string;
-  responseTime: string;
-  verified: boolean;
-}
-
-interface CaregiverCardProps {
-  caregiver: Caregiver;
-}
-
-function CaregiverCard({ caregiver }: CaregiverCardProps) {
+function CaretakerCard({ caretaker }: CaretakerCardProps) {
   return (
     <div className="card group hover:border-primary-200 transition-all duration-200">
       <div className="relative">
         <img
-          src={caregiver.avatar}
-          alt={caregiver.name}
+          src={caretaker.avatar}
+          alt={caretaker.name}
           className="w-full h-48 object-cover object-center rounded-t-xl"
+          onError={(e) => {
+            // Fallback für gebrochene Bilder
+            const target = e.target as HTMLImageElement;
+            target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(caretaker.name)}&background=f3f4f6&color=374151`;
+          }}
         />
-        {caregiver.verified && (
+        {caretaker.verified && (
           <div className="absolute top-2 right-2 bg-primary-500 text-white text-xs font-medium px-2 py-1 rounded-full">
             Verifiziert
           </div>
@@ -299,84 +332,52 @@ function CaregiverCard({ caregiver }: CaregiverCardProps) {
         <div className="flex justify-between items-start mb-3">
           <div>
             <h3 className="font-semibold text-lg group-hover:text-primary-600 transition-colors">
-              {caregiver.name}
+              {caretaker.name}
             </h3>
             <p className="text-gray-600 text-sm flex items-center">
-              <MapPin className="h-3 w-3 mr-1" /> {caregiver.location}
+              <MapPin className="h-3 w-3 mr-1" /> {caretaker.location}
             </p>
           </div>
           <div className="flex items-center">
             <Star className="h-4 w-4 text-accent-500 fill-accent-500 mr-1" />
-            <span className="font-medium">{caregiver.rating}</span>
-            <span className="text-gray-500 text-sm ml-1">({caregiver.reviewCount})</span>
+            <span className="font-medium">{caretaker.rating > 0 ? caretaker.rating.toFixed(1) : '—'}</span>
+            <span className="text-gray-500 text-sm ml-1">({caretaker.reviewCount})</span>
           </div>
         </div>
-        
-        <p className="text-gray-700 text-sm mb-4 line-clamp-2">{caregiver.bio}</p>
-        
+
+        <p className="text-gray-700 text-sm mb-4 line-clamp-2">{caretaker.bio}</p>
+
         <div className="flex flex-wrap gap-1 mb-4">
-          {caregiver.services.slice(0, 3).map(service => (
+          {caretaker.services.slice(0, 3).map((service: string) => (
             <span
               key={service}
               className="text-xs font-medium bg-gray-100 text-gray-800 px-2 py-1 rounded-full"
             >
-              {(() => {
-                switch (service) {
-                  case 'Dog Walking': return 'Gassi-Service';
-                  case 'Pet Sitting': return 'Haustierbetreuung';
-                  case 'Boarding': return 'Übernachtung';
-                  case 'Drop-In Visits': return 'Kurzbesuche';
-                  case 'House Sitting': return 'Haussitting';
-                  case 'Doggy Day Care': return 'Hundetagesbetreuung';
-                  default: return service;
-                }
-              })()}
+              {service}
             </span>
           ))}
-          {caregiver.services.length > 3 && (
+          {caretaker.services.length > 3 && (
             <span className="text-xs font-medium bg-gray-100 text-gray-800 px-2 py-1 rounded-full">
-              +{caregiver.services.length - 3} weitere
+              +{caretaker.services.length - 3} weitere
             </span>
           )}
         </div>
-        
-        <div className="flex items-center justify-between">
-          <p className="flex items-center text-xs text-gray-600">
-            <Clock className="h-3 w-3 mr-1" /> 
-            Antwortet in {caregiver.responseTime}
+
+        <div className="flex items-center justify-end">
+          <p className="font-semibold text-primary-600">
+            {caretaker.hourlyRate > 0 ? `€${caretaker.hourlyRate}/Std.` : 'Preis auf Anfrage'}
           </p>
-          <p className="font-semibold text-primary-600">€{caregiver.hourlyRate}/Std.</p>
         </div>
-        
+
         <Button
           variant="primary"
           className="w-full mt-4"
-          onClick={() => window.location.href = `/betreuer/${caregiver.id}`}
+          onClick={() => window.location.href = `/betreuer/${caretaker.id}`}
         >
           Profil ansehen
         </Button>
       </div>
     </div>
-  );
-}
-
-function SearchIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={cn("lucide lucide-search", props.className)}
-    >
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.3-4.3" />
-    </svg>
   );
 }
 

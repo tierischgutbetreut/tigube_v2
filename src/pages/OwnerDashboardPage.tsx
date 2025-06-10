@@ -1,6 +1,6 @@
 import Layout from '../components/layout/Layout';
 import Button from '../components/ui/Button';
-import { MapPin, Phone, PawPrint, Edit, Calendar, Shield, Heart, MessageCircle, Trash, Check, X, Plus, Upload, LogOut, Settings, Camera } from 'lucide-react';
+import { MapPin, Phone, PawPrint, Edit, Calendar, Shield, Heart, MessageCircle, Trash, Check, X, Plus, Upload, LogOut, Settings, Camera, AlertTriangle } from 'lucide-react';
 import { mockPetOwners, mockBookings, mockCaregivers } from '../data/mockData';
 import { formatCurrency } from '../lib/utils';
 import { Link } from 'react-router-dom';
@@ -10,6 +10,7 @@ import { useDropzone } from 'react-dropzone';
 import { useAuth } from '../lib/auth/AuthContext';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { plzService } from '../lib/supabase/db';
+import { useNavigate } from 'react-router-dom';
 
 const ALL_SERVICES = [
   'Gassi-Service',
@@ -70,7 +71,8 @@ function PhotoDropzone({ photoUrl, onUpload }: {
 }
 
 function OwnerDashboardPage() {
-  const { user, userProfile, loading: authLoading, updateProfileState } = useAuth();
+  const { user, userProfile, loading: authLoading, updateProfileState, signOut } = useAuth();
+  const navigate = useNavigate();
   
   // Demo: initiale Services (später aus DB laden)
   const [services, setServices] = useState<string[]>([]);
@@ -138,6 +140,9 @@ function OwnerDashboardPage() {
   const [editOtherWishError, setEditOtherWishError] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Load user data on component mount and when userProfile changes
   useEffect(() => {
@@ -287,6 +292,18 @@ function OwnerDashboardPage() {
         <div className="text-center">
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Nicht angemeldet</h2>
           <p className="text-gray-600">Bitte melden Sie sich an, um Ihr Dashboard zu sehen.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!userProfile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <LoadingSpinner />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2 mt-4">Profil wird geladen ...</h2>
+          <p className="text-gray-600">Bitte warten Sie einen Moment. Ihr Profil wird geladen.</p>
         </div>
       </div>
     );
@@ -586,24 +603,24 @@ function OwnerDashboardPage() {
       const cityChanged = ownerData.location !== (userProfile?.city || '');
 
       if (plzChanged || cityChanged) {
-          // Check if PLZ exists in plzs table
-          const { data: existingPlz, error: plzError } = await plzService.getByPlz(ownerData.plz);
+          // Check if PLZ+Stadt-Kombination exists in plzs table
+          const { data: existingPlzCity, error: plzError } = await plzService.getByPlzAndCity(ownerData.plz, ownerData.location);
 
           if (plzError && plzError.code !== 'PGRST116') { // PGRST116 means not found, which is expected if new
-               console.error('Error checking PLZ in plzs table:', plzError);
+               console.error('Error checking PLZ+Stadt in plzs table:', plzError);
                throw new Error(`Fehler bei der PLZ-Prüfung: ${plzError.message}`);
           }
 
-          if (!existingPlz) {
-              // PLZ does not exist, create it in plzs table
-              console.log('PLZ not found in plzs table, creating...');
+          if (!existingPlzCity) {
+              // PLZ+Stadt-Kombination does not exist, create it in plzs table
+              console.log('PLZ+Stadt not found in plzs table, creating...');
               const { error: createPlzError } = await plzService.create(ownerData.plz, ownerData.location);
 
               if (createPlzError) {
-                  console.error('Error creating PLZ in plzs table:', createPlzError);
+                  console.error('Error creating PLZ+Stadt in plzs table:', createPlzError);
                    // Continue updating user profile even if adding to plzs fails, but log error
               } else {
-                   console.log('PLZ successfully created in plzs table.');
+                   console.log('PLZ+Stadt successfully created in plzs table.');
               }
           }
 
@@ -622,16 +639,13 @@ function OwnerDashboardPage() {
 
       if (updateError) {
         console.error('Fehler beim Speichern der Kontaktdaten:', updateError);
-      } else if (updatedProfile && updatedProfile.length > 0) {
-        console.log('Kontaktdaten erfolgreich gespeichert:', updatedProfile[0]);
-        // Update the profile state in AuthContext
-        updateProfileState(updatedProfile[0]);
-        // Exit edit mode
-        setEditData(false);
       } else {
-         // Handle cases where there's no error but no data returned (shouldn't happen with select())
-         console.error('Speichern erfolgreich, aber keine Daten zurückgegeben.', updatedProfile);
-         setEditData(false); // Still exit edit mode
+        // Profil nach dem Speichern neu laden (Race-Condition vermeiden)
+        const { data: freshProfile, error: freshError } = await userService.getUserProfile(user.id);
+        if (!freshError && freshProfile) {
+          updateProfileState(freshProfile);
+        }
+        setEditData(false);
       }
     } catch (e) {
       console.error('Exception beim Speichern der Kontaktdaten:', e);
@@ -837,6 +851,32 @@ function OwnerDashboardPage() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    try {
+      const { error } = await userService.deleteUser(user.id);
+      if (error) {
+        console.error('Fehler beim Löschen des Kontos:', error);
+        alert('Fehler beim Löschen des Kontos. Bitte versuchen Sie es erneut.');
+        setIsDeleting(false);
+        return;
+      }
+
+      // Nach erfolgreichem Löschen: Ausloggen und zur Startseite
+      await signOut();
+      navigate('/', { 
+        replace: true,
+        state: { 
+          message: 'Ihr Konto wurde erfolgreich gelöscht. Alle Ihre Daten wurden aus der Datenbank entfernt.' 
+        }
+      });
+    } catch (error) {
+      console.error('Fehler beim Löschen des Kontos:', error);
+      alert('Fehler beim Löschen des Kontos. Bitte versuchen Sie es erneut.');
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="bg-gray-50 min-h-screen py-10">
       <div className="container-custom max-w-4xl">
@@ -903,23 +943,24 @@ function OwnerDashboardPage() {
                         <div className="flex items-center gap-3">
                           <MapPin className="h-4 w-4 text-gray-500" />
                           <span className="text-gray-700">
-                            {ownerData.plz && ownerData.location ? 
-                              `${ownerData.plz} ${ownerData.location}` : 
-                              ownerData.plz ? ownerData.plz : 
-                              ownerData.location ? ownerData.location : 
-                              '—'
-                            }
+                            {userProfile?.plz && userProfile?.city
+                              ? `${userProfile.plz} ${userProfile.city}`
+                              : userProfile?.plz
+                              ? userProfile.plz
+                              : userProfile?.city
+                              ? userProfile.city
+                              : '—'}
                           </span>
                         </div>
                         <div className="flex items-center gap-3">
                           <Phone className="h-4 w-4 text-gray-500" />
-                          <span className="text-gray-700">{ownerData.phoneNumber || '—'}</span>
+                          <span className="text-gray-700">{userProfile?.phone_number || '—'}</span>
                         </div>
                         <div className="flex items-center gap-3">
                           <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
                           </svg>
-                          <span className="text-gray-700">{ownerData.email || '—'}</span>
+                          <span className="text-gray-700">{userProfile?.email || '—'}</span>
                         </div>
                       </>
                     ) : (
@@ -1749,6 +1790,93 @@ function OwnerDashboardPage() {
                       </p>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Konto löschen */}
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-red-600">
+                <AlertTriangle className="h-5 w-5" />
+                Konto löschen
+              </h2>
+              <div className="bg-white rounded-xl shadow-sm p-6 border border-red-200">
+                <div className="bg-red-50 rounded-lg p-4 mb-6">
+                  <div className="flex items-start">
+                    <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 mr-3 flex-shrink-0" />
+                    <div className="text-sm">
+                      <p className="font-medium text-red-800">Achtung - Irreversible Aktion</p>
+                      <p className="text-red-700 mt-1">
+                        Das Löschen Ihres Kontos ist endgültig und kann nicht rückgängig gemacht werden. 
+                        Alle Ihre Daten, Haustier-Profile und Betreuungsverläufe werden permanent gelöscht.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="font-medium text-gray-900">Was wird gelöscht:</h4>
+                  <ul className="list-disc list-inside space-y-1 text-sm text-gray-700 ml-4">
+                    <li>Ihr Benutzerprofil und alle persönlichen Daten</li>
+                    <li>Alle Haustier-Profile und deren Fotos</li>
+                    <li>Betreuungsvorlieben und Einstellungen</li>
+                    <li>Tierarzt- und Notfallkontaktinformationen</li>
+                    <li>Kommunikationsverlauf mit Betreuern</li>
+                    <li>Alle Bewertungen und Feedback</li>
+                  </ul>
+                </div>
+
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  {!showDeleteConfirmation ? (
+                    <button
+                      type="button"
+                      className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                      onClick={() => setShowDeleteConfirmation(true)}
+                    >
+                      Konto löschen
+                    </button>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <p className="text-yellow-800 font-medium mb-2">
+                          Sind Sie sicher, dass Sie Ihr Konto löschen möchten?
+                        </p>
+                        <p className="text-yellow-700 text-sm">
+                          Geben Sie zur Bestätigung "KONTO LÖSCHEN" in das Feld unten ein:
+                        </p>
+                      </div>
+                      
+                      <input
+                        type="text"
+                        className="input w-full max-w-xs"
+                        placeholder="KONTO LÖSCHEN"
+                        value={deleteConfirmationText}
+                        onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                      />
+                      
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          onClick={handleDeleteAccount}
+                          disabled={deleteConfirmationText !== 'KONTO LÖSCHEN' || isDeleting}
+                        >
+                          {isDeleting ? 'Wird gelöscht...' : 'Endgültig löschen'}
+                        </button>
+                        <button
+                          type="button"
+                          className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                          onClick={() => {
+                            setShowDeleteConfirmation(false);
+                            setDeleteConfirmationText('');
+                          }}
+                          disabled={isDeleting}
+                        >
+                          Abbrechen
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

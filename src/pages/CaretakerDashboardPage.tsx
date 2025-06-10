@@ -1,10 +1,11 @@
 import Layout from '../components/layout/Layout';
 import Button from '../components/ui/Button';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import AvailabilityScheduler from '../components/ui/AvailabilityScheduler';
 import { useAuth } from '../lib/auth/AuthContext';
 import { useEffect, useState, useRef } from 'react';
 import { caretakerProfileService } from '../lib/supabase/db';
-import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star } from 'lucide-react';
+import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
 
@@ -24,7 +25,7 @@ function CaretakerDashboardPage() {
   });
   const [emailError, setEmailError] = useState<string | null>(null);
 
-  // --- Neue Verfügbarkeits-Logik (UI wie Screenshot) ---
+  // --- Verfügbarkeits-State ---
   type TimeSlot = { start: string; end: string };
   type AvailabilityState = Record<string, TimeSlot[]>;
   const defaultAvailability: AvailabilityState = {
@@ -37,53 +38,6 @@ function CaretakerDashboardPage() {
     So: [],
   };
   const [availability, setAvailability] = useState<AvailabilityState>(defaultAvailability);
-  const [editSlot, setEditSlot] = useState<{ day: string; idx: number | null }>({ day: '', idx: null });
-  const [slotDraft, setSlotDraft] = useState<TimeSlot>({ start: '', end: '' });
-
-  const days = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
-
-  function handleSlotChange(day: string, idx: number, field: 'start' | 'end', value: string) {
-    setAvailability(avail => {
-      const slots = [...avail[day]];
-      slots[idx] = { ...slots[idx], [field]: value };
-      return { ...avail, [day]: slots };
-    });
-  }
-  function handleAddSlot(day: string) {
-    setEditSlot({ day, idx: null });
-    setSlotDraft({ start: '', end: '' });
-  }
-  function handleEditSlot(day: string, idx: number) {
-    setEditSlot({ day, idx });
-    setSlotDraft({ ...availability[day][idx] });
-  }
-  function handleSaveSlot() {
-    setAvailability(avail => {
-      const slots = [...avail[editSlot.day]];
-      if (editSlot.idx === null) {
-        slots.push(slotDraft);
-      } else {
-        slots[editSlot.idx] = slotDraft;
-      }
-      return { ...avail, [editSlot.day]: slots };
-    });
-    setEditSlot({ day: '', idx: null });
-    setSlotDraft({ start: '', end: '' });
-  }
-  function handleDeleteSlot(day: string, idx: number) {
-    setAvailability(avail => {
-      const slots = [...avail[day]];
-      slots.splice(idx, 1);
-      return { ...avail, [day]: slots };
-    });
-  }
-  function handleCopySlots(fromDay: string, toDay: string) {
-    setAvailability(avail => ({ ...avail, [toDay]: [...avail[fromDay]] }));
-  }
-  function handleCancelSlotEdit() {
-    setEditSlot({ day: '', idx: null });
-    setSlotDraft({ start: '', end: '' });
-  }
 
   // --- Leistungen & Qualifikationen State ---
   const [editSkills, setEditSkills] = useState(false);
@@ -152,16 +106,70 @@ function CaretakerDashboardPage() {
   }
 
   // State für kurze Beschreibung im Texte-Tab
-  const [shortDescription, setShortDescription] = useState(profile?.short_description || '');
+  const [shortDescription, setShortDescription] = useState(profile?.short_about_me || '');
   const [editShortDesc, setEditShortDesc] = useState(false);
   const [shortDescDraft, setShortDescDraft] = useState(shortDescription);
   const maxShortDesc = 140;
 
   // State für Über mich Box
-  const [aboutMe, setAboutMe] = useState(profile?.about_me || '');
+  const [aboutMe, setAboutMe] = useState(profile?.long_about_me || '');
   const [editAboutMe, setEditAboutMe] = useState(false);
   const [aboutMeDraft, setAboutMeDraft] = useState(aboutMe);
-  const minAboutMe = 540;
+  const minAboutMe = 500;
+
+  // Handler für Speichern der kurzen Beschreibung
+  const handleSaveShortDescription = async (newText: string) => {
+    if (!user || !profile) return;
+    
+    try {
+      await caretakerProfileService.saveProfile(user.id, {
+        ...profile,
+        services: profile.services || [],
+        animalTypes: profile.animal_types || [],
+        prices: profile.prices || {},
+        serviceRadius: profile.service_radius || 0,
+        availability: profile.availability || {},
+        homePhotos: profile.home_photos || [],
+        qualifications: profile.qualifications || [],
+        experienceDescription: profile.experience_description || '',
+        shortAboutMe: newText,
+        longAboutMe: profile.long_about_me || '',
+      });
+      
+      setShortDescription(newText);
+      setProfile((prev: any) => ({ ...prev, short_about_me: newText }));
+      setEditShortDesc(false);
+    } catch (error) {
+      console.error('Fehler beim Speichern der kurzen Beschreibung:', error);
+    }
+  };
+
+  // Handler für Speichern der langen Beschreibung
+  const handleSaveAboutMe = async (newText: string) => {
+    if (!user || !profile) return;
+    
+    try {
+      await caretakerProfileService.saveProfile(user.id, {
+        ...profile,
+        services: profile.services || [],
+        animalTypes: profile.animal_types || [],
+        prices: profile.prices || {},
+        serviceRadius: profile.service_radius || 0,
+        availability: profile.availability || {},
+        homePhotos: profile.home_photos || [],
+        qualifications: profile.qualifications || [],
+        experienceDescription: profile.experience_description || '',
+        shortAboutMe: profile.short_about_me || '',
+        longAboutMe: newText,
+      });
+      
+      setAboutMe(newText);
+      setProfile((prev: any) => ({ ...prev, long_about_me: newText }));
+      setEditAboutMe(false);
+    } catch (error) {
+      console.error('Fehler beim Speichern der Über mich Beschreibung:', error);
+    }
+  };
 
   // State für Fotos-Tab
   const [photos, setPhotos] = useState<(string | File)[]>(profile?.home_photos || []);
@@ -265,6 +273,15 @@ function CaretakerDashboardPage() {
       const { data, error } = await caretakerProfileService.getProfile(user.id);
       if (error) setError('Fehler beim Laden des Profils!');
       setProfile(data);
+      
+      // Texte-States aktualisieren wenn Profil geladen wird
+      if (data) {
+        setShortDescription((data as any).short_about_me || '');
+        setShortDescDraft((data as any).short_about_me || '');
+        setAboutMe((data as any).long_about_me || '');
+        setAboutMeDraft((data as any).long_about_me || '');
+      }
+      
       setLoading(false);
     };
     fetchProfile();
@@ -424,7 +441,19 @@ function CaretakerDashboardPage() {
             <div className="flex flex-col lg:flex-row gap-8">
               {/* Name */}
               <div className="flex-1">
-                <h1 className="text-2xl font-bold mb-4">{fullName}</h1>
+                <div className="flex items-center gap-2 mb-4">
+                  <h1 className="text-2xl font-bold">{fullName}</h1>
+                  {editData && (
+                    <div className="group relative">
+                      <Info className="h-5 w-5 text-blue-500 cursor-help" />
+                      <div className="absolute left-0 top-8 w-64 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                        <div className="font-medium mb-1">Name ändern</div>
+                        <div>Der Name kann nur über das Kontaktformular oder den Support geändert werden.</div>
+                        <div className="absolute -top-1 left-4 w-2 h-2 bg-gray-900 rotate-45"></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               {/* Kontaktdaten */}
               <div className="flex-1">
@@ -759,88 +788,14 @@ function CaretakerDashboardPage() {
             )}
           </div>
 
-          {/* Verfügbarkeit (neues UI) */}
+          {/* Verfügbarkeit */}
           <div className="mb-8">
             <h2 className="text-xl font-semibold mb-2 flex items-center gap-2 text-gray-900"><Calendar className="w-5 h-5" /> Verfügbarkeit</h2>
             <div className="bg-white rounded-xl shadow p-6">
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Allgemeine Verfügbarkeit</label>
-                <span className="text-xs text-gray-500">Hier können Sie festlegen, wann Sie regelmäßig für Termine zur Verfügung stehen.</span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="p-2 text-left">Tag</th>
-                      <th className="p-2 text-left">Von</th>
-                      <th className="p-2 text-left">Bis</th>
-                      <th className="p-2"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {days.map(day => (
-                      <>
-                        {availability[day].length === 0 ? (
-                          <tr key={day} className="border-b">
-                            <td className="p-2 font-semibold w-24">{day}</td>
-                            <td className="p-2 text-gray-400" colSpan={2}>Nicht verfügbar</td>
-                            <td className="p-2">
-                              <button className="text-primary-600 hover:bg-primary-50 rounded p-1" onClick={() => handleAddSlot(day)} title="Zeitfenster hinzufügen">
-                                <span className="sr-only">Hinzufügen</span>
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                              </button>
-                            </td>
-                          </tr>
-                        ) : availability[day].map((slot, idx) => (
-                          <tr key={day + idx} className="border-b">
-                            <td className="p-2 font-semibold w-24">{day}{idx > 0 && <span className="text-xs text-gray-400 ml-1">({idx + 1})</span>}</td>
-                            <td className="p-2">
-                              {editSlot.day === day && editSlot.idx === idx ? (
-                                <input type="time" className="input w-28" value={slotDraft.start} onChange={e => setSlotDraft(d => ({ ...d, start: e.target.value }))} />
-                              ) : (
-                                <span>{slot.start}</span>
-                              )}
-                            </td>
-                            <td className="p-2">
-                              {editSlot.day === day && editSlot.idx === idx ? (
-                                <input type="time" className="input w-28" value={slotDraft.end} onChange={e => setSlotDraft(d => ({ ...d, end: e.target.value }))} />
-                              ) : (
-                                <span>{slot.end}</span>
-                              )}
-                            </td>
-                            <td className="p-2 flex gap-1">
-                              {editSlot.day === day && editSlot.idx === idx ? (
-                                <>
-                                  <button className="text-green-600 hover:bg-green-50 rounded p-1" onClick={handleSaveSlot} title="Speichern"><Check className="w-4 h-4" /></button>
-                                  <button className="text-gray-400 hover:bg-gray-100 rounded p-1" onClick={handleCancelSlotEdit} title="Abbrechen"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
-                                </>
-                              ) : (
-                                <>
-                                  <button className="text-primary-600 hover:bg-primary-50 rounded p-1" onClick={() => handleEditSlot(day, idx)} title="Bearbeiten"><Edit className="h-3.5 w-3.5" /></button>
-                                  <button className="text-red-500 hover:bg-red-50 rounded p-1" onClick={() => handleDeleteSlot(day, idx)} title="Löschen"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
-                                  <button className="text-gray-400 hover:bg-gray-100 rounded p-1" onClick={() => handleCopySlots(day, days.find(d => d !== day) || day)} title="Kopieren"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" /><rect x="3" y="3" width="13" height="13" rx="2" /></svg></button>
-                                </>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                        {/* Slot-Add-Form */}
-                        {editSlot.day === day && editSlot.idx === null && (
-                          <tr key={day + 'add'}>
-                            <td className="p-2 font-semibold w-24">{day}</td>
-                            <td className="p-2"><input type="time" className="input w-28" value={slotDraft.start} onChange={e => setSlotDraft(d => ({ ...d, start: e.target.value }))} /></td>
-                            <td className="p-2"><input type="time" className="input w-28" value={slotDraft.end} onChange={e => setSlotDraft(d => ({ ...d, end: e.target.value }))} /></td>
-                            <td className="p-2 flex gap-1">
-                              <button className="text-green-600 hover:bg-green-50 rounded p-1" onClick={handleSaveSlot} title="Speichern"><Check className="w-4 h-4" /></button>
-                              <button className="text-gray-400 hover:bg-gray-100 rounded p-1" onClick={handleCancelSlotEdit} title="Abbrechen"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
-                            </td>
-                          </tr>
-                        )}
-                      </>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <AvailabilityScheduler
+                availability={availability}
+                onAvailabilityChange={setAvailability}
+              />
             </div>
           </div>
 
@@ -915,7 +870,7 @@ function CaretakerDashboardPage() {
             {!editShortDesc ? (
               <div className="text-gray-700 min-h-[32px]">{shortDescription || <span className="text-gray-400">Noch keine Beschreibung hinterlegt.</span>}</div>
             ) : (
-              <form onSubmit={e => { e.preventDefault(); setShortDescription(shortDescDraft); setEditShortDesc(false); }}>
+              <form onSubmit={e => { e.preventDefault(); handleSaveShortDescription(shortDescDraft); }}>
                 <textarea
                   className="input w-full min-h-[48px]"
                   maxLength={maxShortDesc}
@@ -946,7 +901,7 @@ function CaretakerDashboardPage() {
             {!editAboutMe ? (
               <div className="text-gray-700 min-h-[32px]">{aboutMe || <span className="text-gray-400">Noch kein Text hinterlegt.</span>}</div>
             ) : (
-              <form onSubmit={e => { e.preventDefault(); setAboutMe(aboutMeDraft); setEditAboutMe(false); }}>
+              <form onSubmit={e => { e.preventDefault(); handleSaveAboutMe(aboutMeDraft); }}>
                 <textarea
                   className="input w-full min-h-[160px]"
                   value={aboutMeDraft}

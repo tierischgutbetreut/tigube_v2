@@ -56,15 +56,7 @@ function Header() {
           
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            {loading ? (
-              // Loading state - zeige informativen Loading-Text
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2 text-gray-500 text-sm">
-                  <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-                  <span>Laden...</span>
-                </div>
-              </div>
-            ) : isAuthenticated ? (
+            {isAuthenticated ? (
               <>
                 {isOwner && (
                   <NavLink to="/dashboard-owner" isActive={isActive('/dashboard-owner')}>
@@ -133,15 +125,7 @@ function Header() {
         {isMenuOpen && (
           <div className="md:hidden">
             <div className="pt-2 pb-4 space-y-1 animate-fade-in">
-              {loading ? (
-                // Loading state für mobile
-                <div className="space-y-2 px-3">
-                  <div className="flex items-center space-x-2 text-gray-500 text-sm">
-                    <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span>Navigation wird geladen...</span>
-                  </div>
-                </div>
-              ) : isAuthenticated ? (
+              {isAuthenticated ? (
                 <>
                   {isOwner && (
                     <MobileNavLink to="/dashboard-owner" isActive={isActive('/dashboard-owner')} onClick={() => setIsMenuOpen(false)}>

@@ -24,6 +24,33 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   }
 });
 
+// Auth-Hilfsfunktionen mit deutscher Fehlerübersetzung
+const translateAuthError = (error: any): Error => {
+  if (!error) return error;
+  
+  let germanMessage = error.message;
+  
+  if (error.message.includes('Unable to validate email address: invalid format')) {
+    germanMessage = 'E-Mail-Adresse hat ein ungültiges Format';
+  } else if (error.message.includes('Invalid login credentials')) {
+    germanMessage = 'Ungültige Anmeldedaten';
+  } else if (error.message.includes('Email not confirmed')) {
+    germanMessage = 'E-Mail-Adresse wurde noch nicht bestätigt';
+  } else if (error.message.includes('Too many requests')) {
+    germanMessage = 'Zu viele Anmeldeversuche. Bitte versuchen Sie es später erneut';
+  } else if (error.message.includes('User already registered')) {
+    germanMessage = 'Ein Benutzer mit dieser E-Mail-Adresse ist bereits registriert';
+  } else if (error.message.includes('Password should be at least')) {
+    germanMessage = 'Das Passwort muss mindestens 6 Zeichen lang sein';
+  } else if (error.message.includes('Signup is disabled')) {
+    germanMessage = 'Registrierung ist derzeit deaktiviert';
+  } else if (error.message.includes('Email rate limit exceeded')) {
+    germanMessage = 'E-Mail-Limit erreicht. Bitte versuchen Sie es später erneut';
+  }
+  
+  return new Error(germanMessage);
+};
+
 // Auth-Hilfsfunktionen
 export const auth = {
   // Registrierung mit E-Mail und Passwort (mit optionalen Optionen)
@@ -33,6 +60,11 @@ export const auth = {
       password,
       ...(options || {})
     });
+    
+    if (error) {
+      return { data, error: translateAuthError(error) };
+    }
+    
     return { data, error };
   },
 
@@ -42,24 +74,38 @@ export const auth = {
       email,
       password,
     });
+    
+    if (error) {
+      return { data, error: translateAuthError(error) };
+    }
+    
     return { data, error };
   },
 
   // Abmeldung
   signOut: async () => {
     const { error } = await supabase.auth.signOut();
+    if (error) {
+      return { error: translateAuthError(error) };
+    }
     return { error };
   },
 
   // Aktuellen Benutzer abrufen
   getUser: async () => {
     const { data, error } = await supabase.auth.getUser();
+    if (error) {
+      return { data, error: translateAuthError(error) };
+    }
     return { data, error };
   },
 
   // Session abrufen
   getSession: async () => {
     const { data, error } = await supabase.auth.getSession();
+    if (error) {
+      return { data, error: translateAuthError(error) };
+    }
     return { data, error };
   },
 };

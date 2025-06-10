@@ -105,13 +105,6 @@ export type Database = {
             foreignKeyName: "care_requests_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
-            referencedRelation: "caretaker_search_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "care_requests_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -193,13 +186,6 @@ export type Database = {
             foreignKeyName: "caretaker_profiles_id_fkey"
             columns: ["id"]
             isOneToOne: true
-            referencedRelation: "caretaker_search_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "caretaker_profiles_id_fkey"
-            columns: ["id"]
-            isOneToOne: true
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -240,13 +226,6 @@ export type Database = {
           vet_info?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "owner_preferences_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: true
-            referencedRelation: "caretaker_search_view"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "owner_preferences_owner_id_fkey"
             columns: ["owner_id"]
@@ -303,13 +282,6 @@ export type Database = {
           weight?: number | null
         }
         Relationships: [
-          {
-            foreignKeyName: "pets_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "caretaker_search_view"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "pets_owner_id_fkey"
             columns: ["owner_id"]
@@ -396,13 +368,6 @@ export type Database = {
             foreignKeyName: "reviews_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "caretaker_search_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "reviews_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -472,39 +437,7 @@ export type Database = {
       }
     }
     Views: {
-      caretaker_search_view: {
-        Row: {
-          animal_types: string[] | null
-          city: string | null
-          experience_description: string | null
-          experience_years: number | null
-          first_name: string | null
-          full_name: string | null
-          home_photos: string[] | null
-          hourly_rate: number | null
-          id: string | null
-          is_verified: boolean | null
-          last_name: string | null
-          long_about_me: string | null
-          plz: string | null
-          profile_photo_url: string | null
-          qualifications: string[] | null
-          rating: number | null
-          review_count: number | null
-          service_radius: number | null
-          services: Json | null
-          short_about_me: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "users_plz_city_fkey"
-            columns: ["plz", "city"]
-            isOneToOne: false
-            referencedRelation: "plzs"
-            referencedColumns: ["plz", "city"]
-          },
-        ]
-      }
+      [_ in never]: never
     }
     Functions: {
       get_caretaker_by_id: {
@@ -662,13 +595,4 @@ export type CompositeTypes<
   ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
-
-export const Constants = {
-  public: {
-    Enums: {},
-  },
-} as const
-
-// Helper type for our caretaker search view
-export type CaretakerSearchResult = Tables<'caretaker_search_view'>
+    : never 

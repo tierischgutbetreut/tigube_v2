@@ -49,9 +49,8 @@ function ProtectedRoute({ children, requireOwner = false }: ProtectedRouteProps)
       // Wait for userProfile to be loaded if owner is required
       if (userProfile === null && !loading) {
           console.log('🛡️ ProtectedRoute: Waiting for userProfile...');
-          // Optionally show a minimal loading state here instead of the full spinner
-          // For now, returning null to wait for the next render cycle when profile is loaded
-           return null; // Or a smaller loading indicator
+          // Zeige einen Lade-Spinner statt null
+          return <LoadingSpinner />;
       }
 
       if (userProfile?.user_type !== 'owner') {
