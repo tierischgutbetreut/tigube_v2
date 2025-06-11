@@ -373,6 +373,99 @@ export type Database = {
           },
         ]
       }
+      conversations: {
+        Row: {
+          caretaker_id: string
+          created_at: string | null
+          id: string
+          last_message_at: string | null
+          owner_id: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          caretaker_id: string
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          owner_id: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          caretaker_id?: string
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          owner_id?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_caretaker_id_fkey"
+            columns: ["caretaker_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string | null
+          created_at: string | null
+          edited_at: string | null
+          id: string
+          message_type: string | null
+          read_at: string | null
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id?: string | null
+          created_at?: string | null
+          edited_at?: string | null
+          id?: string
+          message_type?: string | null
+          read_at?: string | null
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string | null
+          created_at?: string | null
+          edited_at?: string | null
+          id?: string
+          message_type?: string | null
+          read_at?: string | null
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           address: string | null
@@ -596,3 +689,141 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never 
+
+// Chat-specific types
+export type Conversation = Tables<'conversations'>
+export type ConversationInsert = TablesInsert<'conversations'>
+export type ConversationUpdate = TablesUpdate<'conversations'>
+
+export type Message = Tables<'messages'>
+export type MessageInsert = TablesInsert<'messages'>
+export type MessageUpdate = TablesUpdate<'messages'>
+
+export type User = Tables<'users'>
+
+// Enhanced conversation type with joined user data
+export interface ConversationWithUsers extends Conversation {
+  owner: {
+    id: string
+    first_name: string | null
+    last_name: string | null
+    profile_photo_url: string | null
+  }
+  caretaker: {
+    id: string
+    first_name: string | null
+    last_name: string | null
+    profile_photo_url: string | null
+  }
+  last_message?: {
+    content: string
+    created_at: string | null
+    sender_id: string
+  }
+  unread_count?: number
+}
+
+// Enhanced message type with sender data
+export interface MessageWithSender extends Message {
+  sender: {
+    id: string
+    first_name: string | null
+    last_name: string | null
+    profile_photo_url: string | null
+  }
+}
+
+// Chat service interfaces
+export interface SendMessageRequest {
+  conversation_id: string
+  content: string
+  message_type?: 'text' | 'image' | 'system'
+}
+
+export interface CreateConversationRequest {
+  owner_id: string
+  caretaker_id: string
+}
+
+// Owner-Caretaker Connections für öffentliche Profile
+export interface OwnerCaretakerConnection {
+  id: string
+  owner_id: string
+  caretaker_id: string
+  created_at: string
+  updated_at: string
+  status: 'active' | 'blocked'
+}
+
+export interface OwnerCaretakerConnectionInsert {
+  owner_id: string
+  caretaker_id: string
+  status?: 'active' | 'blocked'
+}
+
+export interface OwnerCaretakerConnectionUpdate {
+  status?: 'active' | 'blocked'
+}
+
+// Öffentliches Owner-Profil (gefiltert nach Datenschutz-Einstellungen)
+export interface PublicOwnerProfile {
+  id: string
+  first_name: string
+  last_name: string
+  profile_photo_url?: string
+  
+  // Bedingt sichtbare Daten basierend auf shareSettings
+  phone_number?: string
+  email?: string
+  plz?: string
+  city?: string
+  
+  // Betreuungsvorlieben
+  services?: string[]
+  other_services?: string
+  
+  // Tierarzt & Notfall (falls freigegeben) - direkt aus owner_preferences
+  vet_info?: string | {
+    name: string
+    address: string
+    phone: string
+  }
+  emergency_contact_name?: string
+  emergency_contact_phone?: string
+  care_instructions?: string
+  
+  // Haustiere (falls freigegeben)
+  pets?: Array<{
+    id: string
+    name: string
+    type: string
+    breed?: string
+    age?: number
+    photo_url?: string
+    gender?: string
+    neutered?: boolean
+  }>
+  
+  // Meta-Informationen
+  share_settings?: {
+    phoneNumber: boolean
+    email: boolean
+    address: boolean
+    vetInfo: boolean
+    emergencyContact: boolean
+    petDetails: boolean
+    carePreferences: boolean
+  }
+}
+
+export interface GetMessagesOptions {
+  conversation_id: string
+  limit?: number
+  offset?: number
+  before?: string // created_at timestamp for pagination
+}
+
+export interface UnreadCount {
+  conversation_id: string
+  count: number
+} 

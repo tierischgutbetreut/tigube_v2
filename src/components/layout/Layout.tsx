@@ -25,6 +25,9 @@ function Layout({ children }: LayoutProps) {
   const chatRef = useRef<HTMLDivElement>(null);
   const [chatError, setChatError] = useState<boolean>(false);
 
+  // Check if current page is messages page
+  const isMessagesPage = location.pathname.startsWith('/nachrichten');
+
   // CSS-Variablen für das Chat-Branding (nur einmal setzen)
   useEffect(() => {
     const root = document.documentElement;
@@ -128,12 +131,12 @@ function Layout({ children }: LayoutProps) {
   }, [location.pathname, location.search]);
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className={`flex flex-col ${isMessagesPage ? 'h-screen' : 'min-h-screen'}`}>
       <Header />
-      <main className="flex-grow">
+      <main className={isMessagesPage ? 'flex-1 overflow-hidden' : 'flex-grow'}>
         {children}
       </main>
-      <Footer />
+      {!isMessagesPage && <Footer />}
       <CookieBanner />
       <div id="n8n-chat" ref={chatRef} />
     </div>

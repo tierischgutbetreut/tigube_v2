@@ -6,9 +6,10 @@ import { useEffect } from 'react';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireOwner?: boolean;
+  requireCaretaker?: boolean;
 }
 
-function ProtectedRoute({ children, requireOwner = false }: ProtectedRouteProps) {
+function ProtectedRoute({ children, requireOwner = false, requireCaretaker = false }: ProtectedRouteProps) {
   const { isAuthenticated, userProfile, loading, user } = useAuth();
   const location = useLocation();
 
@@ -19,7 +20,8 @@ function ProtectedRoute({ children, requireOwner = false }: ProtectedRouteProps)
           user: !!user,
           userProfile: !!userProfile,
           userType: userProfile?.user_type,
-          requireOwner
+          requireOwner,
+          requireCaretaker
       });
 
       if (!loading && isAuthenticated && requireOwner && userProfile === null) {
@@ -28,8 +30,11 @@ function ProtectedRoute({ children, requireOwner = false }: ProtectedRouteProps)
        if (!loading && isAuthenticated && requireOwner && userProfile?.user_type !== 'owner') {
            console.warn('⚠️ ProtectedRoute: User authenticated, owner required, but userType is not owner or profile incomplete.', userProfile?.user_type);
        }
+       if (!loading && isAuthenticated && requireCaretaker && userProfile?.user_type !== 'caretaker') {
+           console.warn('⚠️ ProtectedRoute: User authenticated, caretaker required, but userType is not caretaker or profile incomplete.', userProfile?.user_type);
+       }
 
-  }, [loading, isAuthenticated, userProfile, user, requireOwner]); // Log state changes
+  }, [loading, isAuthenticated, userProfile, user, requireOwner, requireCaretaker]); // Log state changes
 
 
   if (loading) {
@@ -61,7 +66,24 @@ function ProtectedRoute({ children, requireOwner = false }: ProtectedRouteProps)
        console.log('🛡️ ProtectedRoute: Authenticated and owner. Granting access.');
   }
 
-  // If not requireOwner, or if requireOwner is met
+  if (requireCaretaker) {
+      console.log('🛡️ ProtectedRoute: Authenticated, checking caretaker requirement.', { userType: userProfile?.user_type });
+      // Wait for userProfile to be loaded if caretaker is required
+      if (userProfile === null && !loading) {
+          console.log('🛡️ ProtectedRoute: Waiting for userProfile...');
+          // Zeige einen Lade-Spinner statt null
+          return <LoadingSpinner />;
+      }
+
+      if (userProfile?.user_type !== 'caretaker') {
+          console.log('🛡️ ProtectedRoute: Authenticated, but not caretaker. Redirecting to /.', userProfile?.user_type);
+          // Redirect non-caretakers away from caretaker-only pages
+          return <Navigate to="/" replace />;
+      }
+       console.log('🛡️ ProtectedRoute: Authenticated and caretaker. Granting access.');
+  }
+
+  // If not requireOwner or requireCaretaker, or if requirements are met
   return <>{children}</>;
 }
 

@@ -20,7 +20,10 @@ function RegisterPage() {
   const { updateProfileState } = useAuth();
   const initialType = searchParams.get('type') || 'owner';
   
-  const [userType, setUserType] = useState<'owner' | 'caretaker'>(initialType === 'caretaker' ? 'caretaker' : 'owner');
+  // Fix: Accept both 'caregiver' and 'caretaker' as valid caretaker types
+  const [userType, setUserType] = useState<'owner' | 'caretaker'>(
+    initialType === 'caregiver' || initialType === 'caretaker' ? 'caretaker' : 'owner'
+  );
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { Search, MapPin, Clock, Shield, Heart, Dog, Cat, Rabbit, Calendar, Briefcase, PawPrint, CheckCircle, X } from 'lucide-react';
+import { Search, MapPin, Clock, Shield, Heart, Dog, Cat, Rabbit, Calendar, Briefcase, PawPrint, CheckCircle, X, ChevronDown } from 'lucide-react';
 import Button from '../components/ui/Button';
 
 function HomePage() {
@@ -8,19 +8,37 @@ function HomePage() {
   const location = useLocation();
   const [showMessage, setShowMessage] = useState(!!location.state?.message);
   const [formLocation, setFormLocation] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
   const [service, setService] = useState('Hundebetreuung');
-  const [petType, setPetType] = useState('Hund');
+  const [selectedDay, setSelectedDay] = useState('');
+  const [selectedTime, setSelectedTime] = useState('');
+
+  // Verfügbarkeitsoptionen (gleich wie in SearchPage)
+  const availabilityDayOptions = [
+    { value: '', label: 'Alle Tage' },
+    { value: 'montag', label: 'Montag' },
+    { value: 'dienstag', label: 'Dienstag' },
+    { value: 'mittwoch', label: 'Mittwoch' },
+    { value: 'donnerstag', label: 'Donnerstag' },
+    { value: 'freitag', label: 'Freitag' },
+    { value: 'samstag', label: 'Samstag' },
+    { value: 'sonntag', label: 'Sonntag' }
+  ];
+
+  const availabilityTimeOptions = [
+    { value: '', label: 'Alle Zeiten' },
+    { value: 'morgens', label: 'Morgens (6-12 Uhr)' },
+    { value: 'mittags', label: 'Mittags (12-18 Uhr)' },
+    { value: 'abends', label: 'Abends (18-22 Uhr)' },
+    { value: 'ganztags', label: 'Ganztags verfügbar' }
+  ];
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const queryParams = new URLSearchParams();
-    if (petType) queryParams.append('petType', petType);
     if (service) queryParams.append('service', service);
     if (formLocation) queryParams.append('location', formLocation);
-    if (startDate) queryParams.append('startDate', startDate);
-    if (endDate) queryParams.append('endDate', endDate);
+    if (selectedDay) queryParams.append('availabilityDay', selectedDay);
+    if (selectedTime) queryParams.append('availabilityTime', selectedTime);
     navigate(`/suche?${queryParams.toString()}`);
   };
 
@@ -94,29 +112,41 @@ function HomePage() {
                   </div>
                 </div>
                 <div className="flex flex-col md:col-span-2">
-                  <label htmlFor="startDate" className="text-sm font-medium text-gray-700 mb-1">Von</label>
+                  <label htmlFor="availabilityDay" className="text-sm font-medium text-gray-700 mb-1">Wochentag</label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      id="startDate"
-                      type="date"
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                    />
+                    <select
+                      id="availabilityDay"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none bg-white"
+                      value={selectedDay}
+                      onChange={(e) => setSelectedDay(e.target.value)}
+                    >
+                      {availabilityDayOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
                 </div>
                 <div className="flex flex-col md:col-span-2">
-                  <label htmlFor="endDate" className="text-sm font-medium text-gray-700 mb-1">Bis</label>
+                  <label htmlFor="availabilityTime" className="text-sm font-medium text-gray-700 mb-1">Uhrzeit</label>
                   <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      id="endDate"
-                      type="date"
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                    />
+                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <select
+                      id="availabilityTime"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none bg-white"
+                      value={selectedTime}
+                      onChange={(e) => setSelectedTime(e.target.value)}
+                    >
+                      {availabilityTimeOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
                 </div>
                 <button

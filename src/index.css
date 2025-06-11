@@ -78,6 +78,132 @@
   .container-custom {
     @apply px-4 sm:px-6 lg:px-8 mx-auto max-w-7xl;
   }
+
+  /* Dual Range Slider Styles */
+  .range-slider-min,
+  .range-slider-max {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+    height: 8px;
+    outline: none;
+    pointer-events: auto;
+  }
+
+  .range-slider-min::-webkit-slider-track,
+  .range-slider-max::-webkit-slider-track {
+    background: transparent;
+    height: 8px;
+    border-radius: 4px;
+  }
+
+  .range-slider-min::-webkit-slider-thumb,
+  .range-slider-max::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #3b82f6;
+    cursor: pointer;
+    border: 3px solid white;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    position: relative;
+    margin-top: -6px; /* Center the thumb */
+  }
+
+  .range-slider-min::-moz-range-track,
+  .range-slider-max::-moz-range-track {
+    background: transparent;
+    height: 8px;
+    border: none;
+    border-radius: 4px;
+  }
+
+  .range-slider-min::-moz-range-thumb,
+  .range-slider-max::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #3b82f6;
+    cursor: pointer;
+    border: 3px solid white;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    -moz-appearance: none;
+  }
+
+  .range-slider-min:hover::-webkit-slider-thumb,
+  .range-slider-max:hover::-webkit-slider-thumb {
+    background: #2563eb;
+    transform: scale(1.1);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+  }
+
+  .range-slider-min:hover::-moz-range-thumb,
+  .range-slider-max:hover::-moz-range-thumb {
+    background: #2563eb;
+    transform: scale(1.1);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+  }
+
+  .range-slider-min:focus::-webkit-slider-thumb,
+  .range-slider-max:focus::-webkit-slider-thumb {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3), 0 2px 6px rgba(0, 0, 0, 0.3);
+  }
+
+  .range-slider-min:focus::-moz-range-thumb,
+  .range-slider-max:focus::-moz-range-thumb {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3), 0 2px 6px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Legacy range-slider class for backwards compatibility */
+  .range-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .range-slider::-webkit-slider-track {
+    background: transparent;
+  }
+
+  .range-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #3b82f6;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    position: relative;
+  }
+
+  .range-slider::-moz-range-track {
+    background: transparent;
+    border: none;
+  }
+
+  .range-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #3b82f6;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .range-slider:focus::-webkit-slider-thumb {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  }
+
+  .range-slider:focus::-moz-range-thumb {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  }
 }
 
 /* n8n Branding im Chat-Widget ausblenden */

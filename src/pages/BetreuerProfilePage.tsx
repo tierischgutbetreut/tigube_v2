@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { MapPin, Star, Clock, Shield, Calendar, MessageCircle, Heart, HeartOff, ArrowLeft, Verified, ChevronRight, CheckCircle } from 'lucide-react';
 import Button from '../components/ui/Button';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import AvailabilityDisplay from '../components/ui/AvailabilityDisplay';
 import { caretakerSearchService } from '../lib/supabase/db';
 import { formatCurrency } from '../lib/utils';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase/client';
+import { useAuth } from '../lib/auth/AuthContext';
+import { getOrCreateConversation } from '../lib/supabase/chatService';
 
 interface Caretaker {
-  id: string;
+  id: string | null;
   name: string;
   avatar: string;
   location: string;
@@ -42,12 +45,15 @@ interface Review {
 
 function BetreuerProfilePage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
   const [isFavorite, setIsFavorite] = useState(false);
   const [caretaker, setCaretaker] = useState<Caretaker | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [isContactLoading, setIsContactLoading] = useState(false);
   
   useEffect(() => {
     const fetchCaretaker = async () => {
@@ -130,6 +136,46 @@ function BetreuerProfilePage() {
     }
     
     return name;
+  };
+
+  // Kontakt-Button Handler
+  const handleContactClick = async () => {
+    if (!isAuthenticated || !user) {
+      // Umleitung zur Login-Seite mit return URL
+      navigate(`/anmelden?redirect=${encodeURIComponent(`/betreuer/${id}`)}&action=contact&caretaker=${encodeURIComponent(caretaker?.name || '')}`);
+      return;
+    }
+
+    if (!caretaker?.id) {
+      console.error('Caretaker ID fehlt');
+      return;
+    }
+
+    setIsContactLoading(true);
+
+    try {
+      // Erstelle oder finde bestehende Konversation
+      const { data: conversation, error } = await getOrCreateConversation({
+        owner_id: user.id,
+        caretaker_id: caretaker.id
+      });
+
+      if (error) {
+        console.error('Fehler beim Erstellen der Konversation:', error);
+        // TODO: Toast-Benachrichtigung anzeigen
+        return;
+      }
+
+      if (conversation) {
+        // Navigiere zum Chat
+        navigate(`/chat/${conversation.id}`);
+      }
+    } catch (error) {
+      console.error('Unerwarteter Fehler beim Kontaktieren:', error);
+      // TODO: Toast-Benachrichtigung anzeigen
+    } finally {
+      setIsContactLoading(false);
+    }
   };
 
   if (loading) {
@@ -251,8 +297,11 @@ function BetreuerProfilePage() {
                   variant="outline" 
                   size="lg"
                   leftIcon={<MessageCircle className="h-4 w-4" />}
+                  onClick={handleContactClick}
+                  isLoading={isContactLoading}
+                  disabled={isContactLoading}
                 >
-                  Kontakt
+                  {isAuthenticated ? 'Nachricht senden' : 'Kontakt aufnehmen'}
                 </Button>
               </div>
             </div>
@@ -270,6 +319,9 @@ function BetreuerProfilePage() {
               <h2 className="text-lg font-semibold mb-4">Über {displayName}</h2>
               <p className="text-gray-700 leading-relaxed">{caretaker.fullBio || caretaker.bio}</p>
             </div>
+
+            {/* Verfügbarkeit */}
+            <AvailabilityDisplay availability={caretaker.availability} />
 
             {/* Reviews */}
             <div className="bg-white rounded-xl p-6 shadow-sm">

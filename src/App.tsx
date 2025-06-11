@@ -20,6 +20,8 @@ const HelpPage = lazy(() => import('./pages/HelpPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const OwnerDashboardPage = lazy(() => import('./pages/OwnerDashboardPage'));
 const CaretakerDashboardPage = lazy(() => import('./pages/CaretakerDashboardPage'));
+const MessagesPage = lazy(() => import('./pages/MessagesPage'));
+const OwnerPublicProfilePage = lazy(() => import('./pages/OwnerPublicProfilePage'));
 
 function App() {
   return (
@@ -53,6 +55,30 @@ function App() {
                 <CaretakerDashboardPage />
               </ProtectedRoute>
             }
+          />
+          <Route 
+            path="/nachrichten" 
+            element={
+              <ProtectedRoute>
+                <MessagesPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/nachrichten/:conversationId" 
+            element={
+              <ProtectedRoute>
+                <MessagesPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/owner/:userId" 
+            element={
+              <ProtectedRoute>
+                <OwnerPublicProfilePage />
+              </ProtectedRoute>
+            } 
           />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

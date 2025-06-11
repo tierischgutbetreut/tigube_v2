@@ -33,6 +33,7 @@ function Header() {
 
   // Bessere Owner-Prüfung mit Fallback
   const isOwner = userProfile?.user_type === 'owner' || (!userProfile && isAuthenticated);
+  const isCaretaker = userProfile?.user_type === 'caretaker';
   
   // Debug: Log current state
   if (import.meta.env.DEV) {
@@ -41,7 +42,8 @@ function Header() {
       isAuthenticated, 
       hasUserProfile: !!userProfile, 
       userType: userProfile?.user_type,
-      calculatedIsOwner: isOwner 
+      calculatedIsOwner: isOwner,
+      calculatedIsCaretaker: isCaretaker 
     });
   }
 
@@ -61,6 +63,11 @@ function Header() {
                 {isOwner && (
                   <NavLink to="/dashboard-owner" isActive={isActive('/dashboard-owner')}>
                     Mein Profil
+                  </NavLink>
+                )}
+                {isCaretaker && (
+                  <NavLink to="/dashboard-caretaker" isActive={isActive('/dashboard-caretaker')}>
+                    Betreuer Dashboard
                   </NavLink>
                 )}
                 <NavLink to="/suche" isActive={isActive('/suche')}>
@@ -130,6 +137,11 @@ function Header() {
                   {isOwner && (
                     <MobileNavLink to="/dashboard-owner" isActive={isActive('/dashboard-owner')} onClick={() => setIsMenuOpen(false)}>
                       Mein Profil
+                    </MobileNavLink>
+                  )}
+                  {isCaretaker && (
+                    <MobileNavLink to="/dashboard-caretaker" isActive={isActive('/dashboard-caretaker')} onClick={() => setIsMenuOpen(false)}>
+                      Betreuer Dashboard
                     </MobileNavLink>
                   )}
                   <MobileNavLink to="/suche" isActive={isActive('/suche')} onClick={() => setIsMenuOpen(false)}>

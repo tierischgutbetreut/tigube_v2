@@ -7,7 +7,7 @@ type AvailabilityState = Record<string, TimeSlot[]>;
 
 interface AvailabilitySchedulerProps {
   availability: AvailabilityState;
-  onAvailabilityChange: (availability: AvailabilityState) => void;
+  onAvailabilityChange: (availability: AvailabilityState) => Promise<void> | void;
 }
 
 const DAYS = [
@@ -31,6 +31,7 @@ function AvailabilityScheduler({ availability, onAvailabilityChange }: Availabil
   const [editSlot, setEditSlot] = useState<{ day: string; idx: number | null }>({ day: '', idx: null });
   const [slotDraft, setSlotDraft] = useState<TimeSlot>({ start: '', end: '' });
   const [validationError, setValidationError] = useState<string>('');
+  const [saving, setSaving] = useState(false);
 
   // Zeit-Validierung: Überprüft Überschneidungen
   const validateTimeSlot = (day: string, newSlot: TimeSlot, excludeIdx?: number): string => {
@@ -73,39 +74,54 @@ function AvailabilityScheduler({ availability, onAvailabilityChange }: Availabil
     setValidationError('');
   };
 
-  const handleSaveSlot = () => {
+  const handleSaveSlot = async () => {
     const error = validateTimeSlot(editSlot.day, slotDraft, editSlot.idx ?? undefined);
     if (error) {
       setValidationError(error);
       return;
     }
 
-    const newAvailability = { ...availability };
-    const slots = [...(newAvailability[editSlot.day] || [])];
-    
-    if (editSlot.idx === null) {
-      slots.push(slotDraft);
-    } else {
-      slots[editSlot.idx] = slotDraft;
+    setSaving(true);
+    try {
+      const newAvailability = { ...availability };
+      const slots = [...(newAvailability[editSlot.day] || [])];
+      
+      if (editSlot.idx === null) {
+        slots.push(slotDraft);
+      } else {
+        slots[editSlot.idx] = slotDraft;
+      }
+      
+      // Sortiere Zeitblöcke nach Startzeit
+      slots.sort((a, b) => a.start.localeCompare(b.start));
+      
+      newAvailability[editSlot.day] = slots;
+      await onAvailabilityChange(newAvailability);
+      
+      setEditSlot({ day: '', idx: null });
+      setSlotDraft({ start: '', end: '' });
+      setValidationError('');
+    } catch (error) {
+      console.error('Fehler beim Speichern:', error);
+      setValidationError('Fehler beim Speichern. Bitte versuchen Sie es erneut.');
+    } finally {
+      setSaving(false);
     }
-    
-    // Sortiere Zeitblöcke nach Startzeit
-    slots.sort((a, b) => a.start.localeCompare(b.start));
-    
-    newAvailability[editSlot.day] = slots;
-    onAvailabilityChange(newAvailability);
-    
-    setEditSlot({ day: '', idx: null });
-    setSlotDraft({ start: '', end: '' });
-    setValidationError('');
   };
 
-  const handleDeleteSlot = (day: string, idx: number) => {
-    const newAvailability = { ...availability };
-    const slots = [...(newAvailability[day] || [])];
-    slots.splice(idx, 1);
-    newAvailability[day] = slots;
-    onAvailabilityChange(newAvailability);
+  const handleDeleteSlot = async (day: string, idx: number) => {
+    setSaving(true);
+    try {
+      const newAvailability = { ...availability };
+      const slots = [...(newAvailability[day] || [])];
+      slots.splice(idx, 1);
+      newAvailability[day] = slots;
+      await onAvailabilityChange(newAvailability);
+    } catch (error) {
+      console.error('Fehler beim Löschen:', error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -119,36 +135,57 @@ function AvailabilityScheduler({ availability, onAvailabilityChange }: Availabil
     setValidationError('');
   };
 
-  const handleCopyDay = (fromDay: string, toDay: string) => {
-    const newAvailability = { ...availability };
-    newAvailability[toDay] = [...(availability[fromDay] || [])];
-    onAvailabilityChange(newAvailability);
+  const handleCopyDay = async (fromDay: string, toDay: string) => {
+    setSaving(true);
+    try {
+      const newAvailability = { ...availability };
+      newAvailability[toDay] = [...(availability[fromDay] || [])];
+      await onAvailabilityChange(newAvailability);
+    } catch (error) {
+      console.error('Fehler beim Kopieren:', error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const formatTimeRange = (slot: TimeSlot) => {
+    if (!slot || !slot.start || !slot.end) {
+      return 'Fehlerhafte Zeit';
+    }
     return `${slot.start} - ${slot.end}`;
   };
 
   const getTotalHours = (slots: TimeSlot[]) => {
     return slots.reduce((total, slot) => {
-      const start = new Date(`2000-01-01T${slot.start}`);
-      const end = new Date(`2000-01-01T${slot.end}`);
-      return total + (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+      if (!slot || !slot.start || !slot.end) return total;
+      try {
+        const start = new Date(`2000-01-01T${slot.start}`);
+        const end = new Date(`2000-01-01T${slot.end}`);
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) return total;
+        return total + (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+      } catch {
+        return total;
+      }
     }, 0);
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold mb-2">Verfügbarkeit</h3>
         <p className="text-sm text-gray-600 mb-4">
           Legen Sie fest, wann Sie regelmäßig für Termine zur Verfügung stehen. Sie können mehrere Zeitblöcke pro Tag hinzufügen.
         </p>
+        {saving && (
+          <div className="flex items-center gap-2 text-sm text-primary-600 mb-4">
+            <div className="w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+            Speichere Änderungen...
+          </div>
+        )}
       </div>
 
       {DAYS.map((dayInfo) => {
         const daySlots = availability[dayInfo.key] || [];
-        const totalHours = getTotalHours(daySlots);
+        const totalHours = daySlots.length > 0 ? getTotalHours(daySlots) : 0;
         
         return (
           <div key={dayInfo.key} className="border rounded-lg p-4 bg-white">
@@ -169,6 +206,7 @@ function AvailabilityScheduler({ availability, onAvailabilityChange }: Availabil
                   onClick={() => handleAddSlot(dayInfo.key)}
                   leftIcon={<Plus className="h-4 w-4" />}
                   className="text-primary-600"
+                  disabled={saving}
                 >
                   Zeitblock hinzufügen
                 </Button>
@@ -182,6 +220,7 @@ function AvailabilityScheduler({ availability, onAvailabilityChange }: Availabil
                     }}
                     className="text-sm border border-gray-300 rounded px-2 py-1"
                     defaultValue=""
+                    disabled={saving}
                   >
                     <option value="">Kopieren nach...</option>
                     {DAYS.filter(d => d.key !== dayInfo.key).map(d => (
@@ -213,15 +252,17 @@ function AvailabilityScheduler({ availability, onAvailabilityChange }: Availabil
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => handleEditSlot(dayInfo.key, idx)}
-                        className="p-1 text-primary-600 hover:bg-primary-100 rounded"
+                        className="p-1 text-primary-600 hover:bg-primary-100 rounded disabled:opacity-50"
                         title="Bearbeiten"
+                        disabled={saving}
                       >
                         <Edit className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteSlot(dayInfo.key, idx)}
-                        className="p-1 text-red-600 hover:bg-red-100 rounded"
+                        className="p-1 text-red-600 hover:bg-red-100 rounded disabled:opacity-50"
                         title="Löschen"
+                        disabled={saving}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -284,15 +325,20 @@ function AvailabilityScheduler({ availability, onAvailabilityChange }: Availabil
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleSaveSlot}
-                    disabled={!slotDraft.start || !slotDraft.end}
+                    disabled={!slotDraft.start || !slotDraft.end || saving}
                     className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    <Check className="h-4 w-4" />
-                    Speichern
+                    {saving ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Check className="h-4 w-4" />
+                    )}
+                    {saving ? 'Speichere...' : 'Speichern'}
                   </button>
                   <button
                     onClick={handleCancelEdit}
-                    className="flex items-center gap-2 px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+                    disabled={saving}
+                    className="flex items-center gap-2 px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 disabled:opacity-50 transition-colors"
                   >
                     <X className="h-4 w-4" />
                     Abbrechen

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, MessageCircle } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { useAuth } from '../lib/auth/AuthContext';
 
@@ -16,8 +16,14 @@ function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Get URL parameters for redirect handling
+  const searchParams = new URLSearchParams(location.search);
+  const redirectUrl = searchParams.get('redirect');
+  const action = searchParams.get('action');
+  const caretakerName = searchParams.get('caretaker');
+
   // Get the page the user was trying to access before login
-  const from = (location.state as any)?.from?.pathname || '/';
+  const from = (location.state as any)?.from?.pathname || redirectUrl || '/';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,8 +38,17 @@ function LoginPage() {
       setLoading(true);
       await signIn(email, password);
       
-      // Redirect always to the owner dashboard after successful login
-      navigate('/dashboard-owner', { replace: true });
+      // Handle different redirect scenarios
+      if (redirectUrl && redirectUrl !== '/') {
+        // Redirect to the originally requested page
+        navigate(redirectUrl, { replace: true });
+      } else if (from && from !== '/') {
+        // Redirect to the page user was trying to access
+        navigate(from, { replace: true });
+      } else {
+        // Default redirect to owner dashboard
+        navigate('/dashboard-owner', { replace: true });
+      }
     } catch (err: any) {
       console.error('Fehler bei der Anmeldung:', err);
       setError(err.message || 'Bei der Anmeldung ist ein Fehler aufgetreten.');
@@ -52,12 +67,27 @@ function LoginPage() {
           Willkommen zurück
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Melde dich an, um fortzufahren
+          {action === 'contact' && caretakerName 
+            ? `Melde dich an, um ${decodeURIComponent(caretakerName)} zu kontaktieren`
+            : 'Melde dich an, um fortzufahren'
+          }
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          {action === 'contact' && caretakerName && (
+            <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg mb-6 flex items-start">
+              <MessageCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-medium">Kontakt aufnehmen</p>
+                <p className="text-sm mt-1">
+                  Nach der Anmeldung können Sie direkt mit {decodeURIComponent(caretakerName)} chatten.
+                </p>
+              </div>
+            </div>
+          )}
+          
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-start">
               <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />

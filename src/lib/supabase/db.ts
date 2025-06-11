@@ -317,7 +317,7 @@ export const ownerPreferencesService = {
       .from('owner_preferences')
       .select('*')
       .eq('owner_id', ownerId)
-      .single();
+      .maybeSingle();
 
     return { data, error };
   },
@@ -530,17 +530,30 @@ export const caretakerSearchService = {
     console.log('🔍 Getting caretaker by ID:', id);
     
     try {
-      const { data: result, error } = await supabase
-        .from('caretaker_search_view')
-        .select('*')
-        .eq('id', id)
-        .single();
+      // Hole sowohl die View-Daten als auch das Verfügbarkeits-Feld
+      const [viewResult, profileResult] = await Promise.all([
+        supabase
+          .from('caretaker_search_view')
+          .select('*')
+          .eq('id', id)
+          .single(),
+        supabase
+          .from('caretaker_profiles')
+          .select('availability')
+          .eq('id', id)
+          .single()
+      ]);
+      
+      const { data: result, error: viewError } = viewResult;
+      const { data: profileData, error: profileError } = profileResult;
       
       console.log('📊 Single caretaker result:', result);
-      console.log('❌ Error:', error);
+      console.log('📊 Profile availability:', profileData);
+      console.log('❌ View Error:', viewError);
+      console.log('❌ Profile Error:', profileError);
       
-      if (error) {
-        return { data: null, error };
+      if (viewError) {
+        return { data: null, error: viewError };
       }
 
       if (!result) {
@@ -562,6 +575,7 @@ export const caretakerSearchService = {
         experienceYears: result.experience_years || 0,
         fullBio: result.long_about_me || result.short_about_me || 'Keine ausführliche Beschreibung verfügbar.',
         qualifications: Array.isArray(result.qualifications) ? result.qualifications : [],
+        availability: profileData?.availability || {},
         phone: null, // Nicht in der View verfügbar
         email: null, // Nicht in der View verfügbar
       };

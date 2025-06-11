@@ -37,7 +37,39 @@ function CaretakerDashboardPage() {
     Sa: [],
     So: [],
   };
-  const [availability, setAvailability] = useState<AvailabilityState>(defaultAvailability);
+  const [availability, setAvailability] = useState<AvailabilityState>({});
+
+  // Handler für Speichern der Verfügbarkeit
+  const handleSaveAvailability = async (newAvailability: AvailabilityState) => {
+    if (!user || !profile) return;
+    
+    try {
+      // Konvertiere TimeSlot-Objekte zu String-Array für Datenbank
+      const dbAvailability: Record<string, string[]> = {};
+      for (const [day, slots] of Object.entries(newAvailability)) {
+        dbAvailability[day] = slots.map(slot => `${slot.start}-${slot.end}`);
+      }
+      
+      await caretakerProfileService.saveProfile(user.id, {
+        ...profile,
+        services: profile.services || [],
+        animalTypes: profile.animal_types || [],
+        prices: profile.prices || {},
+        serviceRadius: profile.service_radius || 0,
+        availability: dbAvailability,
+        homePhotos: profile.home_photos || [],
+        qualifications: profile.qualifications || [],
+        experienceDescription: profile.experience_description || '',
+        shortAboutMe: profile.short_about_me || '',
+        longAboutMe: profile.long_about_me || '',
+      });
+      
+      setAvailability(newAvailability);
+      setProfile((prev: any) => ({ ...prev, availability: newAvailability }));
+    } catch (error) {
+      console.error('Fehler beim Speichern der Verfügbarkeit:', error);
+    }
+  };
 
   // --- Leistungen & Qualifikationen State ---
   const [editSkills, setEditSkills] = useState(false);
@@ -77,6 +109,19 @@ function CaretakerDashboardPage() {
     'Tierheim-Erfahrung',
   ];
 
+  // Standard-Preisfelder wie bei der Anmeldung
+  const defaultPriceFields = {
+    'Gassi-Service': '',
+    'Haustierbetreuung': '',
+    'Übernachtung': '',
+  };
+
+  const priceFieldLabels = {
+    'Gassi-Service': 'Gassi-Service (pro 30 Min)',
+    'Haustierbetreuung': 'Haustierbetreuung (pro Besuch)',
+    'Übernachtung': 'Übernachtung (pro Nacht)',
+  };
+
   function handleSkillsChange(field: string, value: any) {
     setSkillsDraft(d => ({ ...d, [field]: value }));
   }
@@ -89,11 +134,45 @@ function CaretakerDashboardPage() {
   function handleAddPrice() {
     setSkillsDraft(d => ({ ...d, prices: { ...d.prices, '': '' } }));
   }
-  function handleSaveSkills() {
-    // TODO: Supabase-Sync
-    setEditSkills(false);
-    // Optional: setProfile aktualisieren
-  }
+  const handleSaveSkills = async () => {
+    if (!user || !profile) return;
+    
+    try {
+      // Konvertiere aktuelle Verfügbarkeit zu String-Array für Datenbank
+      const dbAvailability: Record<string, string[]> = {};
+      for (const [day, slots] of Object.entries(availability)) {
+        dbAvailability[day] = slots.map(slot => `${slot.start}-${slot.end}`);
+      }
+      
+      await caretakerProfileService.saveProfile(user.id, {
+        ...profile,
+        services: skillsDraft.services,
+        animalTypes: skillsDraft.animal_types,
+        prices: skillsDraft.prices,
+        serviceRadius: profile.service_radius || 0,
+        availability: dbAvailability,
+        homePhotos: profile.home_photos || [],
+        qualifications: skillsDraft.qualifications,
+        experienceDescription: skillsDraft.experience_description,
+        shortAboutMe: profile.short_about_me || '',
+        longAboutMe: profile.long_about_me || '',
+      });
+      
+      // Aktualisiere das Profil mit den neuen Daten
+      setProfile((prev: any) => ({
+        ...prev,
+        services: skillsDraft.services,
+        animal_types: skillsDraft.animal_types,
+        qualifications: skillsDraft.qualifications,
+        experience_description: skillsDraft.experience_description,
+        prices: skillsDraft.prices,
+      }));
+      
+      setEditSkills(false);
+    } catch (error) {
+      console.error('Fehler beim Speichern der Leistungen & Qualifikationen:', error);
+    }
+  };
   function handleCancelSkills() {
     setSkillsDraft({
       services: profile?.services || [],
@@ -122,13 +201,19 @@ function CaretakerDashboardPage() {
     if (!user || !profile) return;
     
     try {
+      // Konvertiere aktuelle Verfügbarkeit zu String-Array für Datenbank
+      const dbAvailability: Record<string, string[]> = {};
+      for (const [day, slots] of Object.entries(availability)) {
+        dbAvailability[day] = slots.map(slot => `${slot.start}-${slot.end}`);
+      }
+      
       await caretakerProfileService.saveProfile(user.id, {
         ...profile,
         services: profile.services || [],
         animalTypes: profile.animal_types || [],
         prices: profile.prices || {},
         serviceRadius: profile.service_radius || 0,
-        availability: profile.availability || {},
+        availability: dbAvailability,
         homePhotos: profile.home_photos || [],
         qualifications: profile.qualifications || [],
         experienceDescription: profile.experience_description || '',
@@ -149,13 +234,19 @@ function CaretakerDashboardPage() {
     if (!user || !profile) return;
     
     try {
+      // Konvertiere aktuelle Verfügbarkeit zu String-Array für Datenbank
+      const dbAvailability: Record<string, string[]> = {};
+      for (const [day, slots] of Object.entries(availability)) {
+        dbAvailability[day] = slots.map(slot => `${slot.start}-${slot.end}`);
+      }
+      
       await caretakerProfileService.saveProfile(user.id, {
         ...profile,
         services: profile.services || [],
         animalTypes: profile.animal_types || [],
         prices: profile.prices || {},
         serviceRadius: profile.service_radius || 0,
-        availability: profile.availability || {},
+        availability: dbAvailability,
         homePhotos: profile.home_photos || [],
         qualifications: profile.qualifications || [],
         experienceDescription: profile.experience_description || '',
@@ -172,7 +263,7 @@ function CaretakerDashboardPage() {
   };
 
   // State für Fotos-Tab
-  const [photos, setPhotos] = useState<(string | File)[]>(profile?.home_photos || []);
+  const [photos, setPhotos] = useState<(string | File)[]>([]);
   const fileInputRefFotos = useRef<HTMLInputElement>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -226,6 +317,12 @@ function CaretakerDashboardPage() {
     }
     // Update caretaker_profiles.home_photos
     const newPhotoList = [...(profile?.home_photos || []), ...uploadedUrls];
+    // Konvertiere aktuelle Verfügbarkeit zu String-Array für Datenbank
+    const dbAvailability: Record<string, string[]> = {};
+    for (const [day, slots] of Object.entries(availability)) {
+      dbAvailability[day] = slots.map(slot => `${slot.start}-${slot.end}`);
+    }
+    
     await caretakerProfileService.saveProfile(user.id, {
       ...profile,
       homePhotos: newPhotoList,
@@ -233,7 +330,7 @@ function CaretakerDashboardPage() {
       animalTypes: profile.animal_types || [],
       prices: profile.prices || {},
       serviceRadius: profile.service_radius || 0,
-      availability: profile.availability || {},
+      availability: dbAvailability,
       qualifications: profile.qualifications || [],
       experienceDescription: profile.experience_description || '',
     });
@@ -249,6 +346,12 @@ function CaretakerDashboardPage() {
     if (typeof toDelete === 'string') {
       await deletePhotoFromSupabase(toDelete);
       const newPhotoList = photos.filter((_, i) => i !== idx).filter(Boolean) as string[];
+      // Konvertiere aktuelle Verfügbarkeit zu String-Array für Datenbank
+      const dbAvailability: Record<string, string[]> = {};
+      for (const [day, slots] of Object.entries(availability)) {
+        dbAvailability[day] = slots.map(slot => `${slot.start}-${slot.end}`);
+      }
+      
       await caretakerProfileService.saveProfile(user.id, {
         ...profile,
         homePhotos: newPhotoList,
@@ -256,7 +359,7 @@ function CaretakerDashboardPage() {
         animalTypes: profile.animal_types || [],
         prices: profile.prices || {},
         serviceRadius: profile.service_radius || 0,
-        availability: profile.availability || {},
+        availability: dbAvailability,
         qualifications: profile.qualifications || [],
         experienceDescription: profile.experience_description || '',
       });
@@ -274,12 +377,89 @@ function CaretakerDashboardPage() {
       if (error) setError('Fehler beim Laden des Profils!');
       setProfile(data);
       
-      // Texte-States aktualisieren wenn Profil geladen wird
+      // Texte-States und Verfügbarkeit aktualisieren wenn Profil geladen wird
       if (data) {
         setShortDescription((data as any).short_about_me || '');
         setShortDescDraft((data as any).short_about_me || '');
         setAboutMe((data as any).long_about_me || '');
         setAboutMeDraft((data as any).long_about_me || '');
+        
+        // Aktualisiere skillsDraft mit geladenen Daten
+        const loadedPrices = (data as any).prices || {};
+        // Stelle sicher, dass Standard-Preisfelder immer vorhanden sind
+        const mergedPrices = { ...defaultPriceFields, ...loadedPrices };
+        
+        setSkillsDraft({
+          services: (data as any).services || [],
+          animal_types: (data as any).animal_types || [],
+          qualifications: (data as any).qualifications || [],
+          experience_description: (data as any).experience_description || '',
+          prices: mergedPrices,
+        });
+        
+        // Aktualisiere Fotos-State
+        setPhotos((data as any).home_photos || []);
+        
+        // Verfügbarkeit aus der Datenbank laden und validieren
+        const dbAvailability = (data as any).availability;
+        if (dbAvailability && typeof dbAvailability === 'object') {
+          // Konvertiere String-Array-Daten zu TimeSlot-Objekten
+          const validatedAvailability: AvailabilityState = {};
+          
+          for (const day of ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']) {
+            const daySlots = dbAvailability[day];
+            if (Array.isArray(daySlots)) {
+              validatedAvailability[day] = daySlots
+                .map((timeItem: any) => {
+                  if (typeof timeItem === 'string' && timeItem.includes('-')) {
+                    const [start, end] = timeItem.split('-');
+                    return { start: start.trim(), end: end.trim() };
+                  }
+                  // Für Rückwärtskompatibilität: Falls bereits TimeSlot-Objekte
+                  if (typeof timeItem === 'object' && timeItem?.start && timeItem?.end) {
+                    return { start: timeItem.start, end: timeItem.end };
+                  }
+                  return null;
+                })
+                .filter((slot): slot is { start: string; end: string } => 
+                  slot !== null && slot.start && slot.end
+                );
+            } else {
+              validatedAvailability[day] = [];
+            }
+          }
+          
+          setAvailability(validatedAvailability);
+        } else {
+          // Falls keine Verfügbarkeit in der DB, verwende Default-Verfügbarkeit und speichere sie
+          setAvailability(defaultAvailability);
+          // Default-Verfügbarkeit auch in DB speichern für neuen Benutzer
+          setTimeout(async () => {
+            try {
+              // Konvertiere Default-Verfügbarkeit zu String-Array für Datenbank
+              const dbDefaultAvailability: Record<string, string[]> = {};
+              for (const [day, slots] of Object.entries(defaultAvailability)) {
+                dbDefaultAvailability[day] = slots.map(slot => `${slot.start}-${slot.end}`);
+              }
+              
+              await caretakerProfileService.saveProfile(user.id, {
+                ...data,
+                services: (data as any).services || [],
+                animalTypes: (data as any).animal_types || [],
+                prices: (data as any).prices || {},
+                serviceRadius: (data as any).service_radius || 0,
+                availability: dbDefaultAvailability,
+                homePhotos: (data as any).home_photos || [],
+                qualifications: (data as any).qualifications || [],
+                experienceDescription: (data as any).experience_description || '',
+                shortAboutMe: (data as any).short_about_me || '',
+                longAboutMe: (data as any).long_about_me || '',
+              });
+            } catch (error) {
+              console.error('Fehler beim Speichern der Default-Verfügbarkeit:', error);
+            }
+          }, 100);
+        }
       }
       
       setLoading(false);
@@ -764,20 +944,37 @@ function CaretakerDashboardPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Preise</label>
-                  <div className="space-y-2">
-                    {Object.entries(skillsDraft.prices).map(([k, v], idx) => (
+                  <div className="space-y-3">
+                    {/* Standard-Preisfelder wie bei der Anmeldung */}
+                    {Object.entries(defaultPriceFields).map(([service, _]) => (
+                      <div key={service} className="flex items-center gap-4">
+                        <label className="w-56 text-gray-700">{priceFieldLabels[service as keyof typeof priceFieldLabels]}</label>
+                        <input 
+                          type="number" 
+                          min="0" 
+                          className="input w-32" 
+                          placeholder="€" 
+                          value={skillsDraft.prices[service] || ''} 
+                          onChange={e => handlePriceChange(service, e.target.value)} 
+                        />
+                      </div>
+                    ))}
+                    
+                    {/* Zusätzliche individuelle Preise */}
+                    {Object.entries(skillsDraft.prices).filter(([k, _]) => !defaultPriceFields.hasOwnProperty(k)).map(([k, v], idx) => (
                       <div key={k + idx} className="flex gap-2 items-center">
                         <input className="input w-32" placeholder="Leistung" value={k} onChange={e => {
                           const newKey = e.target.value;
-                          const entries = Object.entries(skillsDraft.prices);
-                          entries[idx] = [newKey, v];
-                          handleSkillsChange('prices', Object.fromEntries(entries));
+                          const newPrices = { ...skillsDraft.prices };
+                          delete newPrices[k];
+                          newPrices[newKey] = v;
+                          handleSkillsChange('prices', newPrices);
                         }} />
                         <input className="input w-24" placeholder="Preis (€)" value={String(v)} onChange={e => handlePriceChange(k, e.target.value)} />
                         <button type="button" className="text-red-500 hover:bg-red-50 rounded p-1" onClick={() => handleRemovePrice(k)} title="Entfernen"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                       </div>
                     ))}
-                    <button type="button" className="text-primary-600 hover:bg-primary-50 rounded px-2 py-1 text-xs" onClick={handleAddPrice}>+ Preis hinzufügen</button>
+                    <button type="button" className="text-primary-600 hover:bg-primary-50 rounded px-2 py-1 text-xs" onClick={handleAddPrice}>+ Zusätzlichen Preis hinzufügen</button>
                   </div>
                 </div>
                 <div className="flex gap-2 pt-2">
@@ -794,7 +991,7 @@ function CaretakerDashboardPage() {
             <div className="bg-white rounded-xl shadow p-6">
               <AvailabilityScheduler
                 availability={availability}
-                onAvailabilityChange={setAvailability}
+                onAvailabilityChange={handleSaveAvailability}
               />
             </div>
           </div>

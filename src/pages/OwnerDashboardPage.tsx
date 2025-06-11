@@ -228,6 +228,9 @@ function OwnerDashboardPage() {
             }
           }
           setVetData({ name, address, phone });
+        } else {
+          // Keine Daten gefunden - setze leere Standardwerte
+          setVetData({ name: '', address: '', phone: '' });
         }
       })
       .catch(() => setVetError('Fehler beim Laden der Tierarzt-Informationen!'))
@@ -249,6 +252,9 @@ function OwnerDashboardPage() {
             name: data.emergency_contact_name || '',
             phone: data.emergency_contact_phone || ''
           });
+        } else {
+          // Keine Daten gefunden - setze leere Standardwerte
+          setEmergencyData({ name: '', phone: '' });
         }
       })
       .catch(() => setEmergencyError('Fehler beim Laden des Notfallkontakts!'))
@@ -276,6 +282,10 @@ function OwnerDashboardPage() {
             wishes = data.other_services.split(/,|\n/).map((w: string) => w.trim()).filter(Boolean);
           }
           setOtherWishes(wishes);
+        } else {
+          // Keine Daten gefunden - setze leere Standardwerte
+          setServices([]);
+          setOtherWishes([]);
         }
       })
       .catch(() => setPrefsError('Fehler beim Laden der Betreuungsvorlieben!'))
@@ -1791,6 +1801,31 @@ function OwnerDashboardPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Öffentliches Profil Link */}
+                <div className="mt-6 flex flex-col sm:flex-row gap-4">
+                  <Link
+                    to={`/owner/${user?.id}`}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors text-sm font-medium"
+                  >
+                    <PawPrint className="h-4 w-4" />
+                    Mein öffentliches Profil anzeigen
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (user?.id) {
+                        navigator.clipboard.writeText(`${window.location.origin}/owner/${user.id}`);
+                        // Temporary feedback - in production you'd want a toast notification
+                        alert('Profil-Link in Zwischenablage kopiert!');
+                      }
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                  >
+                    <Calendar className="h-4 w-4" />
+                    Profil-Link kopieren
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1808,7 +1843,7 @@ function OwnerDashboardPage() {
                       <p className="font-medium text-red-800">Achtung - Irreversible Aktion</p>
                       <p className="text-red-700 mt-1">
                         Das Löschen Ihres Kontos ist endgültig und kann nicht rückgängig gemacht werden. 
-                        Alle Ihre Daten, Haustier-Profile und Betreuungsverläufe werden permanent gelöscht.
+                        Alle Ihre Daten, Haustier-Profile und Betreuungsverläufe werden endgültig entfernt.
                       </p>
                     </div>
                   </div>
