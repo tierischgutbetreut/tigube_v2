@@ -1,16 +1,22 @@
 import { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { Search, MapPin, Clock, Shield, Heart, Dog, Cat, Rabbit, Calendar, Briefcase, PawPrint, CheckCircle, X, ChevronDown } from 'lucide-react';
+import { Search, MapPin, Clock, Shield, Heart, Dog, Cat, Rabbit, Calendar, Briefcase, PawPrint, CheckCircle, X, ChevronDown, Sparkles, Gift, Users } from 'lucide-react';
 import Button from '../components/ui/Button';
+import BetaBanner from '../components/ui/BetaBanner';
+import { SubscriptionService, BETA_CONFIG } from '../lib/services/subscriptionService';
 
 function HomePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [showMessage, setShowMessage] = useState(!!location.state?.message);
+  const [showBetaBanner, setShowBetaBanner] = useState(true);
   const [formLocation, setFormLocation] = useState('');
-  const [service, setService] = useState('Hundebetreuung');
+  const [service, setService] = useState('Haustierbetreuung');
   const [selectedDay, setSelectedDay] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
+
+  // Beta-Datum formatieren (UTC-Problem vermeiden)
+  const betaEndFormatted = "31. Oktober 2025";
 
   // Verfügbarkeitsoptionen (gleich wie in SearchPage)
   const availabilityDayOptions = [
@@ -62,6 +68,9 @@ function HomePage() {
         </div>
       )}
 
+      {/* Beta Banner */}
+      <BetaBanner />
+
       {/* Hero Section */}
       <section className="relative bg-white py-16 md:py-24">
         <div className="container-custom">
@@ -86,13 +95,14 @@ function HomePage() {
                       value={service}
                       onChange={(e) => setService(e.target.value)}
                     >
-                      <option value="Hundebetreuung">Hundebetreuung</option>
-                      <option value="Hundetagesbetreuung">Hundetagesbetreuung</option>
-                      <option value="Katzenbetreuung">Katzenbetreuung</option>
                       <option value="Gassi-Service">Gassi-Service</option>
-                      <option value="Hausbesuche">Hausbesuche</option>
+                      <option value="Haustierbetreuung">Haustierbetreuung</option>
+                      <option value="Übernachtung">Übernachtung</option>
+                      <option value="Kurzbesuche">Kurzbesuche</option>
                       <option value="Haussitting">Haussitting</option>
-                      <option value="Sonstiges">Sonstiges</option>
+                      <option value="Katzenbetreuung">Katzenbetreuung</option>
+                      <option value="Hundetagesbetreuung">Hundetagesbetreuung</option>
+                      <option value="Kleintierbetreuung">Kleintierbetreuung</option>
                     </select>
                   </div>
                 </div>
@@ -199,18 +209,21 @@ function HomePage() {
               title="Betreuer entdecken – kostenlos"
               description="Durchstöbere Profile von verifizierten Tierbetreuern in deiner Nähe – ganz ohne Anmeldung.
 Filtere nach Service, Preis und Verfügbarkeit – und finde passende Angebote."
+              beta={false}
             />
             <StepCard
               number="2"
-              title="Kontakt aufnehmen & Inserat veröffentlichen"
-              description="Du willst mit einem Betreuer schreiben oder ein Jobangebot veröffentlichen?
-Dann aktiviere tigube Premium ab 4,90 € und nutze alle Funktionen: Chat, Bilder hochladen, Bewertungen lesen & schreiben – ganz einfach."
+              title="Direkt Kontakt aufnehmen"
+              description={`🎉 In der Beta-Phase kannst du alle Features bis ${betaEndFormatted} kostenlos nutzen! 
+Chat direkt mit Betreuern, lade Bilder hoch und bewerte Services – alles ohne Kosten.`}
+              beta={true}
             />
             <StepCard
               number="3"
               title="Entspannt zurücklehnen"
               description="Sobald dein Tier in Betreuung ist, kannst du dich entspannt zurücklehnen.
 Dank Profil-Bewertungen und sicheren Abläufen bekommst du genau die Fürsorge, die du dir wünschst – verlässlich & tiergerecht."
+              beta={false}
             />
           </div>
         </div>
@@ -226,28 +239,47 @@ Dank Profil-Bewertungen und sicheren Abläufen bekommst du genau die Fürsorge, 
             </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <TestimonialCard
-              quote="Maria war großartig mit meinem ängstlichen Hund aus dem Tierschutz! Sie hat bei jedem Spaziergang Fotos geschickt und alle Anweisungen perfekt befolgt."
-              author="Laura S."
-              location="Berlin"
-              imageSrc="https://images.pexels.com/photos/3680219/pexels-photo-3680219.jpeg?auto=compress&cs=tinysrgb&w=100"
-              rating={5}
-            />
-            <TestimonialCard
-              quote="Einen vertrauenswürdigen Katzensitter zu finden war früher so stressig. Dank tigube kann ich jetzt sorgenfrei reisen, weil meine Katzen in guten Händen sind."
-              author="Michael T."
-              location="München"
-              imageSrc="https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100"
-              rating={5}
-            />
-            <TestimonialCard
-              quote="Unser Betreuer Thomas behandelt unseren Hund wie seinen eigenen. Die Buchung ist unkompliziert und das gute Gefühl unbezahlbar."
-              author="Sophie K."
-              location="Hamburg"
-              imageSrc="https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=100"
-              rating={5}
-            />
+          <div className="relative">
+            {/* Preview Overlay */}
+            <div className="absolute inset-0 bg-white/90 backdrop-blur-sm z-10 flex items-center justify-center rounded-xl">
+              <div className="text-center p-8 max-w-md">
+                <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-bold px-4 py-2 rounded-full inline-block mb-4 animate-pulse">
+                  🔜 Bald verfügbar
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Echte Bewertungen folgen!</h3>
+                <p className="text-gray-600 text-sm">
+                  Sobald die ersten Beta-Tester ihre Erfahrungen gemacht haben, erscheinen hier echte Bewertungen von Tierbesitzern.
+                </p>
+                <div className="mt-4 text-xs text-gray-500">
+                  (Vorschau: So werden Bewertungen später aussehen)
+                </div>
+              </div>
+            </div>
+            
+            {/* Mock Testimonials (als Vorschau) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 opacity-60">
+              <TestimonialCard
+                quote="Maria war großartig mit meinem ängstlichen Hund aus dem Tierschutz! Sie hat bei jedem Spaziergang Fotos geschickt und alle Anweisungen perfekt befolgt."
+                author="Laura S."
+                location="Berlin"
+                imageSrc="https://images.pexels.com/photos/3680219/pexels-photo-3680219.jpeg?auto=compress&cs=tinysrgb&w=100"
+                rating={5}
+              />
+              <TestimonialCard
+                quote="Einen vertrauenswürdigen Katzensitter zu finden war früher so stressig. Dank tigube kann ich jetzt sorgenfrei reisen, weil meine Katzen in guten Händen sind."
+                author="Michael T."
+                location="München"
+                imageSrc="https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100"
+                rating={5}
+              />
+              <TestimonialCard
+                quote="Unser Betreuer Thomas behandelt unseren Hund wie seinen eigenen. Die Buchung ist unkompliziert und das gute Gefühl unbezahlbar."
+                author="Sophie K."
+                location="Hamburg"
+                imageSrc="https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=100"
+                rating={5}
+              />
+            </div>
           </div>
         </div>
       </section>
@@ -258,9 +290,14 @@ Dank Profil-Bewertungen und sicheren Abläufen bekommst du genau die Fürsorge, 
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
             <div className="grid grid-cols-1 lg:grid-cols-5">
               <div className="lg:col-span-3 p-8 md:p-12">
-                <h2 className="text-3xl font-bold mb-4">Bereit, den perfekten Tierbetreuer zu finden?</h2>
+                <div className="flex items-center gap-2 mb-4">
+                  <h2 className="text-3xl font-bold">Bereit für die Beta-Phase?</h2>
+                  <div className="bg-gradient-to-r from-green-400 to-blue-500 text-white text-sm font-bold px-3 py-1 rounded-full animate-pulse">
+                    GRATIS
+                  </div>
+                </div>
                 <p className="text-gray-600 mb-8 max-w-xl">
-                  Schließe dich tausenden glücklichen Tierbesitzern an, die tigube vertrauen. Erstelle jetzt kostenlos dein Konto und finde liebevolle Betreuer in deiner Nähe.
+                  🎉 <strong>Sichere dir jetzt kostenlosen Zugang bis {betaEndFormatted}</strong> zu allen Premium-Features! Keine Kreditkarte erforderlich. Sei einer der ersten Beta-Tester und finde liebevolle Betreuer in deiner Nähe.
                 </p>
                 <div className="flex flex-wrap gap-4">
                   <Button 
@@ -268,16 +305,27 @@ Dank Profil-Bewertungen und sicheren Abläufen bekommst du genau die Fürsorge, 
                     size="lg"
                     onClick={() => navigate('/registrieren')}
                   >
-                    Als Tierbesitzer registrieren
+                    🐾 Jetzt Beta-Zugang sichern
                   </Button>
                   <Button 
                     variant="outline" 
                     size="lg"
                     onClick={() => navigate('/registrieren?type=caretaker')}
                   >
-                    Betreuer werden
+                    Als Betreuer starten
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="lg"
+                    onClick={() => navigate('/mitgliedschaften')}
+                    className="text-primary-600 hover:text-primary-700"
+                  >
+                    💰 Preise anzeigen
                   </Button>
                 </div>
+                <p className="text-sm text-gray-500 mt-4">
+                  ✅ Sofortiger Zugang • ✅ Alle Features kostenfrei • ✅ Keine Verpflichtung • <button onClick={() => navigate('/mitgliedschaften')} className="underline hover:no-underline">Preise ab €4,90/Monat</button>
+                </p>
               </div>
               <div className="lg:col-span-2 relative hidden lg:block">
                 <img 
@@ -338,16 +386,22 @@ interface StepCardProps {
   number: string;
   title: string;
   description: string;
+  beta?: boolean;
 }
 
-function StepCard({ number, title, description }: StepCardProps) {
+function StepCard({ number, title, description, beta = false }: StepCardProps) {
   return (
-    <div className="flex flex-col items-center text-center p-6">
-      <div className="rounded-full bg-primary-500 text-white w-12 h-12 flex items-center justify-center font-bold text-xl mb-4">
+    <div className="flex flex-col items-center text-center p-6 relative">
+      {beta && (
+        <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-xs font-bold px-2 py-1 rounded-full transform rotate-12 shadow-md z-10">
+          ✨ GRATIS
+        </div>
+      )}
+      <div className={`rounded-full ${beta ? 'bg-gradient-to-r from-primary-500 to-primary-600' : 'bg-primary-500'} text-white w-12 h-12 flex items-center justify-center font-bold text-xl mb-4 ${beta ? 'shadow-lg' : ''}`}>
         {number}
       </div>
       <h3 className="text-xl font-semibold mb-2">{title}</h3>
-      <p className="text-gray-600">{description}</p>
+      <p className={`${beta ? 'text-gray-700' : 'text-gray-600'}`}>{description}</p>
     </div>
   );
 }

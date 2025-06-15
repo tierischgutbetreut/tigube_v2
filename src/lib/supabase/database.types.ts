@@ -319,6 +319,62 @@ export type Database = {
           },
         ]
       }
+      owner_caretaker_connections: {
+        Row: {
+          caretaker_id: string
+          created_at: string
+          id: string
+          owner_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          caretaker_id: string
+          created_at?: string
+          id?: string
+          owner_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          caretaker_id?: string
+          created_at?: string
+          id?: string
+          owner_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_caretaker_connections_caretaker_id_fkey"
+            columns: ["caretaker_id"]
+            isOneToOne: false
+            referencedRelation: "caretaker_search_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_caretaker_connections_caretaker_id_fkey"
+            columns: ["caretaker_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_caretaker_connections_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "caretaker_search_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_caretaker_connections_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       owner_preferences: {
         Row: {
           care_instructions: string | null
@@ -329,6 +385,7 @@ export type Database = {
           other_services: string | null
           owner_id: string
           services: string[]
+          share_settings: Json | null
           vet_info: string | null
         }
         Insert: {
@@ -340,6 +397,7 @@ export type Database = {
           other_services?: string | null
           owner_id: string
           services: string[]
+          share_settings?: Json | null
           vet_info?: string | null
         }
         Update: {
@@ -351,6 +409,7 @@ export type Database = {
           other_services?: string | null
           owner_id?: string
           services?: string[]
+          share_settings?: Json | null
           vet_info?: string | null
         }
         Relationships: [
@@ -621,6 +680,10 @@ export type Database = {
       }
     }
     Functions: {
+      check_caretaker_access: {
+        Args: { target_owner_id: string; requesting_caretaker_id: string }
+        Returns: boolean
+      }
       get_caretaker_by_id: {
         Args: { caretaker_id: string }
         Returns: {

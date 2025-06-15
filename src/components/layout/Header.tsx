@@ -62,16 +62,19 @@ function Header() {
               <>
                 {isOwner && (
                   <NavLink to="/dashboard-owner" isActive={isActive('/dashboard-owner')}>
-                    Mein Profil
+                    Dashboard
                   </NavLink>
                 )}
                 {isCaretaker && (
                   <NavLink to="/dashboard-caretaker" isActive={isActive('/dashboard-caretaker')}>
-                    Betreuer Dashboard
+                    Dashboard
                   </NavLink>
                 )}
                 <NavLink to="/suche" isActive={isActive('/suche')}>
                   Betreuer finden
+                </NavLink>
+                <NavLink to="/mitgliedschaften" isActive={isActive('/mitgliedschaften') || isActive('/preise')}>
+                  Mitgliedschaften
                 </NavLink>
                 <Link to="/nachrichten" className="inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-primary-700 transition-colors">
                   <MessageCircle className="h-5 w-5" /> Nachrichten
@@ -96,6 +99,9 @@ function Header() {
             </NavLink>
             <NavLink to="/registrieren?type=caregiver" isActive={isActive('/registrieren?type=caregiver')}>
             Betreuer werden
+            </NavLink>
+            <NavLink to="/mitgliedschaften" isActive={isActive('/mitgliedschaften') || isActive('/preise')}>
+            Preise
             </NavLink>
             <Link
               to="/anmelden"
@@ -136,16 +142,23 @@ function Header() {
                 <>
                   {isOwner && (
                     <MobileNavLink to="/dashboard-owner" isActive={isActive('/dashboard-owner')} onClick={() => setIsMenuOpen(false)}>
-                      Mein Profil
+                      Dashboard
                     </MobileNavLink>
                   )}
                   {isCaretaker && (
                     <MobileNavLink to="/dashboard-caretaker" isActive={isActive('/dashboard-caretaker')} onClick={() => setIsMenuOpen(false)}>
-                      Betreuer Dashboard
+                      Dashboard
                     </MobileNavLink>
                   )}
                   <MobileNavLink to="/suche" isActive={isActive('/suche')} onClick={() => setIsMenuOpen(false)}>
                     Betreuer finden
+                  </MobileNavLink>
+                  <MobileNavLink 
+                    to="/mitgliedschaften" 
+                    isActive={isActive('/mitgliedschaften') || isActive('/preise')} 
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Mitgliedschaften
                   </MobileNavLink>
                   <Link to="/nachrichten" className="flex items-center gap-2 px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-primary-700" onClick={() => setIsMenuOpen(false)}>
                     <MessageCircle className="h-5 w-5" /> Nachrichten
@@ -177,6 +190,13 @@ function Header() {
                 onClick={() => setIsMenuOpen(false)}
               >
                     Betreuer werden
+              </MobileNavLink>
+              <MobileNavLink 
+                to="/mitgliedschaften" 
+                isActive={isActive('/mitgliedschaften') || isActive('/preise')} 
+                onClick={() => setIsMenuOpen(false)}
+              >
+                    Preise
               </MobileNavLink>
               <div className="pt-2 flex flex-col space-y-2">
                 <Link

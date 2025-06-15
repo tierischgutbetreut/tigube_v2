@@ -2,6 +2,7 @@ import { format, isToday, isYesterday, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
 import type { MessageWithSender } from '../../lib/supabase/types'
 import UserAvatar from './UserAvatar'
+import ProfileLinkMessage from './ProfileLinkMessage'
 
 interface MessageBubbleProps {
   message: MessageWithSender
@@ -51,6 +52,19 @@ function MessageBubble({
   }
 
   if (message.message_type === 'system') {
+    // Check if this is a caretaker saved system message with profile link
+    const profileLinkMatch = message.content.match(/Ich habe dich als Betreuer gespeichert\. Du kannst jetzt mein Profil einsehen: .+\/owner\/([a-f0-9-]+)/)
+    
+    if (profileLinkMatch) {
+      const ownerId = profileLinkMatch[1]
+      const ownerName = message.sender?.first_name 
+        ? `${message.sender.first_name} ${message.sender.last_name || ''}`.trim()
+        : undefined
+      
+      return <ProfileLinkMessage ownerId={ownerId} ownerName={ownerName} />
+    }
+    
+    // Default system message styling
     return (
       <div className="flex justify-center my-4">
         <div className="bg-gray-100 text-gray-600 text-sm px-3 py-1 rounded-full">

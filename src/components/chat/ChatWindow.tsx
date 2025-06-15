@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { MoreVertical, Settings, Trash2 } from 'lucide-react'
+import { MoreVertical, Settings, Trash2, ArrowLeft } from 'lucide-react'
 import { 
   getMessages, 
   sendMessage, 
@@ -17,6 +17,7 @@ import MessageInput from './MessageInput'
 import UserAvatar from './UserAvatar'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import NotificationSettings from './NotificationSettings'
+import SaveCaretakerButton from './SaveCaretakerButton'
 import { notificationManager } from '../../lib/notifications/NotificationManager'
 
 interface ChatWindowProps {
@@ -364,12 +365,10 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
 
   return (
     <div className="h-full flex flex-col">
-      {/* Chat Header */}
       <div className="bg-white border-b-2 border-gray-200 px-4 py-4 h-[72px] flex items-center">
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-3">
-            <UserAvatar user={otherUser} size="md" />
-            
+            <UserAvatar user={otherUser} size="md" showOnline={otherUserOnline} />
             <div>
               <h2 className="text-lg font-semibold text-gray-900">
                 {getDisplayName()}
@@ -385,6 +384,21 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
 
           {/* Action Buttons */}
           <div className="flex items-center space-x-2 relative">
+            {/* Nur anzeigen wenn der aktuelle Benutzer der Owner ist */}
+            {conversation.owner.id === currentUserId && (
+              <SaveCaretakerButton
+                ownerId={currentUserId}
+                caretakerId={otherUser.id}
+                conversationId={conversation.id}
+                onSaved={() => {
+                  notificationManager.showSuccessToast('Betreuer erfolgreich gespeichert')
+                }}
+                onRemoved={() => {
+                  notificationManager.showSuccessToast('Betreuer erfolgreich entfernt')
+                }}
+              />
+            )}
+
             <button
               onClick={() => setShowMoreMenu(!showMoreMenu)}
               className="p-2 text-gray-400 hover:text-gray-600 transition-colors"

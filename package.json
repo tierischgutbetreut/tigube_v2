@@ -12,6 +12,7 @@
   "dependencies": {
     "@headlessui/react": "^1.7.17",
     "@n8n/chat": "^0.27.1",
+    "@stripe/stripe-js": "^7.3.1",
     "@supabase/supabase-js": "^2.49.9",
     "clsx": "^2.0.0",
     "date-fns": "^3.6.0",
@@ -21,6 +22,7 @@
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.3.8",
     "react-router-dom": "^6.20.0",
+    "stripe": "^18.2.1",
     "tailwind-merge": "^2.0.0",
     "zustand": "^4.4.6"
   },

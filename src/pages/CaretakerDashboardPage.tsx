@@ -2,15 +2,19 @@ import Layout from '../components/layout/Layout';
 import Button from '../components/ui/Button';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import AvailabilityScheduler from '../components/ui/AvailabilityScheduler';
+import ClientDetailsAccordion from '../components/ui/ClientDetailsAccordion';
+import type { ClientData } from '../components/ui/ClientDetailsAccordion';
 import { useAuth } from '../lib/auth/AuthContext';
 import { useEffect, useState, useRef } from 'react';
-import { caretakerProfileService } from '../lib/supabase/db';
-import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info } from 'lucide-react';
+import { caretakerProfileService, ownerCaretakerService } from '../lib/supabase/db';
+import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info, Lock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
+import useFeatureAccess from '../hooks/useFeatureAccess';
 
 function CaretakerDashboardPage() {
   const { user, userProfile, loading: authLoading } = useAuth();
+  const { maxEnvironmentImages, isBetaActive } = useFeatureAccess();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +25,7 @@ function CaretakerDashboardPage() {
     phoneNumber: userProfile?.phone_number || '',
     email: user?.email || '',
     plz: userProfile?.plz || '',
+    street: userProfile?.street || '',
     city: userProfile?.city || ''
   });
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -472,6 +477,7 @@ function CaretakerDashboardPage() {
       phoneNumber: userProfile?.phone_number || '',
       email: user?.email || '',
       plz: userProfile?.plz || '',
+      street: userProfile?.street || '',
       city: userProfile?.city || ''
     });
   }, [userProfile, user]);
@@ -506,14 +512,54 @@ function CaretakerDashboardPage() {
     }
   };
   const handleSaveCaretakerData = async () => {
-    // TODO: Update in Supabase
-    setEditData(false);
+    if (!user) return;
+
+    try {
+      // Prepare data for updateProfile
+      const dataToUpdate: { [key: string]: any } = {};
+
+      // Only include fields that have changed
+      if (caretakerData.phoneNumber !== (userProfile?.phone_number || '')) dataToUpdate.phoneNumber = caretakerData.phoneNumber;
+      if (caretakerData.email !== (userProfile?.email || '')) dataToUpdate.email = caretakerData.email;
+      if (caretakerData.street !== (userProfile?.street || '')) dataToUpdate.street = caretakerData.street;
+
+      // Handle PLZ and City logic
+      const plzChanged = caretakerData.plz !== (userProfile?.plz || '');
+      const cityChanged = caretakerData.city !== (userProfile?.city || '');
+
+      if (plzChanged || cityChanged) {
+        // Add PLZ and City to dataToUpdate for users table
+        dataToUpdate.plz = caretakerData.plz;
+        dataToUpdate.location = caretakerData.city;
+      }
+
+      // If no fields have changed, exit without saving
+      if (Object.keys(dataToUpdate).length === 0) {
+        setEditData(false);
+        return;
+      }
+
+      // Import userService
+      const { userService } = await import('../lib/supabase/db');
+
+      // Call the service to update the user profile
+      const { data: updatedProfile, error: updateError } = await userService.updateUserProfile(user.id, dataToUpdate);
+
+      if (updateError) {
+        console.error('Fehler beim Speichern der Kontaktdaten:', updateError);
+      } else {
+        setEditData(false);
+      }
+    } catch (e) {
+      console.error('Exception beim Speichern der Kontaktdaten:', e);
+    }
   };
   const handleCancelEdit = () => {
     setCaretakerData({
       phoneNumber: userProfile?.phone_number || '',
       email: user?.email || '',
       plz: userProfile?.plz || '',
+      street: userProfile?.street || '',
       city: userProfile?.city || ''
     });
     setEditData(false);
@@ -552,6 +598,11 @@ function CaretakerDashboardPage() {
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
 
+  // Clients/Kunden State
+  const [clients, setClients] = useState<ClientData[]>([]);
+  const [clientsLoading, setClientsLoading] = useState(false);
+  const [clientsError, setClientsError] = useState<string | null>(null);
+
   // Bewertungen laden
   useEffect(() => {
     async function fetchReviews() {
@@ -567,6 +618,78 @@ function CaretakerDashboardPage() {
     }
     if (activeTab === 'bewertungen') fetchReviews();
   }, [activeTab, user]);
+
+  // Kunden laden
+  useEffect(() => {
+    async function fetchClients() {
+      if (!user || !profile?.id) return;
+      setClientsLoading(true);
+      setClientsError(null);
+      try {
+        const { data, error } = await ownerCaretakerService.getCaretakerClients(profile.id);
+        if (error) {
+          setClientsError('Fehler beim Laden der Kunden!');
+          setClients([]);
+        } else {
+          // Transformiere die Daten auf das ClientData Format
+          const transformedClients = (data || []).map((client: any) => ({
+            id: client.id,
+            name: client.name,
+            phoneNumber: client.phoneNumber, // Korrigiert: phoneNumber statt phone
+            email: client.email,
+            address: client.address,
+            city: client.city,
+            plz: client.plz,
+            vetName: client.vetName,
+            vetAddress: client.vetAddress,
+            vetPhone: client.vetPhone,
+            emergencyContactName: client.emergencyContactName,
+            emergencyContactPhone: client.emergencyContactPhone,
+            pets: client.pets || [],
+            services: client.services || [],
+            otherWishes: client.otherWishes || [],
+            shareSettings: client.shareSettings
+          }));
+          
+          setClients(transformedClients);
+        }
+      } catch (error) {
+        console.error('Fehler beim Laden der Kunden:', error);
+        setClientsError('Fehler beim Laden der Kunden!');
+        setClients([]);
+      } finally {
+        setClientsLoading(false);
+      }
+    }
+    if (activeTab === 'kunden') fetchClients();
+  }, [activeTab, user, profile?.id]);
+
+  // Kunden löschen
+  const handleDeleteClient = async (clientId: string) => {
+    if (!user) return;
+
+    // Finde den Kunden-Namen für die Bestätigungsabfrage
+    const client = clients.find(c => c.id === clientId);
+    const clientName = client?.name || 'diesen Kunden';
+
+    try {
+      const { error } = await ownerCaretakerService.removeCaretaker(clientId, user.id);
+      if (error) {
+        console.error('Fehler beim Entfernen des Kunden:', error);
+        alert('Fehler beim Entfernen des Kunden. Bitte versuchen Sie es erneut.');
+        return;
+      }
+
+      // Aktualisiere lokalen State
+      setClients(prev => prev.filter(client => client.id !== clientId));
+
+      // Erfolgsbenachrichtigung
+      alert(`${clientName} wurde erfolgreich entfernt und hat keinen Zugriff mehr auf Ihre Kontaktdaten.`);
+    } catch (error) {
+      console.error('Fehler beim Entfernen des Kunden:', error);
+      alert('Fehler beim Entfernen des Kunden. Bitte versuchen Sie es erneut.');
+    }
+  };
 
   if (authLoading || loading) return <LoadingSpinner />;
   if (!user) {
@@ -653,14 +776,19 @@ function CaretakerDashboardPage() {
                     <>
                       <div className="flex items-center gap-3">
                         <MapPin className="h-4 w-4 text-gray-500" />
-                        <span className="text-gray-700">
-                          {caretakerData.plz && caretakerData.city ?
-                            `${caretakerData.plz} ${caretakerData.city}` :
-                            caretakerData.plz ? caretakerData.plz :
-                            caretakerData.city ? caretakerData.city :
-                            '—'
-                          }
-                        </span>
+                        <div className="text-gray-700">
+                          {caretakerData.street && (
+                            <div>{caretakerData.street}</div>
+                          )}
+                          <div>
+                            {caretakerData.plz && caretakerData.city ?
+                              `${caretakerData.plz} ${caretakerData.city}` :
+                              caretakerData.plz ? caretakerData.plz :
+                              caretakerData.city ? caretakerData.city :
+                              '—'
+                            }
+                          </div>
+                        </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <Phone className="h-4 w-4 text-gray-500" />
@@ -683,6 +811,16 @@ function CaretakerDashboardPage() {
                           value={caretakerData.plz}
                           onChange={e => setCaretakerData(d => ({ ...d, plz: e.target.value }))}
                           placeholder="PLZ"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Straße & Hausnummer</label>
+                        <input
+                          type="text"
+                          className="input w-full"
+                          value={caretakerData.street}
+                          onChange={e => setCaretakerData(d => ({ ...d, street: e.target.value }))}
+                          placeholder="Straße und Hausnummer"
                         />
                       </div>
                       <div>
@@ -776,7 +914,7 @@ function CaretakerDashboardPage() {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              Texte
+              Über mich
             </button>
             <button
               onClick={() => setActiveTab('kunden')}
@@ -996,23 +1134,69 @@ function CaretakerDashboardPage() {
             </div>
           </div>
 
-          {/* Buchungen/Anfragen */}
-          <div className="mb-2">
-            <h2 className="text-xl font-semibold mb-2 flex items-center gap-2 text-gray-900"><Check className="w-5 h-5" /> Letzte Buchungen / Anfragen</h2>
-          </div>
-          <div className="bg-white rounded-xl shadow p-6 mb-8">
-            <div className="text-gray-400">(Hier könnten Buchungen, Anfragen oder Bewertungen angezeigt werden)</div>
-          </div>
+
         </>
       )}
       {activeTab === 'fotos' && (
         <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-2 flex items-center gap-2 text-gray-900"><Upload className="w-5 h-5" /> Wohnungsfotos</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold flex items-center gap-2 text-gray-900">
+              <Upload className="w-5 h-5" /> 
+              Umgebungsbilder
+            </h2>
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              {isBetaActive ? (
+                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
+                  Beta: Unlimited
+                </span>
+              ) : (
+                <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs">
+                  {photos.length}/{maxEnvironmentImages()} Bilder
+                </span>
+              )}
+            </div>
+          </div>
+          
+          {/* Subscription Gate for Non-Professional Users */}
+          {!isBetaActive && maxEnvironmentImages() === 0 && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <div className="flex items-start gap-3">
+                <Lock className="w-5 h-5 text-yellow-600 mt-0.5" />
+                <div>
+                  <h3 className="font-medium text-yellow-800 mb-1">
+                    Professional-Mitgliedschaft erforderlich
+                  </h3>
+                  <p className="text-yellow-700 text-sm mb-3">
+                    Umgebungsbilder sind nur für Professional-Mitglieder verfügbar. 
+                    Zeige deine Betreuungsumgebung und gewinne das Vertrauen von Tierbesitzern.
+                  </p>
+                  <Link
+                    to="/mitgliedschaften"
+                    className="inline-flex items-center px-3 py-1 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700 transition-colors"
+                  >
+                    Jetzt upgraden
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white rounded-xl shadow p-6">
             <div
-              className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:bg-gray-50 transition-colors mb-4"
-              onClick={() => fileInputRefFotos.current?.click()}
-              onDrop={async e => { e.preventDefault(); await handleAddPhotos(e.dataTransfer.files); }}
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors mb-4 ${
+                (!isBetaActive && maxEnvironmentImages() === 0) || (!isBetaActive && photos.length >= maxEnvironmentImages())
+                  ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                  : 'border-gray-300 cursor-pointer hover:bg-gray-50'
+              }`}
+              onClick={() => {
+                if ((!isBetaActive && maxEnvironmentImages() === 0) || (!isBetaActive && photos.length >= maxEnvironmentImages())) return;
+                fileInputRefFotos.current?.click();
+              }}
+              onDrop={async e => { 
+                e.preventDefault(); 
+                if ((!isBetaActive && maxEnvironmentImages() === 0) || (!isBetaActive && photos.length >= maxEnvironmentImages())) return;
+                await handleAddPhotos(e.dataTransfer.files); 
+              }}
               onDragOver={handleDragOverFotos}
             >
               <input
@@ -1024,9 +1208,37 @@ function CaretakerDashboardPage() {
                 onChange={async e => { if (e.target.files) await handleAddPhotos(e.target.files); }}
               />
               <div className="flex flex-col items-center justify-center gap-2">
-                <Upload className="w-8 h-8 text-primary-400 mb-1" />
-                <span className="text-gray-700 font-medium">Bilder hierher ziehen oder klicken, um hochzuladen</span>
-                <span className="text-xs text-gray-400">JPG, PNG, max. 5MB pro Bild</span>
+                {(!isBetaActive && maxEnvironmentImages() === 0) ? (
+                  <Lock className="w-8 h-8 text-gray-400 mb-1" />
+                ) : (!isBetaActive && photos.length >= maxEnvironmentImages()) ? (
+                  <Lock className="w-8 h-8 text-gray-400 mb-1" />
+                ) : (
+                  <Upload className="w-8 h-8 text-primary-400 mb-1" />
+                )}
+                
+                <span className={`font-medium ${
+                  (!isBetaActive && maxEnvironmentImages() === 0) || (!isBetaActive && photos.length >= maxEnvironmentImages())
+                    ? 'text-gray-500'
+                    : 'text-gray-700'
+                }`}>
+                  {(!isBetaActive && maxEnvironmentImages() === 0)
+                    ? 'Professional-Mitgliedschaft erforderlich'
+                    : (!isBetaActive && photos.length >= maxEnvironmentImages())
+                    ? `Limit erreicht (${maxEnvironmentImages()} Bilder)`
+                    : 'Bilder hierher ziehen oder klicken, um hochzuladen'
+                  }
+                </span>
+                
+                {(!isBetaActive && maxEnvironmentImages() === 0) || (!isBetaActive && photos.length >= maxEnvironmentImages()) ? (
+                  <span className="text-xs text-gray-400">
+                    {maxEnvironmentImages() === 0 
+                      ? 'Upgrade auf Professional für Umgebungsbilder'
+                      : 'Professional-Mitglieder können bis zu 6 Bilder hochladen'
+                    }
+                  </span>
+                ) : (
+                  <span className="text-xs text-gray-400">JPG, PNG, max. 5MB pro Bild</span>
+                )}
               </div>
               {photoUploading && <div className="mt-2 text-primary-600 text-sm">Bilder werden hochgeladen...</div>}
               {photoError && <div className="mt-2 text-red-500 text-sm">{photoError}</div>}
@@ -1121,24 +1333,39 @@ function CaretakerDashboardPage() {
       )}
       {activeTab === 'kunden' && (
         <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-2 flex items-center gap-2 text-gray-900">Kunden</h2>
-          <div className="bg-white rounded-xl shadow p-6">
-            <table className="min-w-full border-separate border-spacing-0 text-sm">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="p-3 text-left font-semibold text-gray-700 border-b">Name</th>
-                  <th className="p-3 text-left font-semibold text-gray-700 border-b">E-Mail</th>
-                  <th className="p-3 text-left font-semibold text-gray-700 border-b">Letzte Buchung</th>
-                  <th className="p-3 text-left font-semibold text-gray-700 border-b">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="p-3 text-gray-400 italic" colSpan={4}>Noch keine Kunden vorhanden.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-gray-900">
+            <Shield className="h-5 w-5" />
+            Kunden
+          </h2>
+          
+          {clientsLoading ? (
+            <div className="bg-white rounded-xl shadow p-6">
+              <div className="text-gray-500">Kunden werden geladen ...</div>
+            </div>
+          ) : clientsError ? (
+            <div className="bg-white rounded-xl shadow p-6">
+              <div className="text-red-500">{clientsError}</div>
+            </div>
+          ) : clients.length === 0 ? (
+            <div className="bg-white rounded-xl shadow p-8 text-center">
+              <Shield className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+              <div className="text-gray-500">
+                <h3 className="font-medium text-lg mb-2">Noch keine Kunden vorhanden</h3>
+                <p className="text-sm">
+                  Kunden erscheinen hier automatisch, wenn sie dich als Betreuer speichern.<br />
+                  Teile dein Profil mit Tierbesitzern oder werde über die Suche gefunden!
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p className="text-gray-600 mb-4 text-sm">
+                Hier siehst du alle Tierbesitzer, die dich als Betreuer gespeichert haben. 
+                Klicke auf einen Namen, um die freigegebenen Informationen zu sehen.
+              </p>
+              <ClientDetailsAccordion clients={clients} onDeleteClient={handleDeleteClient} />
+            </div>
+          )}
         </div>
       )}
       {activeTab === 'bewertungen' && (

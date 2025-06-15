@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, AlertCircle, MessageCircle } from 'lucide-react';
 import Button from '../components/ui/Button';
@@ -7,7 +7,7 @@ import { useAuth } from '../lib/auth/AuthContext';
 function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn } = useAuth();
+  const { signIn, isAuthenticated, userProfile, loading: authLoading } = useAuth();
   
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -24,6 +24,23 @@ function LoginPage() {
 
   // Get the page the user was trying to access before login
   const from = (location.state as any)?.from?.pathname || redirectUrl || '/';
+
+  // Handle redirect after successful authentication and profile loading
+  useEffect(() => {
+    if (isAuthenticated && !authLoading) {
+      // Only redirect if we don't have specific redirect URLs
+      if (!redirectUrl || redirectUrl === '/') {
+        if (!from || from === '/') {
+          // Redirect to appropriate dashboard based on user type
+          // If userProfile is not loaded yet or user_type is missing, default to owner dashboard
+          const dashboardPath = userProfile?.user_type === 'caretaker' 
+            ? '/dashboard-caretaker' 
+            : '/dashboard-owner';
+          navigate(dashboardPath, { replace: true });
+        }
+      }
+    }
+  }, [isAuthenticated, authLoading, userProfile, navigate, redirectUrl, from]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,8 +63,10 @@ function LoginPage() {
         // Redirect to the page user was trying to access
         navigate(from, { replace: true });
       } else {
-        // Default redirect to owner dashboard
-        navigate('/dashboard-owner', { replace: true });
+        // Note: The actual redirect to the appropriate dashboard will be handled
+        // by a useEffect that watches for authentication state changes
+        // This ensures the userProfile is loaded before determining the redirect
+        return;
       }
     } catch (err: any) {
       console.error('Fehler bei der Anmeldung:', err);

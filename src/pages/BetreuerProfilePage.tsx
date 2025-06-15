@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { MapPin, Star, Clock, Shield, Calendar, MessageCircle, Heart, HeartOff, ArrowLeft, Verified, ChevronRight, CheckCircle } from 'lucide-react';
+import { MapPin, Star, Clock, Shield, Calendar, MessageCircle, Heart, HeartOff, ArrowLeft, Verified, ChevronRight, CheckCircle, Edit3 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import AvailabilityDisplay from '../components/ui/AvailabilityDisplay';
+import { ReviewForm } from '../components/ui/ReviewForm';
 import { caretakerSearchService } from '../lib/supabase/db';
 import { formatCurrency } from '../lib/utils';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase/client';
 import { useAuth } from '../lib/auth/AuthContext';
 import { getOrCreateConversation } from '../lib/supabase/chatService';
+import useFeatureAccess from '../hooks/useFeatureAccess';
 
 interface Caretaker {
   id: string | null;
@@ -47,6 +49,7 @@ function BetreuerProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
+  const { checkFeature, trackUsage, isBetaActive } = useFeatureAccess();
   const [isFavorite, setIsFavorite] = useState(false);
   const [caretaker, setCaretaker] = useState<Caretaker | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,6 +57,8 @@ function BetreuerProfilePage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [isContactLoading, setIsContactLoading] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   
   useEffect(() => {
     const fetchCaretaker = async () => {
@@ -138,7 +143,7 @@ function BetreuerProfilePage() {
     return name;
   };
 
-  // Kontakt-Button Handler
+  // Kontakt-Button Handler mit Feature Gate
   const handleContactClick = async () => {
     if (!isAuthenticated || !user) {
       // Umleitung zur Login-Seite mit return URL
@@ -154,6 +159,24 @@ function BetreuerProfilePage() {
     setIsContactLoading(true);
 
     try {
+      // Feature Gate Check: Contact Request Limit
+      // Beta users get unlimited access
+      if (!isBetaActive) {
+        const accessCheck = await checkFeature('contact_request', caretaker.id);
+        
+        if (!accessCheck.allowed) {
+          // Show upgrade prompt
+          console.log('Feature blocked:', accessCheck.reason);
+          setIsContactLoading(false);
+          // TODO: Implement modal for upgrade prompt
+          navigate('/mitgliedschaften?feature=contact_request');
+          return;
+        }
+        
+        // Track feature usage
+        await trackUsage('contact_request', caretaker.id);
+      }
+
       // Erstelle oder finde bestehende Konversation
       const { data: conversation, error } = await getOrCreateConversation({
         owner_id: user.id,
@@ -168,13 +191,65 @@ function BetreuerProfilePage() {
 
       if (conversation) {
         // Navigiere zum Chat
-        navigate(`/chat/${conversation.id}`);
+        navigate(`/nachrichten/${conversation.id}`);
       }
     } catch (error) {
       console.error('Unerwarteter Fehler beim Kontaktieren:', error);
       // TODO: Toast-Benachrichtigung anzeigen
     } finally {
       setIsContactLoading(false);
+    }
+  };
+
+  // Review Submit Handler
+  const handleReviewSubmit = async (rating: number, comment: string) => {
+    if (!user || !caretaker?.id) {
+      console.error('User or caretaker ID missing');
+      return;
+    }
+
+    setIsSubmittingReview(true);
+    try {
+      const { error } = await supabase
+        .from('reviews')
+        .insert({
+          user_id: user.id,
+          caretaker_id: caretaker.id,
+          rating,
+          comment: comment || null
+        });
+
+      if (error) {
+        console.error('Error submitting review:', error);
+        // TODO: Show error toast
+        return;
+      }
+
+      // Refresh reviews list
+      const { data: newReviews, error: fetchError } = await supabase
+        .from('reviews')
+        .select(`
+          id,
+          rating,
+          comment,
+          created_at,
+          user_id,
+          users(first_name, last_name)
+        `)
+        .eq('caretaker_id', caretaker.id)
+        .order('created_at', { ascending: false });
+
+      if (!fetchError && newReviews) {
+        setReviews(newReviews);
+      }
+
+      setShowReviewForm(false);
+      // TODO: Show success toast
+    } catch (error) {
+      console.error('Unexpected error submitting review:', error);
+      // TODO: Show error toast
+    } finally {
+      setIsSubmittingReview(false);
     }
   };
 
@@ -303,6 +378,19 @@ function BetreuerProfilePage() {
                 >
                   {isAuthenticated ? 'Nachricht senden' : 'Kontakt aufnehmen'}
                 </Button>
+                
+                {/* Review Button - only for authenticated owners */}
+                {isAuthenticated && user && (
+                  <Button 
+                    variant="secondary" 
+                    size="lg"
+                    leftIcon={<Edit3 className="h-4 w-4" />}
+                    onClick={() => setShowReviewForm(true)}
+                    disabled={showReviewForm}
+                  >
+                    Bewertung schreiben
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -328,6 +416,20 @@ function BetreuerProfilePage() {
               <h2 className="text-lg font-semibold mb-4">
                 Bewertungen ({reviews.length})
               </h2>
+
+              {/* Review Form */}
+              {showReviewForm && caretaker && (
+                <div className="mb-6">
+                  <ReviewForm
+                    caretakerId={caretaker.id || ''}
+                    caretakerName={displayName}
+                    onSubmit={handleReviewSubmit}
+                    onCancel={() => setShowReviewForm(false)}
+                    isLoading={isSubmittingReview}
+                  />
+                </div>
+              )}
+
               {reviewsLoading ? (
                 <div className="flex justify-center py-8">
                   <LoadingSpinner />

@@ -3,8 +3,12 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Search, MapPin, Star, Filter, X, ChevronDown, PawPrint, Briefcase, Clock } from 'lucide-react';
 import Button from '../components/ui/Button';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { UsageLimitIndicator } from '../components/ui/UsageLimitIndicator';
+import { AdvancedFilters } from '../components/ui/AdvancedFilters';
 import { cn } from '../lib/utils';
 import { searchCaretakers as searchCaretakersService, type CaretakerDisplayData, type SearchFilters } from '../lib/supabase/caretaker-search';
+import useFeatureAccess from '../hooks/useFeatureAccess';
+import useCurrentUsage from '../hooks/useCurrentUsage';
 
 // Using the type from the service
 type Caretaker = CaretakerDisplayData;
@@ -16,6 +20,8 @@ interface CaretakerCardProps {
 function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { contactLimit, isBetaActive, subscription } = useFeatureAccess();
+  const { currentUsage: contactUsage } = useCurrentUsage('contact_request');
   const isFirstRender = useRef(true);
   
   // Initialize filters from URL params
@@ -40,6 +46,8 @@ function SearchPage() {
   const [error, setError] = useState<string | null>(null);
   const [totalResults, setTotalResults] = useState(0);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  
+
 
   // Filter options
   const petTypeOptions = [
@@ -336,94 +344,22 @@ function SearchPage() {
               </div>
             </div>
 
-            {/* Erweiterte Filter (nur sichtbar wenn showAdvancedFilters true ist) */}
+            {/* Premium Filter (nur sichtbar wenn showAdvancedFilters true ist) */}
             {showAdvancedFilters && (
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
-                  {/* Verfügbar am Tag */}
-                  <div className="lg:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Verfügbar am</label>
-                    <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <select
-                        value={selectedAvailabilityDay}
-                        onChange={(e) => setSelectedAvailabilityDay(e.target.value)}
-                        className="w-full pl-9 pr-8 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm appearance-none bg-white"
-                      >
-                        {availabilityDayOptions.map(option => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  {/* Verfügbar zur Zeit */}
-                  <div className="lg:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Zur Zeit</label>
-                    <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <select
-                        value={selectedAvailabilityTime}
-                        onChange={(e) => setSelectedAvailabilityTime(e.target.value)}
-                        className="w-full pl-9 pr-8 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm appearance-none bg-white"
-                      >
-                        {availabilityTimeOptions.map(option => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  {/* Bewertungs-Filter */}
-                  <div className="lg:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Min. Bewertung</label>
-                    <div className="relative">
-                      <Star className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <select
-                        value={selectedMinRating}
-                        onChange={(e) => setSelectedMinRating(e.target.value)}
-                        className="w-full pl-9 pr-8 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm appearance-none bg-white"
-                      >
-                        <option value="">Alle Bewertungen</option>
-                        <option value="4.5">4.5+ Sterne</option>
-                        <option value="4.0">4.0+ Sterne</option>
-                        <option value="3.5">3.5+ Sterne</option>
-                        <option value="3.0">3.0+ Sterne</option>
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  {/* Umkreis-Filter */}
-                  <div className="lg:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Umkreis</label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <select
-                        value={selectedRadius}
-                        onChange={(e) => setSelectedRadius(e.target.value)}
-                        className="w-full pl-9 pr-8 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm appearance-none bg-white"
-                      >
-                        <option value="">Beliebige Entfernung</option>
-                        <option value="5">5 km</option>
-                        <option value="10">10 km</option>
-                        <option value="25">25 km</option>
-                        <option value="50">50 km</option>
-                        <option value="100">100 km</option>
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <AdvancedFilters
+                availabilityDay={selectedAvailabilityDay}
+                availabilityTime={selectedAvailabilityTime}
+                minRating={selectedMinRating}
+                radius={selectedRadius}
+                onAvailabilityDayChange={setSelectedAvailabilityDay}
+                onAvailabilityTimeChange={setSelectedAvailabilityTime}
+                onMinRatingChange={setSelectedMinRating}
+                onRadiusChange={setSelectedRadius}
+              />
             )}
           </div>
+
+
 
           {/* Active Filters Summary */}
           {hasActiveFilters && (
@@ -532,6 +468,30 @@ function SearchPage() {
 
       {/* Results */}
       <div className="container-custom py-8">
+        {/* Usage Limit Display for Contact Requests - Compact Badge */}
+        {subscription && subscription.user_type === 'owner' && (
+          <div className="mb-4">
+            <div className="inline-flex items-center gap-2 bg-white rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                <span className="font-medium text-gray-700">Kontaktanfragen:</span>
+                {isBetaActive ? (
+                  <span className="text-green-600 font-semibold">Unlimited</span>
+                ) : (
+                  <span className="text-gray-900 font-semibold">
+                    {contactUsage}/{contactLimit}
+                  </span>
+                )}
+                {isBetaActive && (
+                  <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full font-medium">
+                    Beta
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Results Header */}
         <div className="flex justify-between items-center mb-6">
           <div>

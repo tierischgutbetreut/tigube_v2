@@ -13,6 +13,7 @@ import { userService, petService, ownerPreferencesService, caretakerProfileServi
 import { useDropzone } from 'react-dropzone';
 import { plzService } from '../lib/supabase/db';
 import { useAuth } from '../lib/auth/AuthContext';
+import { SubscriptionService } from '../lib/services/subscriptionService';
 
 function RegisterPage() {
   const [searchParams] = useSearchParams();
@@ -41,6 +42,7 @@ function RegisterPage() {
   const [formStep2Owner, setFormStep2Owner] = useState({
     plz: '',
     city: '',
+    street: '',
     phoneNumber: '',
     profilePhotoUrl: '',
     pets: [{
@@ -72,6 +74,7 @@ function RegisterPage() {
   const [formStep2Caretaker, setFormStep2Caretaker] = useState<{
     plz: string;
     city: string;
+    street: string;
     phoneNumber: string;
     profilePhotoUrl: string;
     services: string[];
@@ -93,6 +96,7 @@ function RegisterPage() {
     {
       plz: '',
       city: '',
+      street: '',
       phoneNumber: '',
       profilePhotoUrl: '',
       services: [],
@@ -375,6 +379,7 @@ function RegisterPage() {
           {
             plz,
             city,
+            street: userType === 'owner' ? formStep2Owner.street : formStep2Caretaker.street,
             phoneNumber: userType === 'owner' ? formStep2Owner.phoneNumber : formStep2Caretaker.phoneNumber,
             profileCompleted: true, // Jetzt als abgeschlossen markieren
             profilePhotoUrl: userType === 'owner' ? formStep2Owner.profilePhotoUrl : formStep2Caretaker.profilePhotoUrl
@@ -545,6 +550,16 @@ function RegisterPage() {
             return;
           }
 
+          // Trial-Subscription für neuen User erstellen
+          try {
+            console.log('🎯 Creating trial subscription for new registered user...');
+            await SubscriptionService.createTrialSubscription(data.user.id, userType);
+            console.log('✅ Trial subscription created during registration');
+          } catch (subscriptionError) {
+            console.error('❌ Failed to create trial subscription during registration:', subscriptionError);
+            // Continue anyway - subscription creation failure should not block registration
+          }
+
           // User-ID speichern für Schritt 2
           setUserId(data.user.id);
           // Zum nächsten Schritt wechseln
@@ -587,6 +602,7 @@ function RegisterPage() {
           {
             plz,
             city,
+            street: userType === 'owner' ? formStep2Owner.street : formStep2Caretaker.street,
             phoneNumber: userType === 'owner' ? formStep2Owner.phoneNumber : formStep2Caretaker.phoneNumber,
             profileCompleted: true, // Jetzt als abgeschlossen markieren
             profilePhotoUrl: userType === 'owner' ? formStep2Owner.profilePhotoUrl : formStep2Caretaker.profilePhotoUrl
@@ -974,6 +990,19 @@ function RegisterPage() {
                           </div>
                         </div>
                         <div className="mt-4">
+                          <label htmlFor="street" className="block text-sm font-medium text-gray-700 mb-1">
+                            Straße & Hausnummer
+                          </label>
+                          <input
+                            type="text"
+                            id="street"
+                            className="input"
+                            placeholder="Deine Straße und Hausnummer"
+                            value={formStep2Owner.street}
+                            onChange={(e) => setFormStep2Owner({...formStep2Owner, street: e.target.value})}
+                          />
+                        </div>
+                        <div className="mt-4">
                           <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-1">
                             Telefonnummer
                           </label>
@@ -1051,6 +1080,19 @@ function RegisterPage() {
                               onChange={(e) => setFormStep2Caretaker({ ...formStep2Caretaker, city: e.target.value })}
                             />
                           </div>
+                        </div>
+                        <div className="mt-4">
+                          <label htmlFor="street" className="block text-sm font-medium text-gray-700 mb-1">
+                            Straße & Hausnummer
+                          </label>
+                          <input
+                            type="text"
+                            id="street"
+                            className="input"
+                            placeholder="Deine Straße und Hausnummer"
+                            value={formStep2Caretaker.street}
+                            onChange={(e) => setFormStep2Caretaker({ ...formStep2Caretaker, street: e.target.value })}
+                          />
                         </div>
                         <div className="mt-4">
                           <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-1">

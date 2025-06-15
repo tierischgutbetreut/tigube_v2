@@ -16,6 +16,7 @@ export type UserProfileUpdate = {
   phoneNumber?: string;
   plz?: string;
   city?: string;
+  street?: string;
   profileCompleted?: boolean;
   userType?: 'owner' | 'caretaker';
   profilePhotoUrl?: string;
@@ -43,6 +44,17 @@ export type OwnerPreferences = {
   emergencyContactName?: string;
   emergencyContactPhone?: string;
   careInstructions?: string;
+  shareSettings?: ShareSettings;
+};
+
+export type ShareSettings = {
+  phoneNumber: boolean;
+  email: boolean;
+  address: boolean;
+  vetInfo: boolean;
+  emergencyContact: boolean;
+  petDetails: boolean;
+  carePreferences: boolean;
 };
 
 // Benutzer-Funktionen
@@ -89,6 +101,7 @@ export const userService = {
     if (profileData.phoneNumber !== undefined) updateData.phone_number = profileData.phoneNumber;
     if (profileData.plz !== undefined) updateData.plz = profileData.plz;
     if (profileData.city !== undefined) updateData.city = profileData.city;
+    if (profileData.street !== undefined) updateData.street = profileData.street;
     if (profileData.profileCompleted !== undefined) updateData.profile_completed = profileData.profileCompleted;
     if (profileData.userType !== undefined) updateData.user_type = profileData.userType;
     if (profileData.profilePhotoUrl !== undefined) updateData.profile_photo_url = profileData.profilePhotoUrl;
@@ -289,6 +302,7 @@ export const ownerPreferencesService = {
       emergency_contact_name: preferences.emergencyContactName || null,
       emergency_contact_phone: preferences.emergencyContactPhone || null,
       care_instructions: preferences.careInstructions || null,
+      // share_settings wird nach Migration hinzugefügt
     };
 
     let result;
@@ -320,6 +334,173 @@ export const ownerPreferencesService = {
       .maybeSingle();
 
     return { data, error };
+  },
+
+  // Tierarzt-Informationen speichern (ohne andere Felder zu überschreiben)
+  saveVetInfo: async (ownerId: string, vetName: string, vetAddress: string, vetPhone: string) => {
+    try {
+      // Erst bestehende Daten laden
+      const { data: existingData } = await supabase
+        .from('owner_preferences')
+        .select('*')
+        .eq('owner_id', ownerId)
+        .maybeSingle();
+
+      const vetInfo = JSON.stringify({
+        name: vetName || '',
+        address: vetAddress || '',
+        phone: vetPhone || ''
+      });
+
+      if (existingData) {
+        // Nur vet_info aktualisieren
+        const result = await supabase
+          .from('owner_preferences')
+          .update({ vet_info: vetInfo })
+          .eq('owner_id', ownerId)
+          .select();
+        return result;
+      } else {
+        // Neuen Eintrag erstellen mit Minimal-Daten
+        const result = await supabase
+          .from('owner_preferences')
+          .insert({
+            owner_id: ownerId,
+            services: [],
+            vet_info: vetInfo
+          })
+          .select();
+        return result;
+      }
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // Notfallkontakt speichern (ohne andere Felder zu überschreiben)
+  saveEmergencyContact: async (ownerId: string, emergencyName: string, emergencyPhone: string) => {
+    try {
+      // Erst bestehende Daten laden
+      const { data: existingData } = await supabase
+        .from('owner_preferences')
+        .select('*')
+        .eq('owner_id', ownerId)
+        .maybeSingle();
+
+      if (existingData) {
+        // Nur emergency_contact Felder aktualisieren
+        const result = await supabase
+          .from('owner_preferences')
+          .update({ 
+            emergency_contact_name: emergencyName || null,
+            emergency_contact_phone: emergencyPhone || null
+          })
+          .eq('owner_id', ownerId)
+          .select();
+        return result;
+      } else {
+        // Neuen Eintrag erstellen mit Minimal-Daten
+        const result = await supabase
+          .from('owner_preferences')
+          .insert({
+            owner_id: ownerId,
+            services: [],
+            emergency_contact_name: emergencyName || null,
+            emergency_contact_phone: emergencyPhone || null
+          })
+          .select();
+        return result;
+      }
+    } catch (error) {
+      return { data: null, error };
+    }
+  },
+
+  // Share-Settings speichern
+  saveShareSettings: async (ownerId: string, shareSettings: ShareSettings) => {
+    const { data: existingData } = await supabase
+      .from('owner_preferences')
+      .select('id')
+      .eq('owner_id', ownerId)
+      .maybeSingle();
+
+    const updateData = {
+      share_settings: shareSettings
+    };
+
+    let result;
+    if (existingData) {
+      result = await supabase
+        .from('owner_preferences')
+        .update(updateData)
+        .eq('owner_id', ownerId)
+        .select();
+    } else {
+      result = await supabase
+        .from('owner_preferences')
+        .insert({
+          owner_id: ownerId,
+          services: [],
+          share_settings: shareSettings
+        })
+        .select();
+    }
+    return result;
+  },
+
+  // Share-Settings abrufen
+  getShareSettings: async (ownerId: string): Promise<{ data: ShareSettings | null; error: any }> => {
+    const { data, error } = await supabase
+      .from('owner_preferences')
+      .select('share_settings')
+      .eq('owner_id', ownerId)
+      .maybeSingle();
+
+    if (error) {
+      return { data: null, error };
+    }
+
+    const defaultSettings: ShareSettings = {
+      phoneNumber: true,
+      email: false,
+      address: true,
+      vetInfo: true,
+      emergencyContact: false,
+      petDetails: true,
+      carePreferences: true
+    };
+
+    if (!data?.share_settings) {
+      return { data: defaultSettings, error: null };
+    }
+
+    // Sicherstellen, dass die Werte Boolean sind (falls sie als Strings kommen)
+    const rawSettings = data.share_settings as any;
+    
+    // Sehr robuste Boolean-Konvertierung
+    const toBool = (value: any): boolean => {
+      if (typeof value === 'boolean') return value;
+      if (typeof value === 'string') {
+        return value.toLowerCase() === 'true' || value === '1';
+      }
+      if (typeof value === 'number') return value === 1;
+      return Boolean(value);
+    };
+    
+    const normalizedSettings: ShareSettings = {
+      phoneNumber: toBool(rawSettings.phoneNumber),
+      email: toBool(rawSettings.email),
+      address: toBool(rawSettings.address),
+      vetInfo: toBool(rawSettings.vetInfo),
+      emergencyContact: toBool(rawSettings.emergencyContact),
+      petDetails: toBool(rawSettings.petDetails),
+      carePreferences: toBool(rawSettings.carePreferences)
+    };
+
+    return { 
+      data: normalizedSettings, 
+      error: null 
+    };
   },
 };
 
@@ -612,3 +793,236 @@ export const caretakerSearchService = {
     return { data: Array.from(allServices), error: null };
   },
 };
+
+// Owner Caretaker Connections Service
+export const ownerCaretakerService = {
+  // Speichere einen Betreuer für einen Tierbesitzer
+  async saveCaretaker(ownerId: string, caretakerId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('owner_caretaker_connections')
+        .insert({
+          owner_id: ownerId,
+          caretaker_id: caretakerId
+        })
+        .select()
+        .single()
+      
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error saving caretaker:', error)
+      return { data: null, error: (error as Error).message }
+    }
+  },
+
+  // Entferne einen Betreuer für einen Tierbesitzer
+  async removeCaretaker(ownerId: string, caretakerId: string) {
+    try {
+      const { error } = await supabase
+        .from('owner_caretaker_connections')
+        .delete()
+        .eq('owner_id', ownerId)
+        .eq('caretaker_id', caretakerId)
+      
+      if (error) throw error
+      return { error: null }
+    } catch (error) {
+      console.error('Error removing caretaker:', error)
+      return { error: (error as Error).message }
+    }
+  },
+
+  // Prüfe ob ein Betreuer bereits gespeichert ist
+  async isCaretakerSaved(ownerId: string, caretakerId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('owner_caretaker_connections')
+        .select('id')
+        .eq('owner_id', ownerId)
+        .eq('caretaker_id', caretakerId)
+        .maybeSingle()
+      
+      if (error) throw error
+      return { isSaved: !!data, error: null }
+    } catch (error) {
+      console.error('Error checking if caretaker is saved:', error)
+      return { isSaved: false, error: (error as Error).message }
+    }
+  },
+
+  // Lade alle gespeicherten Betreuer für einen Owner
+  async getSavedCaretakers(ownerId: string) {
+    try {
+      // Erst die Verbindungen laden
+      const { data: connections, error: connectionsError } = await supabase
+        .from('owner_caretaker_connections')
+        .select('caretaker_id, created_at')
+        .eq('owner_id', ownerId)
+        .order('created_at', { ascending: false })
+      
+      if (connectionsError) throw connectionsError
+      
+      if (!connections || connections.length === 0) {
+        return { data: [], error: null }
+      }
+      
+      // Dann die Caretaker-Daten aus der Search View laden
+      const caretakerIds = connections.map(c => c.caretaker_id)
+      const { data: caretakers, error: careteakersError } = await supabase
+        .from('caretaker_search_view')
+        .select('*')
+        .in('id', caretakerIds)
+      
+      if (careteakersError) throw careteakersError
+      
+      // Transform data to match the expected format
+      const transformedData = connections.map(connection => {
+        const caretaker = caretakers?.find(c => c.id === connection.caretaker_id)
+        if (!caretaker) return null
+        
+        return {
+          id: caretaker.id,
+          name: caretaker.full_name || `${caretaker.first_name || ''} ${caretaker.last_name || ''}`.trim() || 'Unbekannt',
+          avatar: caretaker.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(caretaker.first_name || 'U')}&background=f3f4f6&color=374151`,
+          location: caretaker.city && caretaker.plz ? `${caretaker.city} ${caretaker.plz}` : (caretaker.city || 'Ort nicht angegeben'),
+          services: Array.isArray(caretaker.services) ? caretaker.services : [],
+          rating: Number(caretaker.rating) || 0,
+          reviews_count: caretaker.review_count || 0,
+          hourly_rate: Number(caretaker.hourly_rate) || 0,
+          description: caretaker.short_about_me || 'Keine Beschreibung verfügbar.',
+          email: '', // Not available in search view
+          phone: '', // Not available in search view
+          user_id: caretaker.id, // Use caretaker ID as user_id
+          saved_at: connection.created_at
+        }
+      }).filter(Boolean)
+      
+      return { data: transformedData || [], error: null }
+    } catch (error) {
+      console.error('Error getting saved caretakers:', error)
+      return { data: [], error: (error as Error).message }
+    }
+  },
+
+  // Lade alle Tierbesitzer für einen Betreuer (für das Betreuer Dashboard)
+  async getCaretakerClients(caretakerId: string) {
+    try {
+      // Erst die Verbindungen laden
+      const { data: connections, error: connectionsError } = await supabase
+        .from('owner_caretaker_connections')
+        .select('owner_id, created_at')
+        .eq('caretaker_id', caretakerId)
+        .order('created_at', { ascending: false })
+      
+      if (connectionsError) throw connectionsError
+      
+      if (!connections || connections.length === 0) {
+        return { data: [], error: null }
+      }
+      
+      // Dann die Owner-Daten laden
+      const ownerIds = connections.map(c => c.owner_id)
+      
+      const { data: owners, error: ownersError } = await supabase
+        .from('users')
+        .select('id, first_name, last_name, email, phone_number, profile_photo_url, city, plz')
+        .in('id', ownerIds)
+      
+      if (ownersError) throw ownersError
+      
+      // Transform data to match the ClientData format mit allen benötigten Daten
+      const transformedData = await Promise.all(connections.map(async connection => {
+        const owner = owners?.find(o => o.id === connection.owner_id)
+        if (!owner) return null
+        
+        // Lade Share-Settings, Owner-Preferences und Pets aus der Datenbank
+        const [shareSettingsResult, preferencesResult, petsResult] = await Promise.all([
+          ownerPreferencesService.getShareSettings(owner.id),
+          ownerPreferencesService.getPreferences(owner.id),
+          petService.getOwnerPets(owner.id)
+        ]);
+        
+        console.log(`=== Debug for ${owner.first_name} ${owner.last_name} (ID: ${owner.id}) ===`);
+        console.log('ShareSettings result:', shareSettingsResult);
+        console.log('Preferences result:', preferencesResult);
+        console.log('Pets result:', petsResult);
+        
+        // Parse Tierarzt-Daten (jetzt da RLS funktioniert)
+        let vetInfo = null;
+        const prefsData = preferencesResult.data;
+        
+        if (prefsData?.vet_info) {
+          try {
+            vetInfo = JSON.parse(prefsData.vet_info);
+            console.log(`Vet info for ${owner.first_name} ${owner.last_name}:`, vetInfo);
+          } catch (e) {
+            console.log(`Failed to parse vet_info for ${owner.first_name} ${owner.last_name}:`, prefsData.vet_info, e);
+          }
+        } else {
+          console.log(`No vet_info found for ${owner.first_name} ${owner.last_name}. Preferences:`, prefsData);
+        }
+        
+        // Transform Pets für ClientData Format
+        const pets = (petsResult.data || []).map((pet: any) => ({
+          id: pet.id,
+          name: pet.name,
+          type: pet.type,
+          breed: pet.breed,
+          age: pet.age?.toString(),
+          gender: pet.gender,
+          neutered: pet.neutered,
+          description: pet.description,
+          photoUrl: pet.photo_url
+        }));
+        
+        const finalData = {
+          id: owner.id,
+          name: `${owner.first_name || ''} ${owner.last_name || ''}`.trim() || 'Unbekannt',
+          phoneNumber: owner.phone_number || '',
+          email: owner.email || '',
+          address: '', // Nicht in Users-Tabelle verfügbar
+          city: owner.city || '',
+          plz: owner.plz || '',
+          vetName: vetInfo?.name || '',
+          vetAddress: vetInfo?.address || '',
+          vetPhone: vetInfo?.phone || '',
+          emergencyContactName: prefsData?.emergency_contact_name || '',
+          emergencyContactPhone: prefsData?.emergency_contact_phone || '',
+          pets: pets,
+          services: prefsData?.services || [],
+          otherWishes: (prefsData?.other_services) ? [prefsData?.other_services] : [],
+          shareSettings: shareSettingsResult.data || {
+            phoneNumber: true,
+            email: false,
+            address: true,
+            vetInfo: true,
+            emergencyContact: false,
+            petDetails: true,
+            carePreferences: true
+          },
+          // Legacy fields für bestehende UI
+          avatar: owner.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(owner.first_name || 'U')}&background=f3f4f6&color=374151`,
+          location: shareSettingsResult.data?.address 
+            ? (owner.city && owner.plz ? `${owner.plz} ${owner.city}` : (owner.plz || owner.city || 'Ort nicht angegeben'))
+            : 'Adresse nicht freigegeben',
+          saved_at: connection.created_at
+        };
+        
+        console.log(`Final data for ${finalData.name}:`, {
+          vetName: finalData.vetName,
+          vetAddress: finalData.vetAddress, 
+          vetPhone: finalData.vetPhone,
+          shareSettings: finalData.shareSettings
+        });
+        
+        return finalData;
+      }))
+      
+      return { data: transformedData.filter(Boolean) || [], error: null }
+    } catch (error) {
+      console.error('Error getting caretaker clients:', error)
+      return { data: [], error: (error as Error).message }
+    }
+  }
+}

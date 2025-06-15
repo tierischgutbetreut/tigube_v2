@@ -96,10 +96,18 @@ export const ownerPublicService = {
   getPublicOwnerProfile: async (ownerId: string, viewerId: string): Promise<{ data: PublicOwnerProfile | null; error?: string }> => {
     try {
       // 1. Zugriffsberechtigung prüfen
-      const { hasAccess, error: accessError } = await ownerPublicService.checkCaretakerAccess(ownerId, viewerId);
+      // Der Owner kann immer sein eigenes Profil sehen
+      let hasAccess = ownerId === viewerId;
       
-      if (accessError) {
-        return { data: null, error: accessError };
+      if (!hasAccess) {
+        // Prüfe ob der Viewer ein Caretaker mit Zugriff ist
+        const { hasAccess: caretakerAccess, error: accessError } = await ownerPublicService.checkCaretakerAccess(ownerId, viewerId);
+        
+        if (accessError) {
+          return { data: null, error: accessError };
+        }
+        
+        hasAccess = caretakerAccess;
       }
       
       if (!hasAccess) {
@@ -150,22 +158,26 @@ export const ownerPublicService = {
       // 6. Gefilterte Profildaten zusammenstellen
       const publicProfile: PublicOwnerProfile = {
         id: userProfile.id,
-        first_name: userProfile.first_name,
-        last_name: userProfile.last_name,
+        first_name: userProfile.first_name || '',
+        last_name: userProfile.last_name || '',
         profile_photo_url: userProfile.profile_photo_url,
         share_settings: shareSettings
       };
 
       // Bedingt sichtbare Kontaktdaten
-      if (shareSettings.phoneNumber) {
+      if (shareSettings.phoneNumber && userProfile.phone_number) {
         publicProfile.phone_number = userProfile.phone_number;
       }
-      if (shareSettings.email) {
+      if (shareSettings.email && userProfile.email) {
         publicProfile.email = userProfile.email;
       }
       if (shareSettings.address) {
-        publicProfile.plz = userProfile.plz;
-        publicProfile.city = userProfile.city;
+        if (userProfile.plz) {
+          publicProfile.plz = userProfile.plz;
+        }
+        if (userProfile.city) {
+          publicProfile.city = userProfile.city;
+        }
       }
 
       // Betreuungsvorlieben

@@ -22,6 +22,16 @@ const OwnerDashboardPage = lazy(() => import('./pages/OwnerDashboardPage'));
 const CaretakerDashboardPage = lazy(() => import('./pages/CaretakerDashboardPage'));
 const MessagesPage = lazy(() => import('./pages/MessagesPage'));
 const OwnerPublicProfilePage = lazy(() => import('./pages/OwnerPublicProfilePage'));
+const PricingPage = lazy(() => import('./pages/PricingPage'));
+const PaymentSuccessPage = lazy(() => import('./pages/PaymentSuccessPage'));
+
+// Debug components (only in development)
+const SubscriptionDebug = lazy(() => 
+  import('./debug/subscriptionDebug').then(module => ({ default: module.SubscriptionDebug }))
+);
+const SubscriptionStatus = lazy(() => 
+  import('./debug/subscriptionStatus').then(module => ({ default: module.SubscriptionStatus }))
+);
 
 function App() {
   return (
@@ -40,6 +50,18 @@ function App() {
           <Route path="/ueber-uns" element={<AboutPage />} />
           <Route path="/kontakt" element={<ContactPage />} />
           <Route path="/hilfe" element={<HelpPage />} />
+          <Route path="/preise" element={<PricingPage />} />
+          <Route path="/mitgliedschaften" element={<PricingPage />} />
+          <Route path="/payment/success" element={<PaymentSuccessPage />} />
+          
+          {/* Debug Routes (only in development) */}
+          {import.meta.env.DEV && (
+            <>
+              <Route path="/debug/subscriptions" element={<SubscriptionDebug />} />
+              <Route path="/debug/subscription-status" element={<SubscriptionStatus />} />
+            </>
+          )}
+          
           <Route 
             path="/dashboard-owner" 
             element={

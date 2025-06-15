@@ -77,6 +77,42 @@ CREATE POLICY "Users can insert messages in their conversations"
     )
   );
 
+-- **NEUE RLS-POLICY FÜR OWNER_PREFERENCES**
+-- Betreuer können die Präferenzen ihrer gespeicherten Kunden lesen
+DROP POLICY IF EXISTS "Betreuer können Präferenzen ihrer Kunden sehen" ON owner_preferences;
+CREATE POLICY "Betreuer können Präferenzen ihrer Kunden sehen" 
+  ON owner_preferences 
+  FOR SELECT 
+  USING (
+    -- Besitzer kann seine eigenen Präferenzen sehen
+    auth.uid() = owner_id 
+    OR 
+    -- Betreuer kann Präferenzen seiner gespeicherten Kunden sehen
+    EXISTS (
+      SELECT 1 FROM owner_caretaker_connections occ 
+      WHERE occ.owner_id = owner_preferences.owner_id 
+      AND occ.caretaker_id = auth.uid()
+    )
+  );
+
+-- **NEUE RLS-POLICY FÜR PETS**
+-- Betreuer können die Haustiere ihrer gespeicherten Kunden sehen
+DROP POLICY IF EXISTS "Betreuer können Haustiere ihrer Kunden sehen" ON pets;
+CREATE POLICY "Betreuer können Haustiere ihrer Kunden sehen" 
+  ON pets 
+  FOR SELECT 
+  USING (
+    -- Besitzer kann seine eigenen Haustiere sehen
+    auth.uid() = owner_id 
+    OR 
+    -- Betreuer kann Haustiere seiner gespeicherten Kunden sehen
+    EXISTS (
+      SELECT 1 FROM owner_caretaker_connections occ 
+      WHERE occ.owner_id = pets.owner_id 
+      AND occ.caretaker_id = auth.uid()
+    )
+  );
+
 -- Zeige finale Policies
 SELECT 
   schemaname, 
@@ -85,5 +121,5 @@ SELECT
   cmd, 
   qual
 FROM pg_policies 
-WHERE tablename IN ('conversations', 'messages')
+WHERE tablename IN ('conversations', 'messages', 'owner_preferences')
 ORDER BY tablename, cmd; 

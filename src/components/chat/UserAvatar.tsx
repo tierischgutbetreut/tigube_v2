@@ -7,9 +7,10 @@ interface UserAvatarProps {
   }
   size?: 'sm' | 'md' | 'lg'
   className?: string
+  showOnline?: boolean
 }
 
-function UserAvatar({ user, size = 'md', className = '' }: UserAvatarProps) {
+function UserAvatar({ user, size = 'md', className = '', showOnline = false }: UserAvatarProps) {
   const sizeClasses = {
     sm: 'w-8 h-8 text-xs',
     md: 'w-10 h-10 text-sm', 
@@ -29,7 +30,7 @@ function UserAvatar({ user, size = 'md', className = '' }: UserAvatarProps) {
   }
 
   return (
-    <div className={`${sizeClasses[size]} ${className}`}>
+    <div className={`relative ${sizeClasses[size]} ${className}`}>
       {user.profile_photo_url ? (
         <img
           src={user.profile_photo_url}
@@ -40,6 +41,9 @@ function UserAvatar({ user, size = 'md', className = '' }: UserAvatarProps) {
         <div className="w-full h-full rounded-full bg-gray-100 text-gray-700 flex items-center justify-center font-medium border-2 border-gray-200">
           {getInitials() || '?'}
         </div>
+      )}
+      {showOnline && (
+        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
       )}
     </div>
   )

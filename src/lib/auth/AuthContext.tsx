@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { User } from '@supabase/supabase-js';
 import { supabase, auth } from '../supabase/client';
 import { userService } from '../supabase/db';
+import { SubscriptionService } from '../services/subscriptionService';
 
 interface AuthContextType {
   user: User | null;
@@ -11,6 +12,9 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   isAuthenticated: boolean;
   updateProfileState: (newProfile: any | null) => void;
+  subscription: any | null;
+  subscriptionLoading: boolean;
+  refreshSubscription: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,6 +23,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true); // Overall loading state
+  const [subscription, setSubscription] = useState<any | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
   const isAuthenticated = !!user; // Derived state
 
@@ -48,6 +54,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error(`❌ Profile loading error (attempt ${retryCount + 1}):`, profileError);
         } else if (profile) {
           console.log('✅ Profile loaded successfully:', profile);
+          
+          // Erstelle Trial-Subscription für neue User falls noch keine vorhanden
+          if (profile.user_type && !(profile as any).subscription_id) {
+            console.log('🎯 Creating trial subscription for new user...');
+            try {
+              const userType = profile.user_type as 'owner' | 'caretaker';
+              await SubscriptionService.createTrialSubscription(userId, userType);
+              console.log('✅ Trial subscription created successfully');
+            } catch (error) {
+              console.error('❌ Failed to create trial subscription:', error);
+              // Continue anyway - subscription creation failure should not block login
+            }
+          }
+          
+          // Lade Subscription-Daten
+          try {
+            const userSubscription = await SubscriptionService.getActiveSubscription(userId);
+            setSubscription(userSubscription);
+            console.log('✅ Subscription loaded:', userSubscription);
+          } catch (error) {
+            console.error('❌ Failed to load subscription:', error);
+            setSubscription(null);
+          }
+          
           setUserProfile(profile); // *** Set profile state on success ***
           console.log('✅ setUserProfile called with profile:', profile);
           return { data: profile, error: null }; // Return success early
@@ -225,6 +255,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true); // Set main loading on sign out start
     setUser(null); // Explicitly clear user state immediately
     setUserProfile(null); // Explicitly clear profile state immediately
+    setSubscription(null); // Clear subscription data
     try {
       const { error } = await auth.signOut();
       if (error) {
@@ -235,6 +266,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // (Effect 3 removed, clearing is now explicit or handled by state reset on user null)
        setUser(null); // Explicitly clear user state
        setUserProfile(null); // Explicitly clear profile state
+       setSubscription(null); // Clear subscription data
 
     } catch (error) {
       console.error('Logout fehlgeschlagen:', error);
@@ -250,6 +282,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUserProfile(newProfile);
   };
 
+  const refreshSubscription = useCallback(async () => {
+    if (!user?.id) return;
+    
+    setSubscriptionLoading(true);
+    try {
+      const subscription = await SubscriptionService.getActiveSubscription(user.id);
+      setSubscription(subscription);
+      console.log('✅ Subscription refreshed:', subscription);
+    } catch (error) {
+      console.error('❌ Failed to refresh subscription:', error);
+      setSubscription(null);
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  }, [user?.id]);
+
   const value: AuthContextType = {
     user,
     userProfile,
@@ -258,6 +306,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     isAuthenticated,
     updateProfileState,
+    subscription,
+    subscriptionLoading,
+    refreshSubscription,
   };
 
   return (
