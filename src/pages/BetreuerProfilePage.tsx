@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { MapPin, Star, Clock, Shield, Calendar, MessageCircle, Heart, HeartOff, ArrowLeft, Verified, ChevronRight, CheckCircle, Edit3, Briefcase } from 'lucide-react';
+import { MapPin, Star, Clock, Shield, Calendar, MessageCircle, Heart, HeartOff, ArrowLeft, Verified, ChevronRight, CheckCircle, Edit3, Briefcase, Globe } from 'lucide-react';
+import { DE, GB, FR, ES, IT, PT, NL, RU, PL, TR, AE } from 'country-flag-icons/react/3x2';
 import Button from '../components/ui/Button';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import AvailabilityDisplay from '../components/ui/AvailabilityDisplay';
@@ -31,6 +32,7 @@ interface Caretaker {
   experienceYears?: number;
   fullBio?: string;
   qualifications: string[];
+  languages?: string[]; // Sprachen die der Betreuer spricht
   availability?: any;
   phone?: string | null;
   email?: string | null;
@@ -283,6 +285,35 @@ function BetreuerProfilePage() {
 
   const displayName = formatCaretakerName(caretaker.name);
 
+  // Sprach-zu-Code Mapping
+  const getLanguageFlag = (language: string) => {
+    const languageMap: Record<string, any> = {
+      'Deutsch': DE,
+      'Englisch': GB,
+      'English': GB,
+      'Französisch': FR,
+      'Français': FR,
+      'Spanisch': ES,
+      'Español': ES,
+      'Italienisch': IT,
+      'Italiano': IT,
+      'Portugiesisch': PT,
+      'Português': PT,
+      'Niederländisch': NL,
+      'Nederlands': NL,
+      'Russisch': RU,
+      'Русский': RU,
+      'Polnisch': PL,
+      'Polski': PL,
+      'Türkisch': TR,
+      'Türkçe': TR,
+      'Arabisch': AE,
+      'العربية': AE
+    };
+    
+    return languageMap[language] || null; // Fallback für unbekannte Sprachen
+  };
+
   return (
     <div className="bg-gray-50 min-h-screen pb-16">
       {/* Hero Section */}
@@ -493,6 +524,35 @@ function BetreuerProfilePage() {
                   })}
               </div>
             </div>
+
+            {/* Sprachen */}
+            {caretaker.languages && caretaker.languages.length > 0 && (
+              <div className="bg-white rounded-xl p-6 shadow-sm">
+                <h2 className="text-lg font-semibold mb-6 flex items-center">
+                  <Globe className="h-5 w-5 mr-2 text-primary-600" />
+                  Sprachen
+                </h2>
+                <div className="flex flex-wrap gap-3">
+                  {caretaker.languages.map((language, index) => {
+                    const FlagComponent = getLanguageFlag(language);
+                    return (
+                      <div 
+                        key={index} 
+                        className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200"
+                      >
+                        {FlagComponent && (
+                          <FlagComponent 
+                            className="w-5 h-4 rounded-sm border border-gray-300 shadow-sm" 
+                            title={language}
+                          />
+                        )}
+                        <span className="text-gray-700 font-medium">{language}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Fähigkeiten & Qualifikationen */}
             <div className="bg-white rounded-xl p-6 shadow-sm">
