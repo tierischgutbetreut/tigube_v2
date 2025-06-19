@@ -17,6 +17,17 @@ function MessageBubble({
   showAvatar = true, 
   showTimestamp = true 
 }: MessageBubbleProps) {
+  // Debug: Log message data to help identify the issue
+  if (import.meta.env.DEV && !isOwnMessage && showAvatar) {
+    console.log('MessageBubble render:', {
+      messageId: message.id,
+      showAvatar,
+      isOwnMessage,
+      hasSender: !!message.sender,
+      senderData: message.sender,
+      messageContent: message.content.substring(0, 50)
+    })
+  }
   const formatTime = (dateString: string | null) => {
     if (!dateString) return ''
     
@@ -75,23 +86,9 @@ function MessageBubble({
   }
 
   return (
-    <div className={`flex items-end space-x-2 mb-4 ${isOwnMessage ? 'flex-row-reverse space-x-reverse' : ''}`}>
-      {/* Avatar */}
-      {showAvatar && !isOwnMessage && (
-        <UserAvatar user={message.sender} size="sm" />
-      )}
-      {showAvatar && isOwnMessage && (
-        <div className="w-8 h-8" /> // Spacer for alignment
-      )}
-
+    <div className={`flex items-end mb-4 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
       {/* Message Content */}
       <div className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} max-w-xs lg:max-w-md`}>
-        {/* Sender Name (only for incoming messages) */}
-        {!isOwnMessage && showAvatar && (
-          <span className="text-xs text-gray-500 mb-1 px-2">
-            {message.sender.first_name} {message.sender.last_name}
-          </span>
-        )}
 
         {/* Message Bubble */}
         <div className={`
@@ -117,14 +114,14 @@ function MessageBubble({
 
         {/* Timestamp and Status */}
         {showTimestamp && (
-          <div className={`flex items-center space-x-1 mt-1 px-2 ${isOwnMessage ? 'flex-row-reverse space-x-reverse' : ''}`}>
+          <div className={`flex items-center gap-1 mt-1 px-2 ${isOwnMessage ? 'flex-row-reverse' : ''}`}>
             <span className="text-xs text-gray-400">
               {formatTime(message.created_at)}
             </span>
             
             {/* Read Status (for own messages) */}
             {isOwnMessage && (
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-gray-400" style={{ letterSpacing: '-0.25em' }}>
                 {message.read_at ? '✓✓' : '✓'}
               </span>
             )}

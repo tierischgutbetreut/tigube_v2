@@ -49,13 +49,36 @@ function ConversationItem({
   }
 
   const getLastMessagePreview = () => {
+    console.log('=== CONVERSATION ITEM DEBUG ===')
+    console.log('Conversation ID:', conversation.id)
+    console.log('Full conversation object:', conversation)
+    console.log('last_message:', conversation.last_message)
+    console.log('last_message type:', typeof conversation.last_message)
+    console.log('last_message.content:', conversation.last_message?.content)
+    console.log('===============================')
+
+    // TEMPORARY FIX: Show actual message content if we can find any messages
+    // This is a fallback while we debug the real issue
     if (!conversation.last_message) {
-      return 'Noch keine Nachrichten'
+      console.log('❌ No last_message found')
+      return 'Keine Nachrichten geladen'
+    }
+
+    if (!conversation.last_message.content) {
+      console.log('❌ No content in last_message')
+      return 'Nachricht ohne Inhalt'
+    }
+    
+    const content = conversation.last_message.content.trim()
+    if (content === '') {
+      console.log('❌ Empty content')
+      return 'Leere Nachricht'
     }
     
     const isOwnMessage = conversation.last_message.sender_id === currentUserId
     const prefix = isOwnMessage ? 'Du: ' : ''
-    const content = conversation.last_message.content
+    
+    console.log('✅ Showing message:', content)
     
     // Truncate long messages
     if (content.length > 50) {

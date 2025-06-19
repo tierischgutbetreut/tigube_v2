@@ -587,6 +587,11 @@ export const caretakerProfileService = {
     experienceDescription: string;
     shortAboutMe?: string;
     longAboutMe?: string;
+    languages?: string[];
+    isCommercial?: boolean;
+    companyName?: string;
+    taxNumber?: string;
+    vatId?: string;
   }) => {
     const { data, error } = await supabase
       .from('caretaker_profiles')
@@ -602,6 +607,11 @@ export const caretakerProfileService = {
         experience_description: profile.experienceDescription,
         short_about_me: profile.shortAboutMe || null,
         long_about_me: profile.longAboutMe || null,
+        languages: profile.languages || [],
+        is_commercial: profile.isCommercial || false,
+        company_name: profile.companyName || null,
+        tax_number: profile.taxNumber || null,
+        vat_id: profile.vatId || null,
       }, { onConflict: 'id' })
       .select();
     return { data, error };
@@ -665,6 +675,7 @@ export const caretakerSearchService = {
         bio: caretaker.short_about_me || 'Keine Beschreibung verfügbar.',
         responseTime: 'unter 1 Stunde',
         verified: caretaker.is_verified || false,
+        isCommercial: caretaker.is_commercial || false,
       }));
 
       console.log('🎯 Transformed results:', transformedResults);
@@ -711,7 +722,7 @@ export const caretakerSearchService = {
     console.log('🔍 Getting caretaker by ID:', id);
     
     try {
-      // Hole sowohl die View-Daten als auch das Verfügbarkeits-Feld
+      // Hole sowohl die View-Daten als auch das Verfügbarkeits-Feld und home_photos
       const [viewResult, profileResult] = await Promise.all([
         supabase
           .from('caretaker_search_view')
@@ -720,7 +731,7 @@ export const caretakerSearchService = {
           .single(),
         supabase
           .from('caretaker_profiles')
-          .select('availability')
+          .select('availability, home_photos, languages')
           .eq('id', id)
           .single()
       ]);
@@ -741,6 +752,34 @@ export const caretakerSearchService = {
         return { data: null, error: new Error('Caretaker not found') };
       }
 
+      // Preise verarbeiten - kann JSON object sein
+      let prices: Record<string, number | string> = {};
+      try {
+        if (result.prices && typeof result.prices === 'object') {
+          prices = result.prices as Record<string, number | string>;
+        }
+      } catch (error) {
+        console.warn('⚠️ Error parsing prices:', error, 'Original value:', result.prices);
+        prices = {};
+      }
+
+      // Bestpreis ermitteln - verwende Preis-Object falls verfügbar, sonst hourly_rate
+      const getBestPrice = (prices: Record<string, number | string>): number => {
+        if (!prices || Object.keys(prices).length === 0) return 0;
+        
+        const numericPrices = Object.values(prices)
+          .filter(price => price !== '' && price !== null && price !== undefined) // Filtere leere Strings
+          .map(price => {
+            const num = typeof price === 'string' ? parseFloat(price) : price;
+            return isNaN(num) ? 0 : num;
+          })
+          .filter(price => price > 0);
+        
+        return numericPrices.length > 0 ? Math.min(...numericPrices) : 0;
+      };
+      
+      const bestPrice = getBestPrice(prices) || Number(result.hourly_rate) || 0;
+
       const transformedData = {
         id: result.id,
         name: result.full_name || `${result.first_name || ''} ${result.last_name || ''}`.trim() || 'Unbekannt',
@@ -748,15 +787,19 @@ export const caretakerSearchService = {
         location: result.city && result.plz ? `${result.city} ${result.plz}` : (result.city || 'Unbekannt'),
         rating: Number(result.rating) || 0,
         reviewCount: result.review_count || 0,
-        hourlyRate: Number(result.hourly_rate) || 0,
+        hourlyRate: bestPrice,
+        prices: prices,
         services: Array.isArray(result.services) ? result.services : [],
         bio: result.short_about_me || 'Keine Beschreibung verfügbar.',
         responseTime: 'unter 1 Stunde',
         verified: result.is_verified || false,
+        isCommercial: result.is_commercial || false,
         experienceYears: result.experience_years || 0,
         fullBio: result.long_about_me || result.short_about_me || 'Keine ausführliche Beschreibung verfügbar.',
         qualifications: Array.isArray(result.qualifications) ? result.qualifications : [],
+        languages: Array.isArray(profileData?.languages) ? profileData.languages : (Array.isArray(result.languages) ? result.languages : []),
         availability: profileData?.availability || {},
+        home_photos: Array.isArray(profileData?.home_photos) ? profileData.home_photos : [],
         phone: null, // Nicht in der View verfügbar
         email: null, // Nicht in der View verfügbar
       };
@@ -891,6 +934,7 @@ export const ownerCaretakerService = {
           reviews_count: caretaker.review_count || 0,
           hourly_rate: Number(caretaker.hourly_rate) || 0,
           description: caretaker.short_about_me || 'Keine Beschreibung verfügbar.',
+          isCommercial: caretaker.is_commercial || false,
           email: '', // Not available in search view
           phone: '', // Not available in search view
           user_id: caretaker.id, // Use caretaker ID as user_id

@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, PawPrint as Paw, MessageCircle, LogOut } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../lib/auth/AuthContext';
+import { useNotifications } from '../../lib/notifications/NotificationContext';
+import NotificationBadge from '../ui/NotificationBadge';
 
 function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -10,6 +12,7 @@ function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated, userProfile, signOut, loading } = useAuth();
+  const { unreadCount } = useNotifications();
   
   const isActive = (path: string) => location.pathname === path;
   
@@ -76,8 +79,10 @@ function Header() {
                 <NavLink to="/mitgliedschaften" isActive={isActive('/mitgliedschaften') || isActive('/preise')}>
                   Mitgliedschaften
                 </NavLink>
-                <Link to="/nachrichten" className="inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-primary-700 transition-colors">
-                  <MessageCircle className="h-5 w-5" /> Nachrichten
+                <Link to="/nachrichten" className="inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-primary-700 transition-colors relative">
+                  <MessageCircle className="h-5 w-5" /> 
+                  Nachrichten
+                  <NotificationBadge count={unreadCount} className="ml-1" />
                 </Link>
                 <button
                   type="button"
@@ -160,8 +165,10 @@ function Header() {
                   >
                     Mitgliedschaften
                   </MobileNavLink>
-                  <Link to="/nachrichten" className="flex items-center gap-2 px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-primary-700" onClick={() => setIsMenuOpen(false)}>
-                    <MessageCircle className="h-5 w-5" /> Nachrichten
+                  <Link to="/nachrichten" className="flex items-center gap-2 px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-primary-700 relative" onClick={() => setIsMenuOpen(false)}>
+                    <MessageCircle className="h-5 w-5" /> 
+                    Nachrichten
+                    <NotificationBadge count={unreadCount} className="ml-1" />
                   </Link>
                   <button
                     type="button"

@@ -563,6 +563,33 @@ function SearchPage() {
 }
 
 function CaretakerCard({ caretaker }: CaretakerCardProps) {
+  // Funktion zum Ermitteln des besten Preises für die Anzeige
+  const getDisplayPrice = (caretaker: Caretaker) => {
+    // 1. Wenn Service-spezifische Preise vorhanden sind, zeige den niedrigsten
+    if (caretaker.prices && Object.keys(caretaker.prices).length > 0) {
+      const prices = Object.values(caretaker.prices)
+        .filter(price => price !== '' && price !== null && price !== undefined) // Filtere leere Strings
+        .map(price => {
+          const num = typeof price === 'string' ? parseFloat(price) : price;
+          return isNaN(num) ? 0 : num;
+        })
+        .filter(price => price > 0);
+      
+      if (prices.length > 0) {
+        const minPrice = Math.min(...prices);
+        return `ab €${minPrice}/Std.`;
+      }
+    }
+    
+    // 2. Fallback zu hourlyRate
+    if (caretaker.hourlyRate > 0) {
+      return `ab €${caretaker.hourlyRate}/Std.`;
+    }
+    
+    // 3. Standard-Text
+    return 'Preis auf Anfrage';
+  };
+
   return (
     <div className="card group hover:border-primary-200 transition-all duration-200">
       <div className="relative">
@@ -576,11 +603,18 @@ function CaretakerCard({ caretaker }: CaretakerCardProps) {
             target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(caretaker.name)}&background=f3f4f6&color=374151`;
           }}
         />
-        {caretaker.verified && (
-          <div className="absolute top-2 right-2 bg-primary-500 text-white text-xs font-medium px-2 py-1 rounded-full">
-            Verifiziert
-          </div>
-        )}
+        <div className="absolute top-2 right-2 flex flex-col gap-1 items-center">
+          {caretaker.verified && (
+            <div className="bg-primary-500 text-white text-xs font-medium px-2 py-1 rounded-full text-center">
+              Verifiziert
+            </div>
+          )}
+          {caretaker.isCommercial && (
+            <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md flex items-center justify-center">
+              <Briefcase className="h-3 w-3 mr-1" /> Pro
+            </div>
+          )}
+        </div>
       </div>
       <div className="p-5">
         <div className="flex justify-between items-start mb-3">
@@ -619,7 +653,7 @@ function CaretakerCard({ caretaker }: CaretakerCardProps) {
 
         <div className="flex items-center justify-end">
           <p className="font-semibold text-primary-600">
-            {caretaker.hourlyRate > 0 ? `€${caretaker.hourlyRate}/Std.` : 'Preis auf Anfrage'}
+            {getDisplayPrice(caretaker)}
           </p>
         </div>
 

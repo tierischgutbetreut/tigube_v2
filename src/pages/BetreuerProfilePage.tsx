@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { MapPin, Star, Clock, Shield, Calendar, MessageCircle, Heart, HeartOff, ArrowLeft, Verified, ChevronRight, CheckCircle, Edit3 } from 'lucide-react';
+import { MapPin, Star, Clock, Shield, Calendar, MessageCircle, Heart, HeartOff, ArrowLeft, Verified, ChevronRight, CheckCircle, Edit3, Briefcase } from 'lucide-react';
 import Button from '../components/ui/Button';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import AvailabilityDisplay from '../components/ui/AvailabilityDisplay';
@@ -12,6 +12,7 @@ import { supabase } from '../lib/supabase/client';
 import { useAuth } from '../lib/auth/AuthContext';
 import { getOrCreateConversation } from '../lib/supabase/chatService';
 import useFeatureAccess from '../hooks/useFeatureAccess';
+import HomePhotosSection from '../components/ui/HomePhotosSection';
 
 interface Caretaker {
   id: string | null;
@@ -21,16 +22,19 @@ interface Caretaker {
   rating: number;
   reviewCount: number;
   hourlyRate: number;
+  prices?: Record<string, number | string>; // Service-spezifische Preise
   services: any[]; // Json[] von Supabase - kann string[] oder andere Typen enthalten
   bio: string;
   responseTime: string;
   verified: boolean;
+  isCommercial?: boolean;
   experienceYears?: number;
   fullBio?: string;
   qualifications: string[];
   availability?: any;
   phone?: string | null;
   email?: string | null;
+  home_photos?: string[]; // Umgebungsbilder aus dem caretaker-home-photos Bucket
 }
 
 interface Review {
@@ -297,11 +301,7 @@ function BetreuerProfilePage() {
                     target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=f3f4f6&color=374151`;
                   }}
                 />
-                {caretaker.verified && (
-                  <div className="absolute top-4 right-4 bg-primary-500 text-white text-xs font-semibold px-3 py-1 rounded-full flex items-center">
-                    <Verified className="h-3 w-3 mr-1" /> Verifiziert
-                  </div>
-                )}
+
               </div>
             </div>
             
@@ -311,6 +311,16 @@ function BetreuerProfilePage() {
                 <div>
                   <div className="flex items-center gap-3 mb-2">
                     <h1 className="text-3xl font-bold text-gray-900">{displayName}</h1>
+                    {caretaker.verified && (
+                      <span className="bg-primary-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full flex items-center">
+                        <Verified className="h-2.5 w-2.5 mr-1" /> Verifiziert
+                      </span>
+                    )}
+                    {caretaker.isCommercial && (
+                      <span className="bg-gradient-to-r from-purple-600 to-purple-700 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-md flex items-center">
+                        <Briefcase className="h-2.5 w-2.5 mr-1" /> Pro
+                      </span>
+                    )}
                     {/* Herz-Icon neben dem Namen, rechts */}
                     <Button
                       variant="ghost"
@@ -411,6 +421,9 @@ function BetreuerProfilePage() {
             {/* Verfügbarkeit */}
             <AvailabilityDisplay availability={caretaker.availability} />
 
+            {/* Umgebungsbilder */}
+            <HomePhotosSection homePhotos={caretaker.home_photos || []} caretakerName={displayName} />
+
             {/* Reviews */}
             <div className="bg-white rounded-xl p-6 shadow-sm">
               <h2 className="text-lg font-semibold mb-4">
@@ -454,14 +467,30 @@ function BetreuerProfilePage() {
               <div className="space-y-6">
                 {caretaker.services
                   .filter(service => typeof service === 'string')
-                  .map(service => (
-                    <div key={service} className="flex justify-between items-center">
-                      <span className="text-gray-800 font-medium">{service}</span>
-                      <span className="text-lg font-semibold text-primary-600">
-                        {caretaker.hourlyRate > 0 ? `${formatCurrency(caretaker.hourlyRate)} €/hr` : 'Auf Anfrage'}
-                      </span>
-                    </div>
-                  ))}
+                  .map(service => {
+                    // Suche Service-spezifischen Preis
+                    const servicePrice = caretaker.prices && caretaker.prices[service];
+                    
+                    // Prüfe ob ein gültiger Preis vorhanden ist (nicht leer, nicht null, nicht undefined)
+                    const hasValidPrice = servicePrice && 
+                      servicePrice !== '' && 
+                      servicePrice !== null && 
+                      servicePrice !== undefined &&
+                      (typeof servicePrice === 'number' ? servicePrice > 0 : parseFloat(servicePrice) > 0);
+                    
+                    const displayPrice = hasValidPrice
+                      ? (typeof servicePrice === 'string' ? `${servicePrice}€` : `${servicePrice}€`)
+                      : 'Preis auf Anfrage';
+                    
+                    return (
+                      <div key={service} className="flex justify-between items-center">
+                        <span className="text-gray-800 font-medium">{service}</span>
+                        <span className="text-lg font-semibold text-primary-600">
+                          {displayPrice}
+                        </span>
+                      </div>
+                    );
+                  })}
               </div>
             </div>
 

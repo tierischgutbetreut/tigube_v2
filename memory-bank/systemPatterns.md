@@ -8,18 +8,24 @@
 - **Framework**: React 18 mit TypeScript
 - **Build-Tool**: Vite für schnelle Entwicklung und Builds
 - **Routing**: React Router DOM für clientseitiges Routing
-- **State Management**: Zustand für globalen State
+- **State Management**: Zustand für globalen State + AuthContext für User-Session
 
 #### Komponentenarchitektur
 ```
 src/
 ├── components/
-│   ├── layout/          # Layout-Komponenten (Header, Footer, Navigation)
-│   └── ui/              # Wiederverwendbare UI-Komponenten
-├── pages/               # Seiten-Komponenten (Route-Handler)
-├── data/                # Mock-Daten und API-Interfaces
-├── lib/                 # Utility-Funktionen
-└── App.tsx              # Haupt-App-Komponente mit Routing
+│   ├── auth/             # Authentication Components (ProtectedRoute)
+│   ├── chat/             # Chat-System (ChatWindow, MessageBubble, etc.)
+│   ├── layout/           # Layout-Komponenten (Header, Footer, Navigation)
+│   └── ui/               # UI-Komponenten (Subscription, Feature Gates, etc.)
+├── pages/                # Seiten-Komponenten (Route-Handler)
+├── hooks/                # Custom Hooks (useFeatureAccess, useSubscription)
+├── lib/
+│   ├── auth/             # AuthContext, Subscription Hooks
+│   ├── services/         # Business Logic Services
+│   ├── stripe/           # Payment Integration
+│   └── supabase/         # Database Layer
+└── App.tsx               # Haupt-App-Komponente mit Routing
 ```
 
 ### Design Patterns
@@ -29,22 +35,31 @@ src/
 // Alle Seiten werden lazy geladen für bessere Performance
 const HomePage = lazy(() => import('./pages/HomePage'));
 const SearchPage = lazy(() => import('./pages/SearchPage'));
+const PricingPage = lazy(() => import('./pages/PricingPage'));
 ```
 
 #### 2. Layout Pattern
 - Zentrale Layout-Komponente umhüllt alle Seiten
 - Konsistente Navigation und Footer
 - Responsive Design durch Tailwind CSS
+- Protected Routes mit Authentication-Checks
 
-#### 3. Form Handling Pattern
-- Kontrollierte Komponenten für Formulare
-- Event-Handler für Form-Submission
-- URL-Parameter für Suchfilter
+#### 3. Feature Gate Pattern
+```typescript
+// Feature-Zugriff durch Service-Layer
+const { hasAccess, usage, limit } = useFeatureAccess('contact_requests');
 
-#### 4. Component Composition
-- Kleine, wiederverwendbare UI-Komponenten
-- Props-basierte Konfiguration
-- Separation of Concerns
+if (!hasAccess) {
+  return <UpgradePrompt feature="contact_requests" />;
+}
+```
+
+#### 4. Subscription Management Pattern
+```typescript
+// Zentralisierte Subscription-Logik
+const { subscription, refreshSubscription } = useSubscription();
+const isFeatureEnabled = subscription?.plan_type === 'premium';
+```
 
 ### Styling-Architektur
 
@@ -58,131 +73,241 @@ const SearchPage = lazy(() => import('./pages/SearchPage'));
 - **clsx**: Bedingte Klassen-Zusammenstellung
 - **tailwind-merge**: Konfliktauflösung bei Tailwind-Klassen
 
-### State Management
+### State Management Architecture
+
+#### AuthContext Pattern
+```typescript
+// Zentraler Authentication State mit Subscription Integration
+interface AuthContextType {
+  user: User | null;
+  subscription: SubscriptionInfo | null;
+  refreshSubscription: () => Promise<void>;
+  signOut: () => Promise<void>;
+}
+```
 
 #### Zustand Store Pattern
 - Globaler State für:
-  - Benutzer-Authentifizierung
-  - Suchfilter
-  - Betreuer-Daten
+  - Suchfilter und Ergebnisse
+  - Betreuer-Daten Cache
   - UI-State (Loading, Errors)
 
 #### Local State Pattern
 - React useState für:
   - Formular-Inputs
   - Komponenten-spezifische UI-States
-  - Temporäre Daten
+  - Temporäre Daten (z.B. Chat-Input)
 
 ### Routing-Architektur
 
 #### Route-Struktur
 ```typescript
-/                    # HomePage
-/suche              # SearchPage
-/betreuer/:id       # BetreuerProfilePage
-/registrieren       # RegisterPage
-/anmelden          # LoginPage
-/impressum         # ImpressumPage
-/datenschutz       # DatenschutzPage
-/agb               # AgbPage
-/ueber-uns         # AboutPage
-/kontakt           # ContactPage
-/hilfe             # HelpPage
-*                  # NotFoundPage
+/                         # HomePage
+/suche                   # SearchPage
+/betreuer/:id            # BetreuerProfilePage
+/owner/:userId           # OwnerPublicProfilePage (Protected)
+/nachrichten             # MessagesPage (Protected)
+/dashboard               # Owner/Caretaker Dashboard (Protected)
+/mitgliedschaften        # PricingPage
+/payment/success         # PaymentSuccessPage
+/debug/subscriptions     # Admin Debug Tools
+/debug/subscription-status # User Debug Tools
+/registrieren            # RegisterPage
+/anmelden               # LoginPage
+*                        # NotFoundPage
 ```
 
-#### URL-Parameter Pattern
-- Query-Parameter für Suchfilter
-- Dynamic Routes für Betreuer-Profile
-- Programmatische Navigation mit useNavigate
-
-### Backend-Integration
-
-#### Service Layer Pattern
-- **Supabase**: Hauptbackend für Authentifizierung und PostgreSQL-Datenbank
-- **Supabase Client**: JavaScript-Client für API-Calls
-- API-Abstraktionsschicht für Backend-Calls
-- Real-time Subscriptions für Live-Updates
-
-### Performance Patterns
-
-#### Code Splitting
-- Lazy Loading für alle Routen
-- Suspense mit LoadingSpinner
-- Chunk-basierte Builds durch Vite
-
-#### Asset Optimization
-- SVG-Icons durch Lucide React
-- Optimierte Bilder in public/Image/
-- Vite-basierte Asset-Optimierung
-
-### Error Handling Patterns
-
-#### Error Boundaries
-- React Error Boundaries für Komponenten-Fehler
-- Fallback-UI für fehlerhafte Komponenten
-
-#### Form Validation
-- Client-seitige Validierung
-- Required-Felder für kritische Inputs
-- User-freundliche Fehlermeldungen
-
-### Development Patterns
-
-#### TypeScript Integration
-- Strikte Typisierung für alle Komponenten
-- Interface-Definitionen für Props
-- Type-sichere API-Calls
-
-#### ESLint Configuration
-- React-spezifische Linting-Regeln
-- TypeScript ESLint Integration
-- Code-Qualitäts-Standards
-
-### Komponentendesign-Prinzipien
-
-#### 1. Single Responsibility
-- Jede Komponente hat eine klare Aufgabe
-- UI-Komponenten sind rein präsentational
-- Business-Logik in Custom Hooks
-
-#### 2. Composition over Inheritance
-- Komponenten-Komposition statt Vererbung
-- Props-basierte Konfiguration
-- Render Props und Children Pattern
-
-#### 3. Accessibility First
-- Semantisches HTML
-- ARIA-Labels und Rollen
-- Keyboard-Navigation
-- Screen-Reader-Unterstützung
-
-### Datenfluss-Architektur
-
-#### Unidirektionaler Datenfluss
-1. **State** → Komponenten-Props
-2. **Events** → State-Updates
-3. **Re-Rendering** → UI-Updates
-
-#### API-Integration Pattern
+#### Protected Route Pattern
 ```typescript
-// Typische API-Call-Struktur
-const fetchBetreuer = async (filters: SearchFilters) => {
-  // API-Call mit Error Handling
-  // State-Update
-  // Loading-State-Management
-};
+// Authentication-basierte Route-Protection
+<Route 
+  path="/nachrichten" 
+  element={
+    <ProtectedRoute>
+      <MessagesPage />
+    </ProtectedRoute>
+  } 
+/>
+```
+
+### Backend-Integration Patterns
+
+#### Service Layer Architecture
+```typescript
+// Abstraktionsschicht für alle Backend-Operationen
+class SubscriptionService {
+  async getSubscription(userId: string): Promise<SubscriptionInfo>
+  async trackFeatureUsage(feature: string): Promise<void>
+  async checkFeatureAccess(feature: string): Promise<FeatureAccessResult>
+}
+```
+
+#### Database Integration
+- **Supabase**: PostgreSQL mit Row Level Security
+- **Real-time**: Live-Updates für Chat und Notifications
+- **Edge Functions**: Server-side Logic für Payments
+- **TypeScript Integration**: Auto-generated Types aus Database Schema
+
+### Payment Integration Patterns
+
+#### Stripe Integration Architecture
+```typescript
+// Sichere Payment-Flows mit Server-side Validation
+class StripeService {
+  async createCheckoutSession(planType: string): Promise<{ url: string }>
+  async validatePayment(sessionId: string): Promise<PaymentResult>
+}
+```
+
+#### Edge Functions Pattern
+```typescript
+// Supabase Edge Functions für sichere Server-side Operations
+/supabase/functions/
+├── create-checkout-session/    # Stripe Checkout Creation
+├── validate-checkout-session/  # Payment Validation  
+└── stripe-webhook/            # Webhook Event Handling
 ```
 
 ### Security Patterns
 
-#### Input Sanitization
-- Validierung aller Benutzereingaben
-- XSS-Schutz durch React's eingebaute Mechanismen
-- CSRF-Schutz durch Backend-Integration
+#### Row Level Security (RLS)
+```sql
+-- Beispiel: Subscription-Zugriff nur für eigene Daten
+CREATE POLICY "Users can read own subscription" ON subscriptions
+FOR SELECT USING (auth.uid() = user_id);
+```
 
-#### Authentication Flow
-- Supabase Authentication mit Row Level Security
-- Protected Routes mit JWT-Token-Validierung
-- Session-Management über Supabase Client
-- Automatische Token-Refresh
+#### Feature Gate Security
+- **Client-side Gates**: UI-Blocking für bessere UX
+- **Server-side Validation**: Sichere Feature-Zugriffskontrolle
+- **Usage Tracking**: Automatische Limit-Überwachung
+
+#### API Security
+- **JWT Authentication**: Supabase Auth für sichere API-Calls
+- **Rate Limiting**: Schutz vor Missbrauch
+- **Input Validation**: Client- und Server-seitige Validierung
+
+### Performance Patterns
+
+#### Subscription Caching
+```typescript
+// In-Memory Caching für häufige Feature-Checks
+const subscriptionCache = new Map<string, SubscriptionInfo>();
+```
+
+#### Code Splitting
+- Lazy Loading für alle Routen
+- Dynamic Imports für große Libraries (Stripe)
+- Chunk-basierte Builds durch Vite
+
+#### Database Optimization
+- Indizes für häufige Subscription-Queries
+- Optimierte RLS-Policies für Performance
+- Connection Pooling durch Supabase
+
+### Subscription System Patterns
+
+#### Feature Matrix Pattern
+```typescript
+interface FeatureMatrix {
+  [planType: string]: {
+    [feature: string]: {
+      enabled: boolean;
+      limit?: number;
+      resetPeriod?: 'monthly' | 'annually';
+    }
+  }
+}
+```
+
+#### Usage Tracking Pattern
+```typescript
+// Automatisches Tracking von Feature-Nutzung
+async function trackFeatureUsage(feature: string, userId: string) {
+  await usageTrackingService.increment(feature, userId);
+  await checkUsageLimits(feature, userId);
+}
+```
+
+#### Beta Protection Pattern
+```typescript
+// Temporäre Feature-Freischaltung während Beta-Phase
+const isBetaActive = new Date() < new Date('2025-10-31');
+const hasAccess = isBetaActive || subscription.hasFeature(feature);
+```
+
+### Error Handling Patterns
+
+#### Payment Error Handling
+```typescript
+// Graceful Degradation bei Payment-Fehlern
+try {
+  await createCheckoutSession();
+} catch (error) {
+  // Fallback zu lokaler Feature-Beschränkung
+  showUpgradePrompt();
+}
+```
+
+#### Feature Gate Error Handling
+```typescript
+// User-freundliche Error-Messages
+if (!hasFeatureAccess) {
+  return (
+    <UpgradePrompt 
+      feature="advanced_search"
+      message="Erweiterte Filter sind nur für Premium-Mitglieder verfügbar"
+    />
+  );
+}
+```
+
+### Component Design Patterns
+
+#### Subscription-aware Components
+```typescript
+// Komponenten mit eingebauter Feature-Gate-Logik
+function AdvancedFilters() {
+  const { hasAccess } = useFeatureAccess('advanced_search');
+  
+  if (!hasAccess) {
+    return <FeatureLockedPreview />;
+  }
+  
+  return <FullFeatureComponent />;
+}
+```
+
+#### Progressive Enhancement
+- Basis-Features für alle User verfügbar
+- Premium-Features als Upgrade-Optionen
+- Seamless Transition zwischen Feature-Levels
+
+### Data Flow Architecture
+
+#### Subscription State Flow
+1. **Login** → Load Subscription → Update AuthContext
+2. **Feature Check** → Cache Lookup → Database Validation
+3. **Usage Tracking** → Real-time Update → Limit Enforcement
+4. **Payment** → Stripe Webhook → Subscription Update → Context Refresh
+
+#### Real-time Updates
+- **Chat Messages**: Instant delivery mit Supabase Subscriptions
+- **Subscription Changes**: Live-Updates nach Payment
+- **Feature Limits**: Real-time Usage-Counter-Updates
+
+### Testing Patterns
+
+#### Subscription Testing
+```typescript
+// Mock-Subscriptions für verschiedene Test-Szenarien
+const mockSubscriptions = {
+  starter: { plan_type: 'starter', features: ['basic_search'] },
+  premium: { plan_type: 'premium', features: ['basic_search', 'advanced_search'] }
+};
+```
+
+#### Payment Testing
+- Stripe Test-Cards für verschiedene Szenarien
+- Mock-Webhooks für Edge Function Testing
+- Subscription State Mocking für Frontend-Tests

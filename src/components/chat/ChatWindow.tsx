@@ -19,15 +19,17 @@ import LoadingSpinner from '../ui/LoadingSpinner'
 import NotificationSettings from './NotificationSettings'
 import SaveCaretakerButton from './SaveCaretakerButton'
 import { notificationManager } from '../../lib/notifications/NotificationManager'
+import { useNotifications } from '../../lib/notifications/NotificationContext'
 
 interface ChatWindowProps {
   conversation: ConversationWithUsers
   currentUserId: string
   onBack?: () => void
   onConversationDeleted?: (conversationId: string) => void
+  onMessageSent?: () => void
 }
 
-function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted }: ChatWindowProps) {
+function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted, onMessageSent }: ChatWindowProps) {
   const [messages, setMessages] = useState<MessageWithSender[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -45,6 +47,9 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
   const connectionManagerRef = useRef<ConnectionManager>(new ConnectionManager())
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const moreMenuRef = useRef<HTMLDivElement>(null)
+  
+  // Get notification functions
+  const { refreshUnreadCount } = useNotifications()
 
   // Determine the other user (not current user)
   const otherUser = conversation.owner.id === currentUserId 
@@ -109,9 +114,11 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
         setError(loadError)
       } else {
         setMessages(data || [])
-        // Mark messages as read
+        // Mark messages as read and refresh unread count
         if (data && data.length > 0) {
           await markAsRead(conversation.id, currentUserId)
+          // Refresh the unread count after marking as read
+          refreshUnreadCount()
         }
       }
 
@@ -133,9 +140,12 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
             return [...prev, newMessage]
           })
 
-          // Mark as read if from other user
+          // Mark as read if from other user and refresh unread count
           if (newMessage.sender_id !== currentUserId) {
-            markAsRead(conversation.id, currentUserId)
+            markAsRead(conversation.id, currentUserId).then(() => {
+              // Refresh the unread count after marking as read
+              refreshUnreadCount()
+            })
           }
 
           // Show notification for messages from other users
@@ -268,6 +278,9 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
       }
 
       setMessages(prev => [...prev, newMessageWithSender])
+      
+      // Notify parent component that a message was sent
+      onMessageSent?.()
     }
   }
 
@@ -391,10 +404,10 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
                 caretakerId={otherUser.id}
                 conversationId={conversation.id}
                 onSaved={() => {
-                  notificationManager.showSuccessToast('Betreuer erfolgreich gespeichert')
+                  console.log('Betreuer erfolgreich gespeichert')
                 }}
                 onRemoved={() => {
-                  notificationManager.showSuccessToast('Betreuer erfolgreich entfernt')
+                  console.log('Betreuer erfolgreich entfernt')
                 }}
               />
             )}

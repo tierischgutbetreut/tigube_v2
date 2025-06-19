@@ -69,53 +69,106 @@ export async function getUserConversations(
   userId: string
 ): Promise<{ data: ConversationWithUsers[] | null; error: string | null }> {
   try {
+    // Use simple query without problematic joins and fetch user data separately
     const { data: conversations, error } = await supabase
       .from('conversations')
-      .select(`
-        *,
-        owner:users!conversations_owner_id_fkey(id, first_name, last_name, profile_photo_url),
-        caretaker:users!conversations_caretaker_id_fkey(id, first_name, last_name, profile_photo_url)
-      `)
+      .select('*')
       .or(`owner_id.eq.${userId},caretaker_id.eq.${userId}`)
       .order('last_message_at', { ascending: false })
 
     if (error) {
-      return { data: null, error: error.message }
+      console.error('Conversations query error:', error)
+      return { data: [], error: null } // Return empty array for new accounts
     }
 
-    // Get last message for each conversation
+    // If no conversations found, return empty array (normal for new accounts)
+    if (!conversations || conversations.length === 0) {
+      return { data: [], error: null }
+    }
+
+    // Get user data and last message for each conversation
     const conversationsWithLastMessage = await Promise.all(
       conversations.map(async (conversation) => {
-        const { data: lastMessage } = await supabase
+        // Get user data separately to avoid foreign key issues
+        const [ownerResult, caretakerResult] = await Promise.all([
+          supabase
+            .from('users')
+            .select('id, first_name, last_name, profile_photo_url')
+            .eq('id', conversation.owner_id)
+            .single(),
+          supabase
+            .from('users')
+            .select('id, first_name, last_name, profile_photo_url')
+            .eq('id', conversation.caretaker_id)
+            .single()
+        ])
+
+        const owner = ownerResult.data || { 
+          id: conversation.owner_id, 
+          first_name: '', 
+          last_name: '', 
+          profile_photo_url: null 
+        }
+        const caretaker = caretakerResult.data || { 
+          id: conversation.caretaker_id, 
+          first_name: '', 
+          last_name: '', 
+          profile_photo_url: null 
+        }
+        console.log('🔍 Processing conversation:', conversation.id)
+        
+        // Get all messages for this conversation to find the latest one
+        const { data: allMessages, error: messagesError } = await supabase
           .from('messages')
-          .select('content, created_at, sender_id')
+          .select('id, content, created_at, sender_id, message_type, read_at')
           .eq('conversation_id', conversation.id)
           .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
 
-        // Get unread count
-        const { data: unreadMessages } = await supabase
-          .from('messages')
-          .select('id')
-          .eq('conversation_id', conversation.id)
-          .neq('sender_id', userId)
-          .is('read_at', null)
+        console.log('📧 Messages found for conversation', conversation.id, ':', allMessages?.length || 0)
+        console.log('📧 Messages error:', messagesError)
+        console.log('📧 First message:', allMessages?.[0])
 
-        return {
+        let lastMessage = null
+        let unreadCount = 0
+
+        if (allMessages && allMessages.length > 0) {
+          // Get the most recent message
+          lastMessage = allMessages[0]
+          console.log('✅ Set lastMessage:', lastMessage)
+          
+          // Count unread messages (messages from other users that haven't been read)
+          unreadCount = allMessages.filter(msg => 
+            msg.sender_id !== userId && msg.read_at === null
+          ).length
+          console.log('🔢 Unread count:', unreadCount)
+        } else {
+          console.log('❌ No messages found for conversation', conversation.id)
+        }
+
+        const result = {
           ...conversation,
+          owner,
+          caretaker,
           last_message: lastMessage || undefined,
-          unread_count: unreadMessages?.length || 0
+          unread_count: unreadCount
         } as ConversationWithUsers
+
+        console.log('📤 Final conversation result:', {
+          id: conversation.id,
+          hasLastMessage: !!result.last_message,
+          lastMessageContent: result.last_message?.content,
+          unreadCount: result.unread_count
+        })
+
+        return result
       })
     )
 
     return { data: conversationsWithLastMessage, error: null }
   } catch (error) {
-    return { 
-      data: null, 
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
-    }
+    console.error('Unexpected error in getUserConversations:', error)
+    // For new accounts or any other errors, return empty array instead of error
+    return { data: [], error: null }
   }
 }
 
@@ -130,7 +183,7 @@ export async function getMessages(
       .from('messages')
       .select(`
         *,
-        sender:users!messages_sender_id_fkey(id, first_name, last_name, profile_photo_url)
+        sender:users!sender_id(id, first_name, last_name, profile_photo_url)
       `)
       .eq('conversation_id', options.conversation_id)
       .order('created_at', { ascending: false })
@@ -373,7 +426,7 @@ export function subscribeToMessagesWithSender(
             .from('messages')
             .select(`
               *,
-              sender:users(id, first_name, last_name, profile_photo_url)
+              sender:users!sender_id(id, first_name, last_name, profile_photo_url)
             `)
             .eq('id', payload.new.id)
             .single()

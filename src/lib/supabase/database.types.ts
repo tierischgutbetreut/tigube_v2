@@ -9,6 +9,50 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      billing_history: {
+        Row: {
+          amount: number
+          billing_period_end: string
+          billing_period_start: string
+          created_at: string | null
+          currency: string | null
+          id: string
+          payment_status: string | null
+          stripe_invoice_id: string | null
+          subscription_id: string | null
+        }
+        Insert: {
+          amount: number
+          billing_period_end: string
+          billing_period_start: string
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          payment_status?: string | null
+          stripe_invoice_id?: string | null
+          subscription_id?: string | null
+        }
+        Update: {
+          amount?: number
+          billing_period_end?: string
+          billing_period_start?: string
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          payment_status?: string | null
+          stripe_invoice_id?: string | null
+          subscription_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_history_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookings: {
         Row: {
           care_request_id: string | null
@@ -124,18 +168,66 @@ export type Database = {
           },
         ]
       }
+      caretaker_images: {
+        Row: {
+          caretaker_id: string | null
+          created_at: string | null
+          display_order: number | null
+          id: string
+          image_category: string | null
+          image_type: string
+          image_url: string
+        }
+        Insert: {
+          caretaker_id?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          image_category?: string | null
+          image_type: string
+          image_url: string
+        }
+        Update: {
+          caretaker_id?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          image_category?: string | null
+          image_type?: string
+          image_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caretaker_images_caretaker_id_fkey"
+            columns: ["caretaker_id"]
+            isOneToOne: false
+            referencedRelation: "caretaker_search_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "caretaker_images_caretaker_id_fkey"
+            columns: ["caretaker_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       caretaker_profiles: {
         Row: {
           animal_types: string[] | null
           availability: Json | null
           bio: string | null
+          company_name: string | null
           created_at: string | null
           experience_description: string | null
           experience_years: number | null
           home_photos: string[] | null
           hourly_rate: number | null
           id: string
+          is_commercial: boolean | null
           is_verified: boolean | null
+          languages: string[] | null
           long_about_me: string | null
           prices: Json | null
           qualifications: string[] | null
@@ -144,19 +236,24 @@ export type Database = {
           service_radius: number | null
           services: Json | null
           short_about_me: string | null
+          tax_number: string | null
           updated_at: string | null
+          vat_id: string | null
         }
         Insert: {
           animal_types?: string[] | null
           availability?: Json | null
           bio?: string | null
+          company_name?: string | null
           created_at?: string | null
           experience_description?: string | null
           experience_years?: number | null
           home_photos?: string[] | null
           hourly_rate?: number | null
           id: string
+          is_commercial?: boolean | null
           is_verified?: boolean | null
+          languages?: string[] | null
           long_about_me?: string | null
           prices?: Json | null
           qualifications?: string[] | null
@@ -165,19 +262,24 @@ export type Database = {
           service_radius?: number | null
           services?: Json | null
           short_about_me?: string | null
+          tax_number?: string | null
           updated_at?: string | null
+          vat_id?: string | null
         }
         Update: {
           animal_types?: string[] | null
           availability?: Json | null
           bio?: string | null
+          company_name?: string | null
           created_at?: string | null
           experience_description?: string | null
           experience_years?: number | null
           home_photos?: string[] | null
           hourly_rate?: number | null
           id?: string
+          is_commercial?: boolean | null
           is_verified?: boolean | null
+          languages?: string[] | null
           long_about_me?: string | null
           prices?: Json | null
           qualifications?: string[] | null
@@ -186,7 +288,9 @@ export type Database = {
           service_radius?: number | null
           services?: Json | null
           short_about_me?: string | null
+          tax_number?: string | null
           updated_at?: string | null
+          vat_id?: string | null
         }
         Relationships: [
           {
@@ -581,6 +685,128 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          auto_renew: boolean | null
+          billing_end_date: string | null
+          billing_start_date: string | null
+          created_at: string | null
+          id: string
+          payment_method_id: string | null
+          plan_type: string
+          status: string
+          trial_end_date: string | null
+          trial_start_date: string | null
+          updated_at: string | null
+          user_id: string | null
+          user_type: string
+        }
+        Insert: {
+          auto_renew?: boolean | null
+          billing_end_date?: string | null
+          billing_start_date?: string | null
+          created_at?: string | null
+          id?: string
+          payment_method_id?: string | null
+          plan_type: string
+          status: string
+          trial_end_date?: string | null
+          trial_start_date?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          user_type: string
+        }
+        Update: {
+          auto_renew?: boolean | null
+          billing_end_date?: string | null
+          billing_start_date?: string | null
+          created_at?: string | null
+          id?: string
+          payment_method_id?: string | null
+          plan_type?: string
+          status?: string
+          trial_end_date?: string | null
+          trial_start_date?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          user_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "caretaker_search_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      usage_tracking: {
+        Row: {
+          action_type: string
+          count: number | null
+          created_at: string | null
+          id: string
+          month_year: string
+          target_user_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action_type: string
+          count?: number | null
+          created_at?: string | null
+          id?: string
+          month_year: string
+          target_user_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          count?: number | null
+          created_at?: string | null
+          id?: string
+          month_year?: string
+          target_user_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_tracking_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "caretaker_search_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usage_tracking_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usage_tracking_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "caretaker_search_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usage_tracking_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           address: string | null
@@ -590,11 +816,18 @@ export type Database = {
           first_name: string | null
           id: string
           last_name: string | null
+          max_bookings: number | null
+          max_contact_requests: number | null
           phone: string | null
           phone_number: string | null
           plz: string | null
+          premium_badge: boolean | null
           profile_completed: boolean | null
           profile_photo_url: string | null
+          search_priority: number | null
+          show_ads: boolean | null
+          street: string | null
+          subscription_id: string | null
           updated_at: string | null
           user_type: string | null
           username: string | null
@@ -607,11 +840,18 @@ export type Database = {
           first_name?: string | null
           id: string
           last_name?: string | null
+          max_bookings?: number | null
+          max_contact_requests?: number | null
           phone?: string | null
           phone_number?: string | null
           plz?: string | null
+          premium_badge?: boolean | null
           profile_completed?: boolean | null
           profile_photo_url?: string | null
+          search_priority?: number | null
+          show_ads?: boolean | null
+          street?: string | null
+          subscription_id?: string | null
           updated_at?: string | null
           user_type?: string | null
           username?: string | null
@@ -624,11 +864,18 @@ export type Database = {
           first_name?: string | null
           id?: string
           last_name?: string | null
+          max_bookings?: number | null
+          max_contact_requests?: number | null
           phone?: string | null
           phone_number?: string | null
           plz?: string | null
+          premium_badge?: boolean | null
           profile_completed?: boolean | null
           profile_photo_url?: string | null
+          search_priority?: number | null
+          show_ads?: boolean | null
+          street?: string | null
+          subscription_id?: string | null
           updated_at?: string | null
           user_type?: string | null
           username?: string | null
@@ -641,6 +888,13 @@ export type Database = {
             referencedRelation: "plzs"
             referencedColumns: ["plz", "city"]
           },
+          {
+            foreignKeyName: "users_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -649,6 +903,7 @@ export type Database = {
         Row: {
           animal_types: string[] | null
           city: string | null
+          company_name: string | null
           experience_description: string | null
           experience_years: number | null
           first_name: string | null
@@ -656,10 +911,13 @@ export type Database = {
           home_photos: string[] | null
           hourly_rate: number | null
           id: string | null
+          is_commercial: boolean | null
           is_verified: boolean | null
+          languages: string[] | null
           last_name: string | null
           long_about_me: string | null
           plz: string | null
+          prices: Json | null
           profile_photo_url: string | null
           qualifications: string[] | null
           rating: number | null
@@ -667,6 +925,8 @@ export type Database = {
           service_radius: number | null
           services: Json | null
           short_about_me: string | null
+          tax_number: string | null
+          vat_id: string | null
         }
         Relationships: [
           {
@@ -682,6 +942,10 @@ export type Database = {
     Functions: {
       check_caretaker_access: {
         Args: { target_owner_id: string; requesting_caretaker_id: string }
+        Returns: boolean
+      }
+      check_feature_access: {
+        Args: { user_uuid: string; feature_name: string }
         Returns: boolean
       }
       get_caretaker_by_id: {
@@ -705,6 +969,20 @@ export type Database = {
           email: string
         }[]
       }
+      get_monthly_usage: {
+        Args: { user_uuid: string; action: string }
+        Returns: number
+      }
+      get_user_subscription: {
+        Args: { user_uuid: string }
+        Returns: {
+          id: string
+          plan_type: string
+          status: string
+          trial_end_date: string
+          billing_end_date: string
+        }[]
+      }
       search_caretakers: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -725,6 +1003,10 @@ export type Database = {
           phone_number: string
           email: string
         }[]
+      }
+      track_user_action: {
+        Args: { user_uuid: string; action: string; target_uuid?: string }
+        Returns: undefined
       }
     }
     Enums: {
@@ -847,5 +1129,4 @@ export const Constants = {
   },
 } as const
 
-// Helper type for our caretaker search view
 export type CaretakerSearchResult = Tables<'caretaker_search_view'>

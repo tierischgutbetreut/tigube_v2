@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Paperclip, Smile } from 'lucide-react'
+import { Send, Smile } from 'lucide-react'
 
 interface MessageInputProps {
   onSendMessage: (content: string) => Promise<void>
@@ -77,18 +77,7 @@ function MessageInput({
 
   return (
     <div className="border-t border-gray-200 bg-white p-4">
-      <form onSubmit={handleSubmit} className="flex items-end space-x-3">
-        {/* File Upload Button (placeholder for future feature) */}
-        <button
-          type="button"
-          className="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
-          disabled={disabled}
-          aria-label="Datei anhängen"
-          title="Datei anhängen (demnächst verfügbar)"
-        >
-          <Paperclip className="w-5 h-5" />
-        </button>
-
+      <form onSubmit={handleSubmit} className="flex items-center space-x-3">
         {/* Message Input */}
         <div className="flex-1 relative">
           <textarea
@@ -120,7 +109,7 @@ function MessageInput({
         <button
           type="submit"
           disabled={isSubmitDisabled}
-          className="flex-shrink-0 p-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-shrink-0 h-[42px] w-[42px] bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           aria-label="Nachricht senden"
         >
           {isSending ? (

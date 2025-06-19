@@ -3,11 +3,13 @@ import Button from '../components/ui/Button';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import AvailabilityScheduler from '../components/ui/AvailabilityScheduler';
 import ClientDetailsAccordion from '../components/ui/ClientDetailsAccordion';
+import LanguageSelector from '../components/ui/LanguageSelector';
+import CommercialInfoInput from '../components/ui/CommercialInfoInput';
 import type { ClientData } from '../components/ui/ClientDetailsAccordion';
 import { useAuth } from '../lib/auth/AuthContext';
 import { useEffect, useState, useRef } from 'react';
 import { caretakerProfileService, ownerCaretakerService } from '../lib/supabase/db';
-import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info, Lock } from 'lucide-react';
+import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info, Lock, Briefcase, Verified } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
 import useFeatureAccess from '../hooks/useFeatureAccess';
@@ -56,7 +58,6 @@ function CaretakerDashboardPage() {
       }
       
       await caretakerProfileService.saveProfile(user.id, {
-        ...profile,
         services: profile.services || [],
         animalTypes: profile.animal_types || [],
         prices: profile.prices || {},
@@ -67,6 +68,7 @@ function CaretakerDashboardPage() {
         experienceDescription: profile.experience_description || '',
         shortAboutMe: profile.short_about_me || '',
         longAboutMe: profile.long_about_me || '',
+        languages: Array.isArray(profile.languages) ? profile.languages : [],
       });
       
       setAvailability(newAvailability);
@@ -84,6 +86,11 @@ function CaretakerDashboardPage() {
     qualifications: profile?.qualifications || [],
     experience_description: profile?.experience_description || '',
     prices: profile?.prices || {},
+    languages: profile?.languages || [],
+    isCommercial: profile?.is_commercial || false,
+    companyName: profile?.company_name || '',
+    taxNumber: profile?.tax_number || '',
+    vatId: profile?.vat_id || '',
   });
   // Freie Eingabe für Leistungen, Tierarten, Qualifikationen
   const [newService, setNewService] = useState('');
@@ -142,6 +149,12 @@ function CaretakerDashboardPage() {
   const handleSaveSkills = async () => {
     if (!user || !profile) return;
     
+    // Validierung für gewerbliche Betreuer
+    if (skillsDraft.isCommercial && !skillsDraft.taxNumber.trim()) {
+      setError('Bitte geben Sie Ihre Steuernummer an, wenn Sie als gewerblicher Betreuer tätig sind.');
+      return;
+    }
+    
     try {
       // Konvertiere aktuelle Verfügbarkeit zu String-Array für Datenbank
       const dbAvailability: Record<string, string[]> = {};
@@ -150,7 +163,6 @@ function CaretakerDashboardPage() {
       }
       
       await caretakerProfileService.saveProfile(user.id, {
-        ...profile,
         services: skillsDraft.services,
         animalTypes: skillsDraft.animal_types,
         prices: skillsDraft.prices,
@@ -161,6 +173,11 @@ function CaretakerDashboardPage() {
         experienceDescription: skillsDraft.experience_description,
         shortAboutMe: profile.short_about_me || '',
         longAboutMe: profile.long_about_me || '',
+        languages: skillsDraft.languages,
+        isCommercial: skillsDraft.isCommercial,
+        companyName: skillsDraft.companyName || undefined,
+        taxNumber: skillsDraft.taxNumber || undefined,
+        vatId: skillsDraft.vatId || undefined,
       });
       
       // Aktualisiere das Profil mit den neuen Daten
@@ -171,6 +188,7 @@ function CaretakerDashboardPage() {
         qualifications: skillsDraft.qualifications,
         experience_description: skillsDraft.experience_description,
         prices: skillsDraft.prices,
+        languages: skillsDraft.languages,
       }));
       
       setEditSkills(false);
@@ -185,6 +203,11 @@ function CaretakerDashboardPage() {
       qualifications: profile?.qualifications || [],
       experience_description: profile?.experience_description || '',
       prices: profile?.prices || {},
+      languages: profile?.languages || [],
+      isCommercial: profile?.is_commercial || false,
+      companyName: profile?.company_name || '',
+      taxNumber: profile?.tax_number || '',
+      vatId: profile?.vat_id || '',
     });
     setEditSkills(false);
   }
@@ -400,6 +423,11 @@ function CaretakerDashboardPage() {
           qualifications: (data as any).qualifications || [],
           experience_description: (data as any).experience_description || '',
           prices: mergedPrices,
+          languages: (data as any).languages || [],
+          isCommercial: (data as any).is_commercial || false,
+          companyName: (data as any).company_name || '',
+          taxNumber: (data as any).tax_number || '',
+          vatId: (data as any).vat_id || '',
         });
         
         // Aktualisiere Fotos-State
@@ -448,7 +476,6 @@ function CaretakerDashboardPage() {
               }
               
               await caretakerProfileService.saveProfile(user.id, {
-                ...data,
                 services: (data as any).services || [],
                 animalTypes: (data as any).animal_types || [],
                 prices: (data as any).prices || {},
@@ -459,6 +486,7 @@ function CaretakerDashboardPage() {
                 experienceDescription: (data as any).experience_description || '',
                 shortAboutMe: (data as any).short_about_me || '',
                 longAboutMe: (data as any).long_about_me || '',
+                languages: (data as any).languages || [],
               });
             } catch (error) {
               console.error('Fehler beim Speichern der Default-Verfügbarkeit:', error);
@@ -744,18 +772,32 @@ function CaretakerDashboardPage() {
             <div className="flex flex-col lg:flex-row gap-8">
               {/* Name */}
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-4">
-                  <h1 className="text-2xl font-bold">{fullName}</h1>
-                  {editData && (
-                    <div className="group relative">
-                      <Info className="h-5 w-5 text-blue-500 cursor-help" />
-                      <div className="absolute left-0 top-8 w-64 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
-                        <div className="font-medium mb-1">Name ändern</div>
-                        <div>Der Name kann nur über das Kontaktformular oder den Support geändert werden.</div>
-                        <div className="absolute -top-1 left-4 w-2 h-2 bg-gray-900 rotate-45"></div>
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h1 className="text-2xl font-bold">{fullName}</h1>
+                    {editData && (
+                      <div className="group relative">
+                        <Info className="h-5 w-5 text-blue-500 cursor-help" />
+                        <div className="absolute left-0 top-8 w-64 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                          <div className="font-medium mb-1">Name ändern</div>
+                          <div>Der Name kann nur über das Kontaktformular oder den Support geändert werden.</div>
+                          <div className="absolute -top-1 left-4 w-2 h-2 bg-gray-900 rotate-45"></div>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {profile?.is_verified && (
+                      <span className="bg-primary-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full flex items-center">
+                        <Verified className="h-2.5 w-2.5 mr-1" /> Verifiziert
+                      </span>
+                    )}
+                    {profile?.is_commercial && (
+                      <span className="bg-gradient-to-r from-purple-600 to-purple-700 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-md flex items-center">
+                        <Briefcase className="h-2.5 w-2.5 mr-1" /> Pro
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               {/* Kontaktdaten */}
@@ -983,6 +1025,14 @@ function CaretakerDashboardPage() {
                   <div className="mt-1 text-gray-700 text-sm whitespace-pre-line">{profile.experience_description || <span className="text-gray-400">Keine Angaben</span>}</div>
                 </div>
                 <div className="mb-2">
+                  <span className="font-semibold">Sprachen:</span>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {profile.languages?.length ? profile.languages.map((lang: string) => (
+                      <span key={lang} className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs">{lang}</span>
+                    )) : <span className="text-gray-400">Keine Angaben</span>}
+                  </div>
+                </div>
+                <div className="mb-2">
                   <span className="font-semibold">Preise:</span>
                   <div className="flex flex-wrap gap-2 mt-1">
                     {profile.prices ? Object.entries(profile.prices).map(([k, v]: [string, any]) => (
@@ -990,6 +1040,29 @@ function CaretakerDashboardPage() {
                     )) : <span className="text-gray-400">Keine Angaben</span>}
                   </div>
                 </div>
+                {/* Commercial Information */}
+                {profile.is_commercial && (
+                  <div className="mb-2">
+                    <div className="mb-2">
+                      <span className="font-semibold">Gewerblicher Betreuer</span>
+                    </div>
+                    {profile.company_name && (
+                      <div className="text-sm text-gray-700 mb-1">
+                        <span className="font-medium">Firmenname:</span> {profile.company_name}
+                      </div>
+                    )}
+                    {profile.tax_number && (
+                      <div className="text-sm text-gray-700 mb-1">
+                        <span className="font-medium">Steuernummer:</span> {profile.tax_number}
+                      </div>
+                    )}
+                    {profile.vat_id && (
+                      <div className="text-sm text-gray-700">
+                        <span className="font-medium">USt-IdNr.:</span> {profile.vat_id}
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             ) : (
               <form onSubmit={e => { e.preventDefault(); handleSaveSkills(); }} className="space-y-4">
@@ -1070,6 +1143,35 @@ function CaretakerDashboardPage() {
                     <button type="button" className="text-green-600 hover:bg-green-50 rounded p-1" disabled={!newQualification.trim()} onClick={() => { handleSkillsChange('qualifications', [...skillsDraft.qualifications, newQualification.trim()]); setNewQualification(''); }} title="Hinzufügen"><Check className="w-4 h-4" /></button>
                     <button type="button" className="text-gray-400 hover:text-red-500 rounded p-1" onClick={() => setNewQualification('')} title="Abbrechen"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                   </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Sprachen</label>
+                  <LanguageSelector
+                    selectedLanguages={skillsDraft.languages}
+                    onChange={(languages) => handleSkillsChange('languages', languages)}
+                  />
+                </div>
+                <div>
+                  <CommercialInfoInput
+                    isCommercial={skillsDraft.isCommercial}
+                    companyName={skillsDraft.companyName}
+                    taxNumber={skillsDraft.taxNumber}
+                    vatId={skillsDraft.vatId}
+                    onIsCommercialChange={(value) => {
+                      handleSkillsChange('isCommercial', value);
+                      if (!value) {
+                        handleSkillsChange('companyName', '');
+                        handleSkillsChange('taxNumber', '');
+                        handleSkillsChange('vatId', '');
+                      }
+                    }}
+                    onCompanyNameChange={(value) => handleSkillsChange('companyName', value)}
+                    onTaxNumberChange={(value) => handleSkillsChange('taxNumber', value)}
+                    onVatIdChange={(value) => handleSkillsChange('vatId', value)}
+                    errors={{
+                      taxNumber: skillsDraft.isCommercial && !skillsDraft.taxNumber.trim() ? 'Steuernummer ist bei gewerblichen Betreuern erforderlich' : undefined
+                    }}
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Beschreibung</label>

@@ -1,6 +1,6 @@
 import Layout from '../components/layout/Layout';
 import Button from '../components/ui/Button';
-import { MapPin, Phone, PawPrint, Edit, Shield, Heart, Trash, Check, X, Plus, Upload, LogOut, Settings, Camera, AlertTriangle, Trash2 } from 'lucide-react';
+import { MapPin, Phone, PawPrint, Edit, Shield, Heart, Trash, Check, X, Plus, Upload, LogOut, Settings, Camera, AlertTriangle, Trash2, Briefcase } from 'lucide-react';
 import { mockPetOwners, mockBookings, mockCaregivers } from '../data/mockData';
 import { formatCurrency } from '../lib/utils';
 import { Link } from 'react-router-dom';
@@ -1491,7 +1491,14 @@ function OwnerDashboardPage() {
                       </button>
                       <img src={caregiver.avatar} alt={caregiver.name} className="w-20 h-20 rounded-full object-cover border-2 border-primary-100" />
                       <div className="flex-1 min-w-0">
-                        <div className="font-bold text-lg truncate">{caregiver.name}</div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="font-bold text-lg truncate">{caregiver.name}</div>
+                          {caregiver.isCommercial && (
+                            <span className="bg-gradient-to-r from-purple-600 to-purple-700 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md text-center flex items-center justify-center">
+                              <Briefcase className="h-3 w-3 mr-1" /> Pro
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center text-gray-600 text-sm mt-1 mb-2 gap-1">
                           <MapPin className="h-4 w-4 mr-1" />
                           <span className="truncate">{caregiver.location}</span>

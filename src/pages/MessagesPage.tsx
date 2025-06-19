@@ -7,6 +7,7 @@ import type { ConversationWithUsers } from '../lib/supabase/types'
 import ConversationList from '../components/chat/ConversationList'
 import ChatWindow from '../components/chat/ChatWindow'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
+import { useNotifications } from '../lib/notifications/NotificationContext'
 
 function MessagesPage() {
   const [conversations, setConversations] = useState<ConversationWithUsers[]>([])
@@ -18,6 +19,7 @@ function MessagesPage() {
   
   const navigate = useNavigate()
   const { conversationId } = useParams()
+  const { refreshUnreadCount } = useNotifications()
 
   // Get current user
   useEffect(() => {
@@ -73,12 +75,16 @@ function MessagesPage() {
     const conversation = conversations.find(c => c.id === conversationId)
     if (conversation) {
       setSelectedConversation(conversation)
+      // Refresh unread count when selecting a conversation (messages might be marked as read)
+      refreshUnreadCount()
     }
   }
 
   const handleConversationUpdate = () => {
     // Trigger refresh of conversations
     setRefreshTrigger(prev => prev + 1)
+    // Refresh unread count in header
+    refreshUnreadCount()
   }
 
   const handleBackToList = () => {
@@ -158,6 +164,7 @@ function MessagesPage() {
                 currentUserId={currentUserId}
                 onBack={handleBackToList}
                 onConversationDeleted={handleConversationDeleted}
+                onMessageSent={handleConversationUpdate}
               />
             ) : (
               <div className="text-center p-8">

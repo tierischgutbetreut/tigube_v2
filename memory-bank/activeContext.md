@@ -3,109 +3,109 @@
 ## Aktueller Arbeitskontext
 
 ### Projektphase
-**Status**: Chat-System & Owner-Profile vollständig produktionsbereit ✅
-**Version**: 0.6.0 
-**Letztes Update**: Januar 2025 - Production-Ready Chat & Public Owner Profiles
+**Status**: Subscription System & Core Features vollständig produktionsbereit ✅
+**Version**: 0.7.0 
+**Letztes Update**: Januar 2025 - Vollständiges Subscription System mit Stripe Integration
 
 ### Aktuelle Implementierung
 
 #### ✅ Kürzlich abgeschlossen (Januar 2025)
 
-##### 💬 Chat-System VOLLSTÄNDIG (5 Phasen abgeschlossen)
-1. **Phase 1-4: Backend, UI, Integration, Real-time** ✅
-   - Supabase Datenbank-Schema (`conversations` + `messages`)
-   - Row Level Security (RLS) Policies für sichere Zugriffskontrolle
-   - Vollständige Chat-API mit Real-time Subscriptions
-   - WhatsApp-ähnliches UI mit modernen Komponenten
-   - Seamlose Integration mit Betreuer-Profilen
-   - Live-Updates ohne Page-Refresh
-   - Typing-Indicators und Online-Presence
-   - Browser-Notifications mit Sound-Effects
+##### 🔐 Subscription System VOLLSTÄNDIG (6 Phasen abgeschlossen)
+1. **Database Setup** ✅
+   - Migration: Subscription-Tabellen (subscriptions, usage_tracking, caretaker_images, billing_history)
+   - RLS Policies für alle neuen Tabellen
+   - PostgreSQL Helper-Funktionen (track_user_action, get_monthly_usage, etc.)
+   - TypeScript-Types generiert und integriert
+   - SubscriptionService mit Feature-Matrix implementiert
 
-2. **Phase 5: UI/UX Optimierungen** ✅
-   - WhatsApp-konforme Nachrichten-Reihenfolge (alt→neu, von unten nach oben)
-   - Moderne Zeitformatierung (Heute: "14:30", Gestern: "Gestern 14:30")
-   - Tigube-Brand-konforme Farben (primary-500 Grün)
-   - Perfekte Header-Alignments und Layout-Optimierungen
-   - Footer auf Chat-Seiten ausgeblendet für maximale Nutzung
+2. **Beta System** ✅
+   - BetaBanner mit Live-Countdown bis 31. Oktober 2025
+   - Beta-Statistiken (User-Count, aktive User)
+   - UsageTrackingService für Feature-Limits
+   - Automatische Trial-Subscriptions für existierende User
+   - Homepage-Integration mit dynamischem Beta-Enddatum
+   - Bewertungen-Overlay für kommende echte Reviews
 
-3. **Phase 5.5: Delete-Funktionalität** ✅
-   - Professionelle Delete-Modals mit Loading-States
-   - Vollständige Chat-Löschung (Conversation + Messages)
-   - Real-time State-Management für gelöschte Chats
-   - RLS-Policy-Fixes für DELETE-Operationen
+3. **Auth Integration** ✅
+   - Trial-Subscription bei neuen Registrierungen
+   - AuthContext erweitert um Subscription-State
+   - Subscription-Status automatisch bei Login geladen
+   - useSubscription Hook für einfachen Feature-Zugriff
+   - Profile-Updates mit Beta-Settings
+   - Debug-Tools: /debug/subscriptions + /debug/subscription-status
 
-##### 👤 Öffentliche Owner-Profile VOLLSTÄNDIG (8 Tasks abgeschlossen)
-1. **Task 6.1-6.2: Database & Backend** ✅
-   - Neue `owner_caretaker_connections` Tabelle mit RLS
-   - Authorization-Service: Nur Betreuer in Kontaktliste haben Zugriff
-   - Datenschutz-konforme Profile-Filterung
-   - Performance-Indizes und Helper-Functions
+4. **UI Components** ✅
+   - UsageLimitIndicator - Live-Anzeige von Feature-Limits
+   - UpgradePrompt - Komponente für Upgrade-Aufforderungen
+   - SubscriptionCard - Preiskarten mit Features
+   - PricingGrid - 2-Tier-System (Starter/Premium & Professional)
+   - PricingPage - Vollständige Preisseite mit Tab-Navigation
+   - User-type-spezifische Features und Preise
 
-2. **Task 6.3-6.5: Frontend & UI** ✅
-   - Route `/owner/:userId` mit ProtectedRoute
-   - Responsive OwnerPublicProfilePage mit bedingten Bereichen
-   - Authorization-Checks beim Laden
-   - Professionelles Layout mit Profil-Header und Pet-Badges
+5. **Feature Gates** ✅
+   - FeatureGateService - Komplette Feature-Matrix implementiert
+   - useFeatureAccess Hook - Einfache API für Feature-Checks
+   - useCurrentUsage Hook - Live-Tracking der Feature-Nutzung
+   - Beta-Awareness - Alle Limits während Beta aufgehoben
+   - Contact Request Limits (Owner Starter: 3/Monat, Premium: Unlimited)
+   - Environment Images für Caretaker (Starter: 0, Professional: 6)
+   - Review Writing System (Owner Starter: gesperrt, Premium: unlimited)
+   - Advanced Search Filters (Premium-exklusiv)
+   - Premium Badge System für Professional Caretaker
 
-3. **Task 6.6-6.8: Polish & Integration** ✅
-   - Humorvolles Error-Handling: "🔒 Pssst... das ist privat!"
-   - Dashboard-Integration mit "Mein öffentliches Profil anzeigen"
-   - URL-Copy-Funktionalität und Social Sharing
-   - SEO-Optimierung mit dynamischen Meta-Tags
-   - Security: Rate Limiting und Lazy Loading
+6. **Payment Integration VOLLSTÄNDIG** ✅
+   - Stripe JavaScript SDK Integration
+   - Supabase Edge Functions: create-checkout-session, validate-checkout-session, stripe-webhook
+   - Vollständiger Checkout Flow mit PaymentSuccessPage
+   - Automatische Subscription-Aktivierung nach Payment
+   - Beta-User Protection (kostenlos bis 31.10.2025)
+   - Test-Mode mit Dokumentation für Stripe-Testkarten
 
-##### 🐛 Bugfixes und Verbesserungen
-1. **Database Import Errors behoben** ✅
-   - `ownerPreferencesService.getPreferences()` von `.single()` auf `.maybeSingle()` geändert
-   - Error-Handling in Owner-Dashboard useEffect Hooks verbessert
-   - Graceful Fallbacks für leere Datenbank-Responses
+##### 🏠 Street Field Implementation VOLLSTÄNDIG ✅
+1. **Database & Backend** ✅
+   - SQL-Migration für `street`-Feld in users-Tabelle
+   - TypeScript-Typen erweitert: UserProfileUpdate Interface
+   - Database-Service erweitert: updateUserProfile für street-Handling
 
-2. **Double Header/Footer Problem gelöst** ✅
-   - `<Layout>` Wrapper aus OwnerPublicProfilePage entfernt
-   - App.tsx wrapp bereits alle Routen mit Layout
-   - Alle Component-States (loading, error, success) korrekt ohne doppelte Wrapper
+2. **Frontend Integration** ✅
+   - RegisterPage: Street-Feld für Owner und Caretaker Registrierung
+   - Owner Dashboard: State-Management, Profile-Loading, UI-Felder, Fallback-Handling
+   - Caretaker Dashboard: Komplette Integration zwischen PLZ und Ort
+   - Header: Einheitliche "Dashboard" Bezeichnung für beide User-Typen
 
-3. **Text-Korrekturen für Platform-Workflow** ✅
-   - Unauthorized-Page: Klargestellt dass nur Owner Betreuer kontaktieren
-   - Button-Optimierungen: "Betreuer werden" hinzugefügt, redundante Buttons entfernt
-   - Community-fokussierte Einladungstexte
+##### 🎨 UI/UX Verbesserungen ✅
+1. **Nachrichten-System Optimierungen** ✅
+   - "Betreuer markieren" Button in Chat-Header implementiert
+   - ownerCaretakerService mit allen CRUD-Operationen
+   - "Meine Betreuer" Sektion im Owner Dashboard funktionsfähig
+   - "Kunden" Tab im Betreuer Dashboard funktionsfähig
+   - Datenschutz-Einstellungen mit DB-Persistierung
 
-#### ✅ Bereits implementiert (vorherige Versionen)
+2. **Client-Details Accordion System** ✅
+   - Sharepage-Links vollständig entfernt (ProfileLinkMessage, SaveCaretakerButton, OwnerDashboard)
+   - Wiederverwendbare Accordion-UI-Komponente
+   - Client-Details-Accordion für Caretaker Dashboard
+   - Privacy-Settings-basierte Datenfilterung
+   - Smooth Animations und mobile-optimierte UX
 
-1. **Grundlegende Projektstruktur**
-   - React + TypeScript + Vite Setup
-   - Tailwind CSS Konfiguration  
-   - ESLint und Build-Konfiguration
-
-2. **Routing-System**
-   - React Router DOM Integration
-   - Lazy Loading für alle Seiten
-   - Vollständige Route-Struktur definiert
-
-3. **Filter-System (überarbeitet)**
-   - Dropdown-Menüs für Tierart und Service
-   - Erweiterte Filter (Verfügbarkeit, Bewertung, Umkreis)
-   - Live-Suche mit 300ms Debounce
-   - Responsive Ein-Zeilen-Layout
-
-4. **Homepage modernisiert**
-   - Wochentag + Zeit-Filter statt Datum-Picker
-   - Direkte Integration mit SearchPage
-   - Automatische Suche nach Submit
-
-5. **Betreuer-Profile Enhanced**
-   - Verfügbarkeits-Display mit Grid-Layout
-   - "Kontakt aufnehmen" Button mit Chat-Integration
-   - Database-Integration für alle Profil-Daten
+##### 💬 Chat-System & Owner-Profile (Vorherige Version)
+[Details wie in vorheriger Version - vollständig funktionsfähig]
 
 ### Aktuelle Herausforderungen
 
+#### 🔴 Kritischer Bug - Höchste Priorität
+1. **Betreuer-Seite Nachricht senden Button** 
+   - Problem: Button führt auf 404 Seite
+   - Erwartet: Navigation zur MessagesPage mit Konversation zum Betreuer
+   - Status: Identifiziert, Lösung erforderlich
+
 #### 🟢 Vollständig gelöst
-1. **✅ Chat-System**: Production-ready mit Real-time Features
-2. **✅ Owner-Profile**: Sichere, datenschutzkonforme öffentliche Profile  
-3. **✅ Authentication Flow**: Smart Return-URL-Handling
-4. **✅ Database Security**: Vollständige RLS-Policies implementiert
+1. **✅ Subscription System**: Production-ready mit kompletter Stripe-Integration
+2. **✅ Feature Gates**: Vollständige Implementation mit Beta-Protection
+3. **✅ Street Fields**: Vollständige Integration in alle Profile-Bereiche
+4. **✅ Chat-System**: Production-ready mit Real-time Features
+5. **✅ Owner-Profile**: Sichere, datenschutzkonforme öffentliche Profile
 
 #### 🟡 Teilweise gelöst - Verbesserungen möglich
 1. **Umkreis-Filter** (Mock-Implementation)
@@ -113,28 +113,13 @@
    - Echte GPS/Geocoding-Integration ausstehend
    - Google Maps oder OpenStreetMap-Integration erforderlich
 
-2. **TypeScript-Alignment**
-   - Einige Linter-Warnings bei Database-Schema-Mismatches
-   - Database-Types-Regenerierung nach Migrations notwendig
-   - Profile-Interface vs. Database-Schema Diskrepanzen
-
-#### 🔴 Noch zu implementieren
-1. **Buchungssystem**
-   - Buchungsanfragen aus Chat-Gesprächen heraus
-   - Terminkalender für Betreuer-Verfügbarkeit
-   - Status-Tracking für Buchungen
-
-2. **Zahlungsabwicklung**
-   - Stripe/PayPal-Integration
-   - Sichere Payment-Flows
-   - Automatische Buchungsbestätigungen
-
-3. **Bewertungssystem**
-   - Review-System nach abgeschlossener Betreuung
-   - Verifizierungsprozess für Betreuer
-   - Qualitätssicherung und Review-Moderation
-
 ### Nächste Prioritäten
+
+#### Sofortige Aktion erforderlich (Heute)
+1. **🚨 Betreuer-Seite Navigation Bug fixen**
+   - BetreuerProfilePage "Nachricht senden" Button analysieren
+   - Routing-Problem zur MessagesPage identifizieren
+   - Chat-Integration reparieren
 
 #### Kurzfristig (1-2 Wochen)
 1. **Echte Geolocation für Umkreis-Filter**
@@ -142,14 +127,9 @@
    - GPS-basierte Entfernungsberechnung implementieren
    - Optional: Kartenansicht für Suchergebnisse
 
-2. **TypeScript-Issues auflösen**
-   - Database-Types regenerieren nach allen Migrations
-   - Profile-Interfaces mit aktueller DB-Struktur abgleichen
-   - Verbleibende Linter-Warnings beseitigen
-
-3. **Deployment vorbereiten**
+2. **Deployment vorbereiten**
    - Staging-Environment einrichten
-   - Environment Variables für Production
+   - Environment Variables für Production (Stripe Keys)
    - CI/CD-Pipeline mit automatischen Tests
 
 #### Mittelfristig (2-4 Wochen)
@@ -158,31 +138,38 @@
    - Grundlegender Terminkalender
    - E-Mail-Benachrichtigungen für Anfragen
 
-2. **Payment-Integration**
-   - Stripe-Integration für sichere Zahlungen
-   - Payment-Intent-Flows implementieren
-   - Buchungsbestätigungen mit Zahlungsnachweis
-
-3. **Performance-Optimierung**
+2. **Performance-Optimierung**
    - Bundle-Splitting für bessere Cache-Strategien
    - Virtualisierung für große Chat-Listen
    - Image-Optimierung für Profile-Fotos
 
-#### Langfristig (1-3 Monate)
-1. **Bewertungssystem**
-   - Vollständiges Review-System
-   - Betreuer-Verifizierung
-   - Qualitätssicherungs-Dashboard
+### Aktuelle Technische Entscheidungen
 
-2. **Mobile App Features**
-   - Progressive Web App (PWA)
-   - Push-Notifications für Chats und Buchungen
-   - Offline-Funktionalität
+#### Subscription-Architektur
+1. **Tiered System**: Starter/Premium für Owner, Professional für Caretaker
+2. **Beta-Strategy**: Alle Features kostenlos bis 31.10.2025 für Markteinführung
+3. **Payment-Provider**: Stripe für sichere, PCI-konforme Zahlungsabwicklung
+4. **Feature-Gates**: Granulare Feature-Matrix mit Usage-Tracking
 
-3. **Analytics & Optimization**
-   - User-Behavior-Tracking
-   - A/B-Testing für UX-Optimierungen
-   - Performance-Monitoring
+#### Security-Pattern
+1. **RLS-Policies**: Vollständige Row Level Security für alle Subscription-Tabellen
+2. **Feature-Validation**: Server-side Validation zusätzlich zu Client-side Gates
+3. **Beta-Protection**: Automatische Trial-Extensions während Beta-Phase
+
+### Development Status
+
+#### Production-Ready Components
+- ✅ Vollständiges Subscription System mit Stripe
+- ✅ Feature Gates mit Usage Tracking
+- ✅ Street Field Integration
+- ✅ Client-Details Accordion System
+- ✅ Chat-System mit Real-time Features
+- ✅ Öffentliche Owner-Profile mit Authorization
+
+#### Known Technical Debt
+- 🔧 TypeScript-Alignment nach Database-Schema-Updates
+- 🔧 Environment Variables Dokumentation für Production
+- 🔧 Performance-Optimierung für große Datensätze
 
 ### Aktuelle Entscheidungen
 

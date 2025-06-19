@@ -8,6 +8,8 @@ import RangeSlider from '../components/ui/RangeSlider';
 import PhotoGalleryUpload from '../components/ui/PhotoGalleryUpload';
 import AboutMeEditor from '../components/ui/AboutMeEditor';
 import Badge from '../components/ui/Badge';
+import LanguageSelector from '../components/ui/LanguageSelector';
+import CommercialInfoInput from '../components/ui/CommercialInfoInput';
 import { auth, supabase } from '../lib/supabase/client';
 import { userService, petService, ownerPreferencesService, caretakerProfileService } from '../lib/supabase/db';
 import { useDropzone } from 'react-dropzone';
@@ -92,6 +94,11 @@ function RegisterPage() {
     experienceDescription?: string;
     shortAboutMe?: string;
     longAboutMe?: string;
+    languages: string[];
+    isCommercial: boolean;
+    companyName: string;
+    taxNumber: string;
+    vatId: string;
   }>(
     {
       plz: '',
@@ -117,11 +124,16 @@ function RegisterPage() {
         So: [],
       },
       homePhotos: [],
-      qualifications: [],
-      newQualification: '',
-      experienceDescription: '',
-      shortAboutMe: '',
-      longAboutMe: '',
+          qualifications: [],
+    newQualification: '',
+    experienceDescription: '',
+    shortAboutMe: '',
+    longAboutMe: '',
+    languages: [],
+    isCommercial: false,
+    companyName: '',
+    taxNumber: '',
+    vatId: '',
     }
   );
 
@@ -427,6 +439,10 @@ function RegisterPage() {
           const profilePhotoUrl = formStep2Caretaker.profilePhotoUrl;
           // Wohnungsfotos in Supabase Storage hochladen und URLs sammeln
           const homePhotoUrls: string[] = [];
+          
+          console.log('🔍 Starting photo upload for user:', userId);
+          console.log('📸 Photos to upload:', formStep2Caretaker.homePhotos.length);
+          
           for (const file of formStep2Caretaker.homePhotos) {
             if (
               typeof window !== 'undefined' &&
@@ -437,24 +453,76 @@ function RegisterPage() {
               const fileObj = file as File;
               const fileExt = fileObj.name.split('.').pop();
               const fileName = `${userId}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
-              const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('caretaker-home-photos')
-                .upload(fileName, fileObj, { upsert: true });
-              if (uploadError) {
-                setError('Fehler beim Bildupload: ' + uploadError.message);
+              
+              console.log('📤 Uploading file:', fileName);
+              
+              try {
+                // Prüfe Auth-Status vor Upload
+                const { data: authUser } = await supabase.auth.getUser();
+                if (!authUser?.user) {
+                  throw new Error('User nicht authentifiziert für Storage-Upload');
+                }
+                
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                  .from('caretaker-home-photos')
+                  .upload(fileName, fileObj, { upsert: true });
+                  
+                if (uploadError) {
+                  console.error('❌ Upload Error Details:', {
+                    message: uploadError.message,
+                    error: uploadError
+                  });
+                  
+                  // Falls RLS-Fehler, versuche ohne Folder-Struktur
+                  if (uploadError.message.includes('policy') || uploadError.message.includes('RLS') || uploadError.message.includes('permission')) {
+                    console.log('🔄 Retrying upload without folder structure...');
+                    const simpleName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+                    const { data: retryData, error: retryError } = await supabase.storage
+                      .from('caretaker-home-photos')
+                      .upload(simpleName, fileObj, { upsert: true });
+                    
+                    if (retryError) {
+                      throw retryError;
+                    }
+                    
+                    console.log('✅ Retry upload successful:', retryData);
+                    const { data: retryUrlData } = supabase.storage
+                      .from('caretaker-home-photos')
+                      .getPublicUrl(simpleName);
+                    
+                    if (retryUrlData?.publicUrl) {
+                      homePhotoUrls.push(retryUrlData.publicUrl);
+                      console.log('📎 Retry Public URL generated:', retryUrlData.publicUrl);
+                      continue; // Nächste Datei
+                    }
+                  }
+                  
+                  throw uploadError;
+                }
+                
+                console.log('✅ Upload successful:', uploadData);
+                
+                const { data: urlData } = supabase.storage
+                  .from('caretaker-home-photos')
+                  .getPublicUrl(fileName);
+                  
+                if (urlData?.publicUrl) {
+                  homePhotoUrls.push(urlData.publicUrl);
+                  console.log('📎 Public URL generated:', urlData.publicUrl);
+                }
+              } catch (uploadErr: any) {
+                console.error('❌ Storage upload failed:', uploadErr);
+                setError(`Fehler beim Bildupload: ${uploadErr.message || 'Unbekannter Fehler'}`);
                 return;
-              }
-              const { data: urlData } = supabase.storage
-                .from('caretaker-home-photos')
-                .getPublicUrl(fileName);
-              if (urlData?.publicUrl) {
-                homePhotoUrls.push(urlData.publicUrl);
               }
             } else if (typeof file === 'string') {
               // Bereits vorhandene URL (z.B. beim Editieren)
               homePhotoUrls.push(file);
             }
           }
+          
+          console.log('📷 All photos uploaded, URLs:', homePhotoUrls);
+          
           const { error: caretakerError } = await caretakerProfileService.saveProfile(userId, {
             services: formStep2Caretaker.services,
             animalTypes: formStep2Caretaker.animalTypes,
@@ -466,6 +534,11 @@ function RegisterPage() {
             experienceDescription: formStep2Caretaker.experienceDescription || '',
             shortAboutMe: formStep2Caretaker.shortAboutMe || '',
             longAboutMe: formStep2Caretaker.longAboutMe || '',
+            languages: formStep2Caretaker.languages,
+            isCommercial: formStep2Caretaker.isCommercial,
+            companyName: formStep2Caretaker.companyName || undefined,
+            taxNumber: formStep2Caretaker.taxNumber || undefined,
+            vatId: formStep2Caretaker.vatId || undefined,
           });
           if (caretakerError) throw caretakerError;
         }
@@ -650,6 +723,10 @@ function RegisterPage() {
           const profilePhotoUrl = formStep2Caretaker.profilePhotoUrl;
           // Wohnungsfotos in Supabase Storage hochladen und URLs sammeln
           const homePhotoUrls: string[] = [];
+          
+          console.log('🔍 Starting photo upload for user:', userId);
+          console.log('📸 Photos to upload:', formStep2Caretaker.homePhotos.length);
+          
           for (const file of formStep2Caretaker.homePhotos) {
             if (
               typeof window !== 'undefined' &&
@@ -660,24 +737,76 @@ function RegisterPage() {
               const fileObj = file as File;
               const fileExt = fileObj.name.split('.').pop();
               const fileName = `${userId}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
-              const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('caretaker-home-photos')
-                .upload(fileName, fileObj, { upsert: true });
-              if (uploadError) {
-                setError('Fehler beim Bildupload: ' + uploadError.message);
+              
+              console.log('📤 Uploading file:', fileName);
+              
+              try {
+                // Prüfe Auth-Status vor Upload
+                const { data: authUser } = await supabase.auth.getUser();
+                if (!authUser?.user) {
+                  throw new Error('User nicht authentifiziert für Storage-Upload');
+                }
+                
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                  .from('caretaker-home-photos')
+                  .upload(fileName, fileObj, { upsert: true });
+                  
+                if (uploadError) {
+                  console.error('❌ Upload Error Details:', {
+                    message: uploadError.message,
+                    error: uploadError
+                  });
+                  
+                  // Falls RLS-Fehler, versuche ohne Folder-Struktur
+                  if (uploadError.message.includes('policy') || uploadError.message.includes('RLS') || uploadError.message.includes('permission')) {
+                    console.log('🔄 Retrying upload without folder structure...');
+                    const simpleName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+                    const { data: retryData, error: retryError } = await supabase.storage
+                      .from('caretaker-home-photos')
+                      .upload(simpleName, fileObj, { upsert: true });
+                    
+                    if (retryError) {
+                      throw retryError;
+                    }
+                    
+                    console.log('✅ Retry upload successful:', retryData);
+                    const { data: retryUrlData } = supabase.storage
+                      .from('caretaker-home-photos')
+                      .getPublicUrl(simpleName);
+                    
+                    if (retryUrlData?.publicUrl) {
+                      homePhotoUrls.push(retryUrlData.publicUrl);
+                      console.log('📎 Retry Public URL generated:', retryUrlData.publicUrl);
+                      continue; // Nächste Datei
+                    }
+                  }
+                  
+                  throw uploadError;
+                }
+                
+                console.log('✅ Upload successful:', uploadData);
+                
+                const { data: urlData } = supabase.storage
+                  .from('caretaker-home-photos')
+                  .getPublicUrl(fileName);
+                  
+                if (urlData?.publicUrl) {
+                  homePhotoUrls.push(urlData.publicUrl);
+                  console.log('📎 Public URL generated:', urlData.publicUrl);
+                }
+              } catch (uploadErr: any) {
+                console.error('❌ Storage upload failed:', uploadErr);
+                setError(`Fehler beim Bildupload: ${uploadErr.message || 'Unbekannter Fehler'}`);
                 return;
-              }
-              const { data: urlData } = supabase.storage
-                .from('caretaker-home-photos')
-                .getPublicUrl(fileName);
-              if (urlData?.publicUrl) {
-                homePhotoUrls.push(urlData.publicUrl);
               }
             } else if (typeof file === 'string') {
               // Bereits vorhandene URL (z.B. beim Editieren)
               homePhotoUrls.push(file);
             }
           }
+          
+          console.log('📷 All photos uploaded, URLs:', homePhotoUrls);
+          
           const { error: caretakerError } = await caretakerProfileService.saveProfile(userId, {
             services: formStep2Caretaker.services,
             animalTypes: formStep2Caretaker.animalTypes,
@@ -689,6 +818,11 @@ function RegisterPage() {
             experienceDescription: formStep2Caretaker.experienceDescription || '',
             shortAboutMe: formStep2Caretaker.shortAboutMe || '',
             longAboutMe: formStep2Caretaker.longAboutMe || '',
+            languages: formStep2Caretaker.languages,
+            isCommercial: formStep2Caretaker.isCommercial,
+            companyName: formStep2Caretaker.companyName || undefined,
+            taxNumber: formStep2Caretaker.taxNumber || undefined,
+            vatId: formStep2Caretaker.vatId || undefined,
           });
           if (caretakerError) throw caretakerError;
         }
@@ -1140,6 +1274,29 @@ function RegisterPage() {
                             }}
                             uploading={profilePhotoUploading}
                             error={profilePhotoError}
+                          />
+                        </div>
+                        <div className="mt-6">
+                          <CommercialInfoInput
+                            isCommercial={formStep2Caretaker.isCommercial}
+                            companyName={formStep2Caretaker.companyName}
+                            taxNumber={formStep2Caretaker.taxNumber}
+                            vatId={formStep2Caretaker.vatId}
+                            onIsCommercialChange={(value) => 
+                              setFormStep2Caretaker({...formStep2Caretaker, isCommercial: value, taxNumber: value ? formStep2Caretaker.taxNumber : '', companyName: value ? formStep2Caretaker.companyName : '', vatId: value ? formStep2Caretaker.vatId : ''})
+                            }
+                            onCompanyNameChange={(value) => 
+                              setFormStep2Caretaker({...formStep2Caretaker, companyName: value})
+                            }
+                            onTaxNumberChange={(value) => 
+                              setFormStep2Caretaker({...formStep2Caretaker, taxNumber: value})
+                            }
+                            onVatIdChange={(value) => 
+                              setFormStep2Caretaker({...formStep2Caretaker, vatId: value})
+                            }
+                            errors={{
+                              taxNumber: formStep2Caretaker.isCommercial && !formStep2Caretaker.taxNumber.trim() ? 'Steuernummer ist bei gewerblichen Betreuern erforderlich' : undefined
+                            }}
                           />
                         </div>
                       </div>
@@ -1643,6 +1800,22 @@ function RegisterPage() {
                       </div>
                     </div>
 
+                    {/* Sprachen */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Sprachen
+                      </label>
+                      <p className="text-xs text-gray-500 mb-3">
+                        In welchen Sprachen kannst du dich mit Tierbesitzern verständigen?
+                      </p>
+                      <LanguageSelector
+                        selectedLanguages={formStep2Caretaker.languages}
+                        onChange={(languages) => setFormStep2Caretaker(prev => ({ ...prev, languages }))}
+                        placeholder="Sprachen auswählen..."
+                        className="w-full"
+                      />
+                    </div>
+
                     {/* Erfahrungsbeschreibung */}
                     <div>
                       <label className="block text-sm font-medium text-gray-900 mb-2">
@@ -1724,7 +1897,17 @@ function RegisterPage() {
                         Speichern
                       </Button>
                     ) : (
-                      <Button onClick={() => setProfileStep(profileStep + 1)} disabled={loading}>
+                      <Button onClick={() => {
+                        // Validierung für Caretaker Schritt 1 (Commercial Info)
+                        if (userType === 'caretaker' && profileStep === 1) {
+                          if (formStep2Caretaker.isCommercial && !formStep2Caretaker.taxNumber.trim()) {
+                            setError('Bitte geben Sie Ihre Steuernummer an, wenn Sie als gewerblicher Betreuer tätig sind.');
+                            return;
+                          }
+                        }
+                        setError(null);
+                        setProfileStep(profileStep + 1);
+                      }} disabled={loading}>
                         Weiter
                       </Button>
                     )}
