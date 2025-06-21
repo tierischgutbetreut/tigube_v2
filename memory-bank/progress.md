@@ -83,7 +83,7 @@
    - **Privacy Compliance**: Nur freigegebene Daten basierend auf share_settings anzeigen
    - **Mobile-optimiert**: Responsive Design mit Touch-optimierten Interactions
 
-### Version 0.6.0 (Januar 2025) - Chat-System & Owner-Profile ✅
+### Version 0.6.0 - Chat-System & Owner-Profile ✅
 
 #### 🎯 Hauptziele erreicht: Chat-System Production-Ready + Öffentliche Tierbesitzer-Profile
 
@@ -228,76 +228,4 @@
 - **Pricing Strategy**: Competitive Preise (€4,90 Owner Premium, €12,90 Caretaker Professional)
 - **Revenue Model**: Recurring Subscriptions mit automatischer Verlängerung
 
-### Kritische Probleme
 
-#### 🚨 Höchste Priorität (SOFORT)
-1. **Betreuer-Seite Navigation Bug** 
-   - **Problem**: "Nachricht senden" Button führt auf 404 Seite
-   - **Erwartet**: Navigation zur MessagesPage mit Konversation zum Betreuer
-   - **Impact**: Kritischer UX-Break, verhindert Hauptfunktion der Platform
-   - **Status**: Identifiziert in taskmanager.md, Lösung erforderlich
-
-### Was noch fehlt (Priorisiert nach Impact)
-
-#### 🔥 Hohe Priorität (Nach Bug-Fix)
-
-1. **Echte Geolocation für Umkreis-Filter**
-   - [ ] Google Maps API oder OpenStreetMap Integration
-   - [ ] GPS-basierte Entfernungsberechnung statt Mock-Implementation
-   - [ ] Optional: Kartenansicht für Suchergebnisse
-
-2. **Production Deployment**
-   - [ ] Environment Variables Setup für Stripe Live-Keys
-   - [ ] Supabase Edge Functions Deployment Documentation
-   - [ ] CI/CD Pipeline für automatisierte Deployments
-
-#### 🔶 Mittlere Priorität (2-4 Wochen)
-
-3. **MVP-Buchungssystem**
-   - [ ] Buchungsanfragen aus Chat-Gesprächen heraus
-   - [ ] Grundlegender Terminkalender für Betreuer-Verfügbarkeit
-   - [ ] E-Mail-Benachrichtigungen für Buchungsanfragen
-
-4. **Performance-Optimierung**
-   - [ ] Bundle-Splitting für bessere Cache-Strategien
-   - [ ] Virtualisierung für große Chat-Listen
-   - [ ] Image-Optimierung für Profile-Fotos
-
-#### 🔷 Niedrige Priorität (1-3 Monate)
-
-5. **Advanced Features**
-   - [ ] Bewertungssystem nach abgeschlossener Betreuung
-   - [ ] Progressive Web App Features
-   - [ ] Analytics & A/B Testing für Conversion-Optimierung
-
-### Bekannte Technical Debt
-
-#### 🔧 Minor Issues
-1. **TypeScript**: Schema-Alignment nach Database-Migrations
-2. **Documentation**: Environment Variables Setup für Production
-3. **Monitoring**: Error-Tracking für Payment-Flows
-
-#### ✅ Gelöste Probleme (Version 0.7.0)
-1. **Subscription System**: Vollständig implementiert mit Stripe ✅
-2. **Feature Gates**: Komplette Feature-Matrix mit Usage-Tracking ✅
-3. **Street Fields**: Vollständige Integration in Owner + Caretaker Profiles ✅
-4. **Client-Details**: Accordion-System mit Privacy-Compliance ✅
-5. **Sharepage-Links**: Saubere Entfernung aus allen Komponenten ✅
-
-### Development Velocity
-
-#### Production-Ready Features (Letzte 4 Wochen):
-- **Subscription System**: 6 Phasen vollständig abgeschlossen (Stripe Integration)
-- **Feature Gates**: Komplettes Feature-Set mit Live-Tracking
-- **Street Fields**: Full-Stack Implementation (DB + Frontend)
-- **UI/UX Improvements**: Client-Details Accordion + Navigation Optimierungen
-- **Security**: RLS-Policies für alle neuen Database-Features
-
-#### Ready for Production:
-✅ **Subscription System**: Live-bereit mit Test-Karten  
-✅ **Feature Gates**: Beta-Phase mit automatischen Trial-Subscriptions  
-✅ **Payment Integration**: Vollständiger Stripe-Checkout-Flow  
-✅ **Core Platform**: Chat + Profile + Search + Authentication
-
-#### Blocking Issue:
-🚨 **Navigation Bug**: Betreuer-Seite "Nachricht senden" Button (404 Error)
