@@ -1,6 +1,6 @@
 import Layout from '../components/layout/Layout';
 import Button from '../components/ui/Button';
-import { MapPin, Phone, PawPrint, Edit, Shield, Heart, Trash, Check, X, Plus, Upload, LogOut, Settings, Camera, AlertTriangle, Trash2, Briefcase, User, MessageCircle } from 'lucide-react';
+import { MapPin, Phone, PawPrint, Edit, Shield, Heart, Trash, Check, X, Plus, Upload, LogOut, Settings, Camera, AlertTriangle, Trash2, Briefcase, User, MessageCircle, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { mockPetOwners, mockBookings, mockCaregivers } from '../data/mockData';
 import { formatCurrency } from '../lib/utils';
 import { Link } from 'react-router-dom';
@@ -13,6 +13,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { plzService } from '../lib/supabase/db';
 import { useNavigate } from 'react-router-dom';
 import { getOrCreateConversation } from '../lib/supabase/chatService';
+import { supabase } from '../lib/supabase/client';
 
 const ALL_SERVICES = [
   'Gassi-Service',
@@ -157,6 +158,21 @@ function OwnerDashboardPage() {
   const [showDeleteCaretakerModal, setShowDeleteCaretakerModal] = useState(false);
   const [caretakerToDelete, setCaretakerToDelete] = useState<any | null>(null);
   const [deleteCaretakerConfirmationText, setDeleteCaretakerConfirmationText] = useState('');
+
+  // State für Passwort ändern
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false
+  });
 
   // Load user data on component mount and when userProfile changes
   useEffect(() => {
@@ -1119,6 +1135,82 @@ function OwnerDashboardPage() {
         })
         .catch(() => setEmergencyError('Fehler beim Laden des Notfallkontakts!'))
         .finally(() => setEmergencyLoading(false));
+    }
+  };
+
+  // Passwort ändern Handler
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    setPasswordError(null);
+    setPasswordSuccess(false);
+
+    // Validierung
+    if (!passwordData.currentPassword) {
+      setPasswordError('Bitte gib dein aktuelles Passwort ein.');
+      return;
+    }
+
+    if (!passwordData.newPassword) {
+      setPasswordError('Bitte gib ein neues Passwort ein.');
+      return;
+    }
+
+    if (passwordData.newPassword.length < 8) {
+      setPasswordError('Das neue Passwort muss mindestens 8 Zeichen lang sein.');
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordError('Die neuen Passwörter stimmen nicht überein.');
+      return;
+    }
+
+    if (passwordData.currentPassword === passwordData.newPassword) {
+      setPasswordError('Das neue Passwort muss sich vom aktuellen Passwort unterscheiden.');
+      return;
+    }
+
+    try {
+      setPasswordLoading(true);
+
+      // Erst das aktuelle Passwort verifizieren
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email!,
+        password: passwordData.currentPassword
+      });
+
+      if (signInError) {
+        setPasswordError('Das aktuelle Passwort ist nicht korrekt.');
+        return;
+      }
+
+      // Neues Passwort setzen
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: passwordData.newPassword
+      });
+
+      if (updateError) {
+        setPasswordError('Fehler beim Aktualisieren des Passworts: ' + updateError.message);
+        return;
+      }
+
+      setPasswordSuccess(true);
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+
+      // Erfolg nach 3 Sekunden ausblenden
+      setTimeout(() => setPasswordSuccess(false), 3000);
+
+    } catch (error: any) {
+      console.error('Fehler beim Ändern des Passworts:', error);
+      setPasswordError('Ein unerwarteter Fehler ist aufgetreten.');
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -2182,6 +2274,152 @@ function OwnerDashboardPage() {
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Passwort ändern */}
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <KeyRound className="h-5 w-5" />
+                Passwort ändern
+              </h2>
+              <div className="bg-white rounded-xl shadow-sm p-6">
+                <form onSubmit={handlePasswordChange} className="space-y-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Links: Aktuelles Passwort */}
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">Aktuelles Passwort</h3>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Aktuelles Passwort <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showPasswords.current ? 'text' : 'password'}
+                            className="input pr-10 w-full"
+                            value={passwordData.currentPassword}
+                            onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                            placeholder="Dein aktuelles Passwort"
+                            disabled={passwordLoading}
+                            required
+                          />
+                          <button
+                            type="button"
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                            onClick={() => setShowPasswords(prev => ({ ...prev, current: !prev.current }))}
+                            tabIndex={-1}
+                          >
+                            {showPasswords.current ? (
+                              <EyeOff className="h-5 w-5 text-gray-400" />
+                            ) : (
+                              <Eye className="h-5 w-5 text-gray-400" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Rechts: Neues Passwort */}
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">Neues Passwort</h3>
+                      <div className="space-y-4">
+                        {/* Neues Passwort */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Neues Passwort <span className="text-red-500">*</span>
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showPasswords.new ? 'text' : 'password'}
+                              className="input pr-10 w-full"
+                              value={passwordData.newPassword}
+                              onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                              placeholder="Mindestens 8 Zeichen"
+                              disabled={passwordLoading}
+                              required
+                              minLength={8}
+                            />
+                            <button
+                              type="button"
+                              className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                              onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
+                              tabIndex={-1}
+                            >
+                              {showPasswords.new ? (
+                                <EyeOff className="h-5 w-5 text-gray-400" />
+                              ) : (
+                                <Eye className="h-5 w-5 text-gray-400" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Passwort bestätigen */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Neues Passwort bestätigen <span className="text-red-500">*</span>
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showPasswords.confirm ? 'text' : 'password'}
+                              className="input pr-10 w-full"
+                              value={passwordData.confirmPassword}
+                              onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                              placeholder="Neues Passwort wiederholen"
+                              disabled={passwordLoading}
+                              required
+                            />
+                            <button
+                              type="button"
+                              className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                              onClick={() => setShowPasswords(prev => ({ ...prev, confirm: !prev.confirm }))}
+                              tabIndex={-1}
+                            >
+                              {showPasswords.confirm ? (
+                                <EyeOff className="h-5 w-5 text-gray-400" />
+                              ) : (
+                                <Eye className="h-5 w-5 text-gray-400" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Fehler und Erfolg */}
+                  {passwordError && (
+                    <div className="flex items-center gap-2 text-red-600 text-sm">
+                      <AlertTriangle className="h-4 w-4" />
+                      {passwordError}
+                    </div>
+                  )}
+
+                  {passwordSuccess && (
+                    <div className="flex items-center gap-2 text-green-600 text-sm">
+                      <Check className="h-4 w-4" />
+                      Passwort erfolgreich geändert!
+                    </div>
+                  )}
+
+                  {/* Submit Button */}
+                  <div className="flex justify-start">
+                    <button
+                      type="submit"
+                      className="btn-primary py-2 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={passwordLoading}
+                    >
+                      {passwordLoading ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Wird geändert...
+                        </div>
+                      ) : (
+                        'Passwort ändern'
+                      )}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
 
