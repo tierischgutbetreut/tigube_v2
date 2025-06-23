@@ -9,7 +9,7 @@ import type { ClientData } from '../components/ui/ClientDetailsAccordion';
 import { useAuth } from '../lib/auth/AuthContext';
 import { useEffect, useState, useRef } from 'react';
 import { caretakerProfileService, ownerCaretakerService } from '../lib/supabase/db';
-import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info, Lock, Briefcase, Verified } from 'lucide-react';
+import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info, Lock, Briefcase, Verified, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
 import useFeatureAccess from '../hooks/useFeatureAccess';
@@ -137,8 +137,30 @@ function CaretakerDashboardPage() {
   function handleSkillsChange(field: string, value: any) {
     setSkillsDraft(d => ({ ...d, [field]: value }));
   }
+  function validatePriceInput(value: string): string {
+    // Nur Zahlen, Punkt und Komma erlauben
+    let cleanValue = value.replace(/[^0-9.,]/g, '');
+    
+    // Komma durch Punkt ersetzen für einheitliche Dezimaldarstellung
+    cleanValue = cleanValue.replace(',', '.');
+    
+    // Nur einen Dezimalpunkt erlauben
+    const parts = cleanValue.split('.');
+    if (parts.length > 2) {
+      cleanValue = parts[0] + '.' + parts.slice(1).join('');
+    }
+    
+    // Maximal 2 Dezimalstellen erlauben
+    if (parts.length === 2 && parts[1].length > 2) {
+      cleanValue = parts[0] + '.' + parts[1].substring(0, 2);
+    }
+    
+    return cleanValue;
+  }
+
   function handlePriceChange(key: string, value: string) {
-    setSkillsDraft(d => ({ ...d, prices: { ...d.prices, [key]: value } }));
+    const validatedValue = validatePriceInput(value);
+    setSkillsDraft(d => ({ ...d, prices: { ...d.prices, [key]: validatedValue } }));
   }
   function handleRemovePrice(key: string) {
     setSkillsDraft(d => { const p = { ...d.prices }; delete p[key]; return { ...d, prices: p }; });
@@ -798,6 +820,15 @@ function CaretakerDashboardPage() {
                       </span>
                     )}
                   </div>
+                  <div className="mt-3">
+                    <Link
+                      to={`/betreuer/${user?.id}`}
+                      className="inline-flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 transition-colors"
+                    >
+                      <Eye className="h-4 w-4" />
+                      Zu meinem Profil
+                    </Link>
+                  </div>
                 </div>
               </div>
               {/* Kontaktdaten */}
@@ -1190,8 +1221,8 @@ function CaretakerDashboardPage() {
                       <div key={service} className="flex items-center gap-4">
                         <label className="w-56 text-gray-700">{priceFieldLabels[service as keyof typeof priceFieldLabels]}</label>
                         <input 
-                          type="number" 
-                          min="0" 
+                          type="text" 
+                          inputMode="decimal"
                           className="input w-32" 
                           placeholder="€" 
                           value={skillsDraft.prices[service] || ''} 
@@ -1202,7 +1233,7 @@ function CaretakerDashboardPage() {
                     
                     {/* Zusätzliche individuelle Preise */}
                     {Object.entries(skillsDraft.prices).filter(([k, _]) => !defaultPriceFields.hasOwnProperty(k)).map(([k, v], idx) => (
-                      <div key={k + idx} className="flex gap-2 items-center">
+                      <div key={`price-${idx}`} className="flex gap-2 items-center">
                         <input className="input w-32" placeholder="Leistung" value={k} onChange={e => {
                           const newKey = e.target.value;
                           const newPrices = { ...skillsDraft.prices };
@@ -1210,7 +1241,14 @@ function CaretakerDashboardPage() {
                           newPrices[newKey] = v;
                           handleSkillsChange('prices', newPrices);
                         }} />
-                        <input className="input w-24" placeholder="Preis (€)" value={String(v)} onChange={e => handlePriceChange(k, e.target.value)} />
+                        <input 
+                          type="text" 
+                          inputMode="decimal"
+                          className="input w-24" 
+                          placeholder="Preis (€)" 
+                          value={String(v)} 
+                          onChange={e => handlePriceChange(k, e.target.value)} 
+                        />
                         <button type="button" className="text-red-500 hover:bg-red-50 rounded p-1" onClick={() => handleRemovePrice(k)} title="Entfernen"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                       </div>
                     ))}

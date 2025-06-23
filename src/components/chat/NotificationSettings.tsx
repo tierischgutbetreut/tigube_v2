@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Bell, BellOff, Volume2, VolumeX, Settings } from 'lucide-react'
+import { Bell, BellOff, Settings } from 'lucide-react'
 import { notificationManager } from '../../lib/notifications/NotificationManager'
 
 interface NotificationSettingsProps {
@@ -10,7 +10,6 @@ interface NotificationSettingsProps {
 function NotificationSettings({ isOpen, onClose }: NotificationSettingsProps) {
   const [settings, setSettings] = useState({
     permission: 'default' as NotificationPermission,
-    soundEnabled: true,
     notificationsEnabled: true,
     browserSupport: true
   })
@@ -24,12 +23,6 @@ function NotificationSettings({ isOpen, onClose }: NotificationSettingsProps) {
   const handleRequestPermission = async () => {
     const permission = await notificationManager.requestPermission()
     setSettings(prev => ({ ...prev, permission }))
-  }
-
-  const handleToggleSound = () => {
-    const newSoundEnabled = !settings.soundEnabled
-    notificationManager.setSoundEnabled(newSoundEnabled)
-    setSettings(prev => ({ ...prev, soundEnabled: newSoundEnabled }))
   }
 
   const handleToggleNotifications = () => {
@@ -47,7 +40,6 @@ function NotificationSettings({ isOpen, onClose }: NotificationSettingsProps) {
         console.log('Test notification clicked')
       }
     )
-    notificationManager.playNotificationSound()
   }
 
   if (!isOpen) return null
@@ -131,32 +123,6 @@ function NotificationSettings({ isOpen, onClose }: NotificationSettingsProps) {
             </button>
           </div>
 
-          {/* Sound Toggle */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              {settings.soundEnabled ? (
-                <Volume2 className="w-4 h-4 text-blue-600" />
-              ) : (
-                <VolumeX className="w-4 h-4 text-gray-400" />
-              )}
-              <span className="text-sm font-medium text-gray-900">
-                Benachrichtigungston
-              </span>
-            </div>
-            <button
-              onClick={handleToggleSound}
-              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                settings.soundEnabled ? 'bg-blue-600' : 'bg-gray-200'
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                  settings.soundEnabled ? 'translate-x-5' : 'translate-x-0'
-                }`}
-              />
-            </button>
-          </div>
-
           {/* Test Button */}
           {settings.permission === 'granted' && (
             <button
@@ -170,8 +136,7 @@ function NotificationSettings({ isOpen, onClose }: NotificationSettingsProps) {
           {/* Info Text */}
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-xs text-gray-600">
-              Benachrichtigungen werden nur angezeigt, wenn die Seite nicht aktiv ist. 
-              Sounds werden für Nachrichten und beim Tippen abgespielt.
+              Benachrichtigungen werden nur angezeigt, wenn die Seite nicht aktiv ist.
             </p>
           </div>
         </div>

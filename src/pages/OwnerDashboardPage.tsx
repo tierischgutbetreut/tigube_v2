@@ -1,10 +1,10 @@
 import Layout from '../components/layout/Layout';
 import Button from '../components/ui/Button';
-import { MapPin, Phone, PawPrint, Edit, Shield, Heart, Trash, Check, X, Plus, Upload, LogOut, Settings, Camera, AlertTriangle, Trash2, Briefcase } from 'lucide-react';
+import { MapPin, Phone, PawPrint, Edit, Shield, Heart, Trash, Check, X, Plus, Upload, LogOut, Settings, Camera, AlertTriangle, Trash2, Briefcase, User, MessageCircle } from 'lucide-react';
 import { mockPetOwners, mockBookings, mockCaregivers } from '../data/mockData';
 import { formatCurrency } from '../lib/utils';
 import { Link } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ownerPreferencesService, petService, userService, ownerCaretakerService } from '../lib/supabase/db';
 import type { ShareSettings } from '../lib/supabase/db';
 import { useDropzone } from 'react-dropzone';
@@ -12,6 +12,7 @@ import { useAuth } from '../lib/auth/AuthContext';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { plzService } from '../lib/supabase/db';
 import { useNavigate } from 'react-router-dom';
+import { getOrCreateConversation } from '../lib/supabase/chatService';
 
 const ALL_SERVICES = [
   'Gassi-Service',
@@ -29,7 +30,9 @@ interface PetFormData {
   typeOther: string;
   breed: string;
   age: string;
+  weight: string;
   image: string | File;
+  description: string;
   gender?: 'Rüde' | 'Hündin' | '';
   neutered?: boolean;
 }
@@ -75,6 +78,11 @@ function OwnerDashboardPage() {
   const { user, userProfile, loading: authLoading, updateProfileState, signOut } = useAuth();
   const navigate = useNavigate();
   
+  // Refs to track if data has been loaded to prevent unnecessary reloads
+  const vetDataLoadedRef = useRef(false);
+  const emergencyDataLoadedRef = useRef(false);
+  const prefsDataLoadedRef = useRef(false);
+  
   // Demo: initiale Services (später aus DB laden)
   const [services, setServices] = useState<string[]>([]);
   const [otherWishes, setOtherWishes] = useState<string[]>([]);
@@ -88,8 +96,8 @@ function OwnerDashboardPage() {
   const [petsLoading, setPetsLoading] = useState(true);
   const [petError, setPetError] = useState<string | null>(null);
   const [showAddPet, setShowAddPet] = useState(false);
-  const [newPet, setNewPet] = useState<PetFormData>({ name: '', type: '', typeOther: '', breed: '', age: '', image: '', gender: '', neutered: false });
-  const [activeTab, setActiveTab] = useState<'uebersicht' | 'einstellungen'>('uebersicht');
+  const [newPet, setNewPet] = useState<PetFormData>({ name: '', type: '', typeOther: '', breed: '', age: '', weight: '', image: '', description: '', gender: '', neutered: false });
+  const [activeTab, setActiveTab] = useState<'uebersicht' | 'tiere' | 'einstellungen'>('uebersicht');
   const [editData, setEditData] = useState(false);
   const [ownerData, setOwnerData] = useState({
     phoneNumber: '',
@@ -132,7 +140,7 @@ function OwnerDashboardPage() {
   const [shareSettingsSaveMsg, setShareSettingsSaveMsg] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [editPet, setEditPet] = useState<string | null>(null);
-  const [editPetData, setEditPetData] = useState<PetFormData>({ name: '', type: '', typeOther: '', breed: '', age: '', image: '', gender: '', neutered: false });
+  const [editPetData, setEditPetData] = useState<PetFormData>({ name: '', type: '', typeOther: '', breed: '', age: '', weight: '', image: '', description: '', gender: '', neutered: false });
   // State für Edit-Modus und lokale Kopie der Betreuungsvorlieben
   const [editPrefs, setEditPrefs] = useState(false);
   const [editServices, setEditServices] = useState<string[]>([]);
@@ -193,6 +201,7 @@ function OwnerDashboardPage() {
               type: pet.type,
               breed: pet.breed || '',
               age: pet.age ?? '',
+              weight: pet.weight ?? '',
               image: pet.photo_url || '',
               description: pet.description || '',
               gender: pet.gender || '',
@@ -235,9 +244,10 @@ function OwnerDashboardPage() {
     fetchSavedCaretakers();
   }, [user]);
 
-  // Tierarzt-Infos aus DB laden
+  // Tierarzt-Infos aus DB laden - nur einmal und nicht im Edit-Modus
   useEffect(() => {
-    if (activeTab !== 'einstellungen' || !user) return;
+    if (activeTab !== 'einstellungen' || !user || editVet || vetDataLoadedRef.current) return;
+    
     setVetLoading(true);
     setVetError(null);
     ownerPreferencesService.getPreferences(user.id)
@@ -264,14 +274,16 @@ function OwnerDashboardPage() {
           // Keine Daten gefunden - setze leere Standardwerte
           setVetData({ name: '', address: '', phone: '' });
         }
+        vetDataLoadedRef.current = true;
       })
       .catch(() => setVetError('Fehler beim Laden der Tierarzt-Informationen!'))
       .finally(() => setVetLoading(false));
-  }, [activeTab, user]);
+  }, [activeTab, user, editVet]);
 
-  // Notfallkontakt aus DB laden
+  // Notfallkontakt aus DB laden - nur einmal und nicht im Edit-Modus
   useEffect(() => {
-    if (activeTab !== 'einstellungen' || !user) return;
+    if (activeTab !== 'einstellungen' || !user || editEmergency || emergencyDataLoadedRef.current) return;
+    
     setEmergencyLoading(true);
     setEmergencyError(null);
     ownerPreferencesService.getPreferences(user.id)
@@ -288,14 +300,16 @@ function OwnerDashboardPage() {
           // Keine Daten gefunden - setze leere Standardwerte
           setEmergencyData({ name: '', phone: '' });
         }
+        emergencyDataLoadedRef.current = true;
       })
       .catch(() => setEmergencyError('Fehler beim Laden des Notfallkontakts!'))
       .finally(() => setEmergencyLoading(false));
-  }, [activeTab, user]);
+  }, [activeTab, user, editEmergency]);
 
-  // Betreuungsvorlieben aus DB laden
+  // Betreuungsvorlieben aus DB laden - nur einmal und nicht im Edit-Modus
   useEffect(() => {
-    if (activeTab !== 'einstellungen' || !user) return;
+    if (activeTab !== 'einstellungen' || !user || editPrefs || prefsDataLoadedRef.current) return;
+    
     setPrefsLoading(true);
     setPrefsError(null);
     ownerPreferencesService.getPreferences(user.id)
@@ -319,10 +333,11 @@ function OwnerDashboardPage() {
           setServices([]);
           setOtherWishes([]);
         }
+        prefsDataLoadedRef.current = true;
       })
       .catch(() => setPrefsError('Fehler beim Laden der Betreuungsvorlieben!'))
       .finally(() => setPrefsLoading(false));
-  }, [activeTab, user]);
+  }, [activeTab, user, editPrefs]);
 
   // Share-Settings aus Datenbank laden
   useEffect(() => {
@@ -479,16 +494,17 @@ function OwnerDashboardPage() {
     } else if (typeof newPet.image === 'string') {
       photoUrl = newPet.image;
     }
-    const petData = {
-      name: newPet.name,
-      type: typeValue,
-      breed: newPet.breed,
-      age: Number(newPet.age),
-      photoUrl: photoUrl,
-      description: '',
-      gender: newPet.gender || '',
-      neutered: newPet.neutered || false,
-    };
+          const petData = {
+        name: newPet.name,
+        type: typeValue,
+        breed: newPet.breed,
+        age: Number(newPet.age),
+        weight: newPet.weight ? Number(newPet.weight) : undefined,
+        photoUrl: photoUrl,
+        description: newPet.description,
+        gender: newPet.gender || '',
+        neutered: newPet.neutered || false,
+      };
     try {
       const { error } = await petService.addPet(user.id, petData);
       if (error) throw error;
@@ -499,13 +515,14 @@ function OwnerDashboardPage() {
         type: pet.type,
         breed: pet.breed || '',
         age: pet.age ?? '',
+        weight: pet.weight ?? '',
         image: pet.photo_url || '',
         description: pet.description || '',
         gender: pet.gender || '',
         neutered: pet.neutered || false,
       })));
       setShowAddPet(false);
-      setNewPet({ name: '', type: '', typeOther: '', breed: '', age: '', image: '', gender: '', neutered: false });
+      setNewPet({ name: '', type: '', typeOther: '', breed: '', age: '', weight: '', image: '', description: '', gender: '', neutered: false });
     } catch (e) {
       setPetError('Fehler beim Hinzufügen des Tiers!');
     }
@@ -522,16 +539,17 @@ function OwnerDashboardPage() {
     } else if (typeof editPetData.image === 'string') {
       photoUrl = editPetData.image;
     }
-    const petData = {
-      name: editPetData.name,
-      type: editPetData.type === 'Andere' ? editPetData.typeOther : editPetData.type,
-      breed: editPetData.breed,
-      age: Number(editPetData.age),
-      photoUrl: photoUrl,
-      description: '',
-      gender: editPetData.gender || '',
-      neutered: editPetData.neutered || false,
-    };
+          const petData = {
+        name: editPetData.name,
+        type: editPetData.type === 'Andere' ? editPetData.typeOther : editPetData.type,
+        breed: editPetData.breed,
+        age: Number(editPetData.age),
+        weight: editPetData.weight ? Number(editPetData.weight) : undefined,
+        photoUrl: photoUrl,
+        description: editPetData.description,
+        gender: editPetData.gender || '',
+        neutered: editPetData.neutered || false,
+      };
     try {
       const { error } = await petService.updatePet(editPet, petData);
       if (error) throw error;
@@ -542,13 +560,14 @@ function OwnerDashboardPage() {
         type: pet.type,
         breed: pet.breed || '',
         age: pet.age ?? '',
+        weight: pet.weight ?? '',
         image: pet.photo_url || '',
         description: pet.description || '',
         gender: pet.gender || '',
         neutered: pet.neutered || false,
       })));
       setEditPet(null);
-      setEditPetData({ name: '', type: '', typeOther: '', breed: '', age: '', image: '', gender: '', neutered: false });
+              setEditPetData({ name: '', type: '', typeOther: '', breed: '', age: '', weight: '', image: '', description: '', gender: '', neutered: false });
     } catch (e) {
       setPetError('Fehler beim Bearbeiten des Tiers!');
     }
@@ -567,6 +586,7 @@ function OwnerDashboardPage() {
         type: pet.type,
         breed: pet.breed || '',
         age: pet.age ?? '',
+        weight: pet.weight ?? '',
         image: pet.photo_url || '',
         description: pet.description || '',
         gender: pet.gender || '',
@@ -590,16 +610,18 @@ function OwnerDashboardPage() {
 
   const handleEditPet = (pet: any) => {
     setEditPet(pet.id);
-    setEditPetData({
-      name: pet.name,
-      type: pet.type,
-      typeOther: '',
-      breed: pet.breed,
-      age: pet.age.toString(),
-      image: pet.image,
-      gender: pet.gender || '',
-      neutered: pet.neutered || false,
-    });
+          setEditPetData({
+        name: pet.name,
+        type: pet.type,
+        typeOther: '',
+        breed: pet.breed,
+        age: pet.age.toString(),
+        weight: pet.weight?.toString() || '',
+        image: pet.image,
+        description: pet.description || '',
+        gender: pet.gender || '',
+        neutered: pet.neutered || false,
+      });
   };
 
   const handleDeleteContact = (caregiver: any, e: React.MouseEvent) => {
@@ -640,6 +662,35 @@ function OwnerDashboardPage() {
     setShowDeleteCaretakerModal(false);
     setCaretakerToDelete(null);
     setDeleteCaretakerConfirmationText('');
+  };
+
+  const handleStartChat = async (caregiver: any, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!user) return;
+    
+    try {
+      // Erstelle oder finde bestehende Konversation
+      const { data: conversation, error } = await getOrCreateConversation({
+        owner_id: user.id,
+        caretaker_id: caregiver.id
+      });
+
+      if (error) {
+        console.error('Fehler beim Erstellen der Konversation:', error);
+        // TODO: Toast-Benachrichtigung anzeigen
+        return;
+      }
+
+      if (conversation) {
+        // Navigiere direkt zum Chat
+        navigate(`/nachrichten/${conversation.id}`);
+      }
+    } catch (error) {
+      console.error('Unerwarteter Fehler beim Starten des Chats:', error);
+      // TODO: Toast-Benachrichtigung anzeigen
+    }
   };
 
   const handleShareToggle = async (setting: keyof ShareSettings) => {
@@ -815,6 +866,8 @@ function OwnerDashboardPage() {
       } else {
         setVetSaveMsg('Tierarzt-Informationen erfolgreich gespeichert!');
         setEditVet(false);
+        // Reset loaded flag nach dem Speichern für erneutes Laden bei Bedarf
+        vetDataLoadedRef.current = false;
       }
     } catch {
       setVetError('Fehler beim Speichern der Tierarzt-Informationen!');
@@ -841,6 +894,8 @@ function OwnerDashboardPage() {
       } else {
         setEmergencySaveMsg('Notfallkontakt erfolgreich gespeichert!');
         setEditEmergency(false);
+        // Reset loaded flag nach dem Speichern für erneutes Laden bei Bedarf
+        emergencyDataLoadedRef.current = false;
       }
     } catch {
       setEmergencyError('Fehler beim Speichern des Notfallkontakts!');
@@ -938,6 +993,8 @@ function OwnerDashboardPage() {
         setServices(editServices);
         setOtherWishes(editOtherWishes);
         setEditPrefs(false);
+        // Reset loaded flag nach dem Speichern für erneutes Laden bei Bedarf
+        prefsDataLoadedRef.current = false;
       }
     } catch {
       setPrefsError('Fehler beim Speichern der Betreuungsvorlieben!');
@@ -997,6 +1054,71 @@ function OwnerDashboardPage() {
       console.error('Fehler beim Löschen des Kontos:', error);
       alert('Fehler beim Löschen des Kontos. Bitte versuchen Sie es erneut.');
       setIsDeleting(false);
+    }
+  };
+
+  // Cancel-Handler für Veterinär-Bearbeitung
+  const handleCancelEditVet = () => {
+    setEditVet(false);
+    // Lade die ursprünglichen Daten erneut
+    vetDataLoadedRef.current = false;
+    // Trigger reload through useEffect by resetting ref and calling it manually
+    if (user && activeTab === 'einstellungen') {
+      setVetLoading(true);
+      setVetError(null);
+      ownerPreferencesService.getPreferences(user.id)
+        .then(({ data, error }) => {
+          if (error) {
+            setVetError('Fehler beim Laden der Tierarzt-Informationen!');
+            setVetData({ name: '', address: '', phone: '' });
+          } else if (data) {
+            let name = '', address = '', phone = '';
+            if (data.vet_info) {
+              try {
+                const info = typeof data.vet_info === 'string' ? JSON.parse(data.vet_info) : data.vet_info;
+                name = info.name || '';
+                address = info.address || '';
+                phone = info.phone || '';
+              } catch {
+                name = data.vet_info;
+              }
+            }
+            setVetData({ name, address, phone });
+          } else {
+            setVetData({ name: '', address: '', phone: '' });
+          }
+          vetDataLoadedRef.current = true;
+        })
+        .catch(() => setVetError('Fehler beim Laden der Tierarzt-Informationen!'))
+        .finally(() => setVetLoading(false));
+    }
+  };
+
+  // Cancel-Handler für Notfall-Bearbeitung
+  const handleCancelEditEmergency = () => {
+    setEditEmergency(false);
+    // Lade die ursprünglichen Daten erneut
+    emergencyDataLoadedRef.current = false;
+    if (user && activeTab === 'einstellungen') {
+      setEmergencyLoading(true);
+      setEmergencyError(null);
+      ownerPreferencesService.getPreferences(user.id)
+        .then(({ data, error }) => {
+          if (error) {
+            setEmergencyError('Fehler beim Laden des Notfallkontakts!');
+            setEmergencyData({ name: '', phone: '' });
+          } else if (data) {
+            setEmergencyData({
+              name: data.emergency_contact_name || '',
+              phone: data.emergency_contact_phone || ''
+            });
+          } else {
+            setEmergencyData({ name: '', phone: '' });
+          }
+          emergencyDataLoadedRef.current = true;
+        })
+        .catch(() => setEmergencyError('Fehler beim Laden des Notfallkontakts!'))
+        .finally(() => setEmergencyLoading(false));
     }
   };
 
@@ -1185,8 +1307,19 @@ function OwnerDashboardPage() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                <PawPrint className="h-4 w-4 inline mr-2" />
+                <Heart className="h-4 w-4 inline mr-2" />
                 Übersicht
+              </button>
+              <button
+                onClick={() => setActiveTab('tiere')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'tiere'
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <PawPrint className="h-4 w-4 inline mr-2" />
+                Meine Tiere
               </button>
               <button
                 onClick={() => setActiveTab('einstellungen')}
@@ -1206,6 +1339,85 @@ function OwnerDashboardPage() {
         {/* Tab Content */}
         {activeTab === 'uebersicht' && (
           <>
+            {/* Kontakte */}
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Heart className="h-5 w-5" />Meine Betreuer</h2>
+              {contactsLoading ? (
+                <div className="text-gray-500">Betreuer werden geladen ...</div>
+              ) : contactsError ? (
+                <div className="text-red-500">{contactsError}</div>
+              ) : contacts.length === 0 ? (
+                <div className="text-gray-500">
+                  Noch keine Betreuer gespeichert. 
+                  <br />
+                  <span className="text-sm">Verwenden Sie den "Als Betreuer speichern" Button in einem Chat, um Betreuer hier anzuzeigen.</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {contacts.map((caregiver: any) => (
+                    <div key={caregiver.id} className="bg-white rounded-xl shadow-sm p-4 flex gap-4 items-center relative min-h-[110px]">
+                      {/* Action Icons oben rechts */}
+                      <div className="absolute top-4 right-4 flex gap-2">
+                        {/* Profil ansehen */}
+                        <Link
+                          to={`/betreuer/${caregiver.id}`}
+                          className="text-gray-400 hover:text-primary-600 transition-colors"
+                          title="Profil ansehen"
+                        >
+                          <User className="h-3.5 w-3.5" />
+                        </Link>
+                        {/* Chat öffnen */}
+                        <button
+                          type="button"
+                          className="text-gray-400 hover:text-green-600 transition-colors"
+                          title="Chat öffnen"
+                          onClick={(e) => handleStartChat(caregiver, e)}
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                        </button>
+                        {/* Betreuer entfernen */}
+                        <button
+                          type="button"
+                          className="text-gray-400 hover:text-red-600 transition-colors"
+                          aria-label="Betreuer entfernen"
+                          onClick={(e) => handleDeleteContact(caregiver, e)}
+                          title="Betreuer entfernen"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <img src={caregiver.avatar} alt={caregiver.name} className="w-20 h-20 rounded-full object-cover border-2 border-primary-100" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="font-bold text-lg truncate">{caregiver.name}</div>
+                          {caregiver.isCommercial && (
+                            <span className="bg-gradient-to-r from-purple-600 to-purple-700 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md text-center flex items-center justify-center">
+                              <Briefcase className="h-3 w-3 mr-1" /> Pro
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center text-gray-600 text-sm mt-1 mb-2 gap-1">
+                          <MapPin className="h-4 w-4 mr-1" />
+                          <span className="truncate">{caregiver.location}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {caregiver.services.map((service: string) => (
+                            <span key={service} className="inline-block bg-primary-50 text-primary-700 text-xs px-2 py-0.5 rounded-full">
+                              {service}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {activeTab === 'tiere' && (
+          <>
             {/* Haustiere */}
             <div className="mb-8">
               <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><PawPrint className="h-5 w-5" />Meine Tiere</h2>
@@ -1216,35 +1428,88 @@ function OwnerDashboardPage() {
               ) : pets.length === 0 ? (
                 <div className="text-gray-500 italic">Hier ist noch gähnende Leere…  Füge jetzt dein erstes Tier hinzu!</div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   {pets.map((pet) => (
-                    <div key={pet.id} className="bg-white rounded-xl shadow-sm p-4 relative">
+                    <div key={pet.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 relative hover:shadow-md transition-shadow duration-200">
                       {editPet !== pet.id ? (
                         <>
                           {/* Edit-Button oben rechts */}
                           <button
                             type="button"
-                            className="absolute top-4 right-4 text-gray-400 hover:text-primary-600 transition-colors"
+                            className="absolute top-3 right-3 p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all duration-200"
                             aria-label="Tier bearbeiten"
                             onClick={() => handleEditPet(pet)}
                           >
-                            <Edit className="h-3.5 w-3.5" />
+                            <Edit className="h-4 w-4" />
                           </button>
                           
-                          <div className="flex gap-4 items-center">
+                          {/* Header mit Foto und Name */}
+                          <div className="flex items-center gap-4 mb-4">
                             {pet.image ? (
-                              <img src={pet.image} alt={pet.name} className="w-20 h-20 rounded-full object-cover border-2 border-primary-100" />
+                              <img 
+                                src={pet.image} 
+                                alt={pet.name} 
+                                className="w-16 h-16 rounded-2xl object-cover border-2 border-primary-100 shadow-sm" 
+                              />
                             ) : (
-                              <div className="w-20 h-20 rounded-full bg-gray-100 border-2 border-primary-100 flex items-center justify-center text-gray-400 text-2xl font-bold">
-                                {pet.name ? pet.name.charAt(0) : <PawPrint className="h-8 w-8" />}
+                              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-100 to-primary-200 border-2 border-primary-100 flex items-center justify-center text-primary-600 shadow-sm">
+                                {pet.name ? (
+                                  <span className="text-xl font-bold">{pet.name.charAt(0).toUpperCase()}</span>
+                                ) : (
+                                  <PawPrint className="h-6 w-6" />
+                                )}
                               </div>
                             )}
-                            <div>
-                              <div className="font-bold text-lg">{pet.name}</div>
-                              <div className="text-gray-600 text-sm">{pet.type} • {pet.breed}</div>
-                              <div className="text-gray-500 text-sm">Alter: {pet.age} Jahre</div>
+                            <div className="flex-1">
+                              <h3 className="font-bold text-xl text-gray-900 mb-1">{pet.name}</h3>
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                                  {pet.type}
+                                </span>
+                                {pet.breed && (
+                                  <span className="text-gray-500 text-sm">• {pet.breed}</span>
+                                )}
+                              </div>
                             </div>
                           </div>
+
+                          {/* Tier-Details in Grid */}
+                          <div className="grid grid-cols-2 gap-3 mb-4">
+                            <div className="bg-gray-50 rounded-lg p-3">
+                              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Alter</div>
+                              <div className="text-sm font-semibold text-gray-900">{pet.age} Jahre</div>
+                            </div>
+                            {pet.weight && (
+                              <div className="bg-gray-50 rounded-lg p-3">
+                                <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Gewicht</div>
+                                <div className="text-sm font-semibold text-gray-900">{pet.weight} kg</div>
+                              </div>
+                            )}
+                            {pet.gender && (
+                              <div className="bg-gray-50 rounded-lg p-3">
+                                <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Geschlecht</div>
+                                <div className="text-sm font-semibold text-gray-900">
+                                  {pet.gender}
+                                  {pet.neutered && <span className="text-gray-500 ml-1">(kastriert)</span>}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Beschreibung */}
+                          {pet.description && (
+                            <div className="border-t border-gray-100 pt-3">
+                              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Über {pet.name}</div>
+                              <p className="text-sm text-gray-700 leading-relaxed" style={{
+                                display: '-webkit-box',
+                                WebkitLineClamp: 3,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden'
+                              }}>
+                                {pet.description}
+                              </p>
+                            </div>
+                          )}
                         </>
                       ) : (
                         <>
@@ -1296,6 +1561,20 @@ function OwnerDashboardPage() {
                               placeholder="Alter (Jahre)"
                               value={editPetData.age}
                               onChange={e => setEditPetData(p => ({ ...p, age: e.target.value }))}
+                            />
+                            <input
+                              type="number"
+                              className="input w-full"
+                              placeholder="Gewicht (kg)"
+                              value={editPetData.weight}
+                              onChange={e => setEditPetData(p => ({ ...p, weight: e.target.value }))}
+                            />
+                            <textarea
+                              className="input w-full"
+                              placeholder="Über das Tier (Charakter, Besonderheiten, etc.)"
+                              value={editPetData.description}
+                              onChange={e => setEditPetData(p => ({ ...p, description: e.target.value }))}
+                              rows={3}
                             />
                             {editPetData.type === 'Hund' && (
                               <div className="flex gap-4 items-center mt-2">
@@ -1410,6 +1689,20 @@ function OwnerDashboardPage() {
                       value={newPet.age}
                       onChange={e => setNewPet(p => ({ ...p, age: e.target.value }))}
                     />
+                    <input
+                      type="number"
+                      className="input"
+                      placeholder="Gewicht (kg)"
+                      value={newPet.weight}
+                      onChange={e => setNewPet(p => ({ ...p, weight: e.target.value }))}
+                    />
+                    <textarea
+                      className="input"
+                      placeholder="Über das Tier (Charakter, Besonderheiten, etc.)"
+                      value={newPet.description}
+                      onChange={e => setNewPet(p => ({ ...p, description: e.target.value }))}
+                      rows={3}
+                    />
                     {newPet.type === 'Hund' && (
                       <div className="flex gap-4 items-center mt-2">
                         <div>
@@ -1452,7 +1745,7 @@ function OwnerDashboardPage() {
                       <button
                         type="button"
                         className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
-                        onClick={() => { setShowAddPet(false); setNewPet({ name: '', type: '', typeOther: '', breed: '', age: '', image: '', gender: '', neutered: false }); }}
+                        onClick={() => { setShowAddPet(false); setNewPet({ name: '', type: '', typeOther: '', breed: '', age: '', weight: '', image: '', description: '', gender: '', neutered: false }); }}
                       >
                         <X className="h-4 w-4 inline" /> Abbrechen
                       </button>
@@ -1460,61 +1753,6 @@ function OwnerDashboardPage() {
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* Kontakte */}
-            <div className="mb-8">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Heart className="h-5 w-5" />Meine Betreuer</h2>
-              {contactsLoading ? (
-                <div className="text-gray-500">Betreuer werden geladen ...</div>
-              ) : contactsError ? (
-                <div className="text-red-500">{contactsError}</div>
-              ) : contacts.length === 0 ? (
-                <div className="text-gray-500">
-                  Noch keine Betreuer gespeichert. 
-                  <br />
-                  <span className="text-sm">Verwenden Sie den "Als Betreuer speichern" Button in einem Chat, um Betreuer hier anzuzeigen.</span>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {contacts.map((caregiver: any) => (
-                    <div key={caregiver.id} className="bg-white rounded-xl shadow-sm p-4 flex gap-4 items-center relative min-h-[110px]">
-                      {/* Betreuer entfernen Button oben rechts */}
-                      <button
-                        type="button"
-                        className="absolute top-4 right-4 text-gray-400 hover:text-red-600 transition-colors"
-                        aria-label="Betreuer entfernen"
-                        onClick={(e) => handleDeleteContact(caregiver, e)}
-                        title="Betreuer entfernen"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                      <img src={caregiver.avatar} alt={caregiver.name} className="w-20 h-20 rounded-full object-cover border-2 border-primary-100" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <div className="font-bold text-lg truncate">{caregiver.name}</div>
-                          {caregiver.isCommercial && (
-                            <span className="bg-gradient-to-r from-purple-600 to-purple-700 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md text-center flex items-center justify-center">
-                              <Briefcase className="h-3 w-3 mr-1" /> Pro
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center text-gray-600 text-sm mt-1 mb-2 gap-1">
-                          <MapPin className="h-4 w-4 mr-1" />
-                          <span className="truncate">{caregiver.location}</span>
-                        </div>
-                        <div className="flex flex-wrap gap-2 mt-1">
-                          {caregiver.services.map((service: string) => (
-                            <span key={service} className="inline-block bg-primary-50 text-primary-700 text-xs px-2 py-0.5 rounded-full">
-                              {service}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </>
         )}
@@ -1571,7 +1809,7 @@ function OwnerDashboardPage() {
                       </div>
                       <div className="flex gap-2 mt-2">
                         <button className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm" onClick={handleSaveVet} disabled={vetLoading}>Speichern</button>
-                        <button className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm" onClick={() => setEditVet(false)} disabled={vetLoading}>Abbrechen</button>
+                        <button className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm" onClick={handleCancelEditVet} disabled={vetLoading}>Abbrechen</button>
                       </div>
                       {vetSaveMsg && <div className="text-green-600 text-sm mt-2">{vetSaveMsg}</div>}
                     </>
@@ -1622,7 +1860,7 @@ function OwnerDashboardPage() {
                       </div>
                       <div className="flex gap-2 mt-2">
                         <button className="px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm" onClick={handleSaveEmergency} disabled={emergencyLoading}>Speichern</button>
-                        <button className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm" onClick={() => setEditEmergency(false)} disabled={emergencyLoading}>Abbrechen</button>
+                        <button className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm" onClick={handleCancelEditEmergency} disabled={emergencyLoading}>Abbrechen</button>
                       </div>
                       {emergencySaveMsg && <div className="text-green-600 text-sm mt-2">{emergencySaveMsg}</div>}
                     </>

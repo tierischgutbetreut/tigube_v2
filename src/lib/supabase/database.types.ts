@@ -807,94 +807,254 @@ export type Database = {
           },
         ]
       }
-      users: {
+      support_tickets: {
         Row: {
-          address: string | null
-          city: string | null
-          created_at: string | null
-          email: string | null
-          first_name: string | null
           id: string
-          last_name: string | null
-          max_bookings: number | null
-          max_contact_requests: number | null
-          phone: string | null
-          phone_number: string | null
-          plz: string | null
-          premium_badge: boolean | null
-          profile_completed: boolean | null
-          profile_photo_url: string | null
-          search_priority: number | null
-          show_ads: boolean | null
-          street: string | null
-          subscription_id: string | null
-          updated_at: string | null
-          user_type: string | null
-          username: string | null
+          user_id: string
+          assigned_admin_id: string | null
+          title: string
+          description: string
+          status: 'open' | 'in_progress' | 'resolved' | 'closed'
+          priority: 'low' | 'medium' | 'high' | 'urgent'
+          category: 'account' | 'billing' | 'technical' | 'feature' | 'complaint' | 'other'
+          admin_notes: string | null
+          created_at: string
+          updated_at: string
+          resolved_at: string | null
         }
         Insert: {
-          address?: string | null
-          city?: string | null
-          created_at?: string | null
-          email?: string | null
-          first_name?: string | null
-          id: string
-          last_name?: string | null
-          max_bookings?: number | null
-          max_contact_requests?: number | null
-          phone?: string | null
-          phone_number?: string | null
-          plz?: string | null
-          premium_badge?: boolean | null
-          profile_completed?: boolean | null
-          profile_photo_url?: string | null
-          search_priority?: number | null
-          show_ads?: boolean | null
-          street?: string | null
-          subscription_id?: string | null
-          updated_at?: string | null
-          user_type?: string | null
-          username?: string | null
+          id?: string
+          user_id: string
+          assigned_admin_id?: string | null
+          title: string
+          description: string
+          status?: 'open' | 'in_progress' | 'resolved' | 'closed'
+          priority?: 'low' | 'medium' | 'high' | 'urgent'
+          category?: 'account' | 'billing' | 'technical' | 'feature' | 'complaint' | 'other'
+          admin_notes?: string | null
+          created_at?: string
+          updated_at?: string
+          resolved_at?: string | null
         }
         Update: {
-          address?: string | null
-          city?: string | null
-          created_at?: string | null
-          email?: string | null
-          first_name?: string | null
           id?: string
-          last_name?: string | null
-          max_bookings?: number | null
-          max_contact_requests?: number | null
-          phone?: string | null
-          phone_number?: string | null
-          plz?: string | null
-          premium_badge?: boolean | null
-          profile_completed?: boolean | null
-          profile_photo_url?: string | null
-          search_priority?: number | null
-          show_ads?: boolean | null
-          street?: string | null
-          subscription_id?: string | null
-          updated_at?: string | null
-          user_type?: string | null
-          username?: string | null
+          user_id?: string
+          assigned_admin_id?: string | null
+          title?: string
+          description?: string
+          status?: 'open' | 'in_progress' | 'resolved' | 'closed'
+          priority?: 'low' | 'medium' | 'high' | 'urgent'
+          category?: 'account' | 'billing' | 'technical' | 'feature' | 'complaint' | 'other'
+          admin_notes?: string | null
+          created_at?: string
+          updated_at?: string
+          resolved_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "users_plz_city_fkey"
-            columns: ["plz", "city"]
+            foreignKeyName: "support_tickets_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "plzs"
-            referencedColumns: ["plz", "city"]
-          },
-          {
-            foreignKeyName: "users_subscription_id_fkey"
-            columns: ["subscription_id"]
-            isOneToOne: false
-            referencedRelation: "subscriptions"
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "support_tickets_assigned_admin_id_fkey"
+            columns: ["assigned_admin_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      user_analytics: {
+        Row: {
+          id: string
+          user_id: string
+          metric_type: string
+          metric_value: number
+          metadata: Json | null
+          date_recorded: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          metric_type: string
+          metric_value: number
+          metadata?: Json | null
+          date_recorded?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          metric_type?: string
+          metric_value?: number
+          metadata?: Json | null
+          date_recorded?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_analytics_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      user_notes: {
+        Row: {
+          id: string
+          user_id: string
+          admin_id: string
+          note_type: 'general' | 'warning' | 'positive' | 'billing' | 'technical'
+          content: string
+          is_visible_to_user: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          admin_id: string
+          note_type?: 'general' | 'warning' | 'positive' | 'billing' | 'technical'
+          content: string
+          is_visible_to_user?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          admin_id?: string
+          note_type?: 'general' | 'warning' | 'positive' | 'billing' | 'technical'
+          content?: string
+          is_visible_to_user?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_notes_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      users: {
+        Row: {
+          id: string
+          email: string
+          first_name: string | null
+          last_name: string | null
+          phone_number: string | null
+          profile_photo_url: string | null
+          city: string | null
+          plz: string | null
+          user_type: string | null
+          profile_completed: boolean | null
+          created_at: string | null
+          updated_at: string | null
+          is_admin: boolean | null
+          admin_role: string | null
+          totp_secret: string | null
+          last_admin_login: string | null
+        }
+        Insert: {
+          id: string
+          email: string
+          first_name?: string | null
+          last_name?: string | null
+          phone_number?: string | null
+          profile_photo_url?: string | null
+          city?: string | null
+          plz?: string | null
+          user_type?: string | null
+          profile_completed?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+          is_admin?: boolean | null
+          admin_role?: string | null
+          totp_secret?: string | null
+          last_admin_login?: string | null
+        }
+        Update: {
+          id?: string
+          email?: string
+          first_name?: string | null
+          last_name?: string | null
+          phone_number?: string | null
+          profile_photo_url?: string | null
+          city?: string | null
+          plz?: string | null
+          user_type?: string | null
+          profile_completed?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+          is_admin?: boolean | null
+          admin_role?: string | null
+          totp_secret?: string | null
+          last_admin_login?: string | null
+        }
+        Relationships: []
+      }
+      admin_audit_logs: {
+        Row: {
+          id: string
+          admin_user_id: string
+          action: string
+          target_table: string | null
+          target_id: string | null
+          old_values: Json | null
+          new_values: Json | null
+          ip_address: string | null
+          user_agent: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          admin_user_id: string
+          action: string
+          target_table?: string | null
+          target_id?: string | null
+          old_values?: Json | null
+          new_values?: Json | null
+          ip_address?: string | null
+          user_agent?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          admin_user_id?: string
+          action?: string
+          target_table?: string | null
+          target_id?: string | null
+          old_values?: Json | null
+          new_values?: Json | null
+          ip_address?: string | null
+          user_agent?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_audit_logs_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
         ]
       }
     }
@@ -940,6 +1100,10 @@ export type Database = {
       }
     }
     Functions: {
+      check_admin_access: {
+        Args: { user_id: string; required_role?: string }
+        Returns: boolean
+      }
       check_caretaker_access: {
         Args: { target_owner_id: string; requesting_caretaker_id: string }
         Returns: boolean
@@ -947,6 +1111,10 @@ export type Database = {
       check_feature_access: {
         Args: { user_uuid: string; feature_name: string }
         Returns: boolean
+      }
+      get_admin_dashboard_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       get_caretaker_by_id: {
         Args: { caretaker_id: string }
@@ -973,6 +1141,14 @@ export type Database = {
         Args: { user_uuid: string; action: string }
         Returns: number
       }
+      get_user_details: {
+        Args: { target_user_id: string }
+        Returns: Json
+      }
+      get_user_management_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       get_user_subscription: {
         Args: { user_uuid: string }
         Returns: {
@@ -982,6 +1158,16 @@ export type Database = {
           trial_end_date: string
           billing_end_date: string
         }[]
+      }
+      log_admin_action: {
+        Args: {
+          action_name: string
+          target_table?: string
+          target_id?: string
+          old_values?: Json
+          new_values?: Json
+        }
+        Returns: undefined
       }
       search_caretakers: {
         Args: Record<PropertyKey, never>
@@ -1003,6 +1189,15 @@ export type Database = {
           phone_number: string
           email: string
         }[]
+      }
+      search_users: {
+        Args: {
+          search_term?: string
+          user_type_filter?: string
+          limit_count?: number
+          offset_count?: number
+        }
+        Returns: Json
       }
       track_user_action: {
         Args: { user_uuid: string; action: string; target_uuid?: string }

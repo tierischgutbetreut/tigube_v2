@@ -245,25 +245,78 @@ function getPlanConfig(plan: 'basic' | 'premium', userType: 'owner' | 'caretaker
 interface PricingGridProps {
   userType: 'owner' | 'caretaker';
   onSelectPlan?: (plan: 'basic' | 'premium') => void;
+  onUserTypeChange?: (userType: 'owner' | 'caretaker') => void;
   className?: string;
 }
 
-export function PricingGrid({ userType, onSelectPlan, className = '' }: PricingGridProps) {
+export function PricingGrid({ userType, onSelectPlan, onUserTypeChange, className = '' }: PricingGridProps) {
   const { isBetaUser } = useSubscription();
 
   return (
     <div className={`max-w-7xl mx-auto ${className}`}>
       {/* Header */}
       <div className="text-center mb-12">
-        <h2 className="text-3xl font-bold text-gray-900 mb-4">
-          Wähle den passenden Plan für dich
-        </h2>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+        <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-8">
           {userType === 'owner' 
             ? 'Finde die perfekte Betreuung für dein Haustier mit den Funktionen, die du brauchst.'
             : 'Erweitere dein Betreuungsgeschäft mit professionellen Tools und Features.'
           }
         </p>
+
+        {/* User Type Toggle */}
+        {onUserTypeChange && (
+          <div className="flex justify-center mb-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl w-full">
+              <button
+                onClick={() => onUserTypeChange('owner')}
+                className={`relative bg-white rounded-xl border transition-all duration-300 hover:shadow-lg p-6 text-left ${
+                  userType === 'owner'
+                    ? 'border-2 border-blue-500 shadow-lg transform scale-105 ring-2 ring-blue-500/20'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                {userType === 'owner' && (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-1 rounded-full text-sm font-medium">
+                      Ausgewählt
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-center mb-3">
+                  <span className="text-2xl mr-2">🐕</span>
+                  <h3 className="text-lg font-bold text-gray-900">Ich bin Tierbesitzer</h3>
+                </div>
+                <p className="text-sm text-gray-600 text-center">
+                  Finde die perfekte Betreuung
+                </p>
+              </button>
+
+              <button
+                onClick={() => onUserTypeChange('caretaker')}
+                className={`relative bg-white rounded-xl border transition-all duration-300 hover:shadow-lg p-6 text-left ${
+                  userType === 'caretaker'
+                    ? 'border-2 border-blue-500 shadow-lg transform scale-105 ring-2 ring-blue-500/20'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                {userType === 'caretaker' && (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-1 rounded-full text-sm font-medium">
+                      Ausgewählt
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-center mb-3">
+                  <span className="text-2xl mr-2">🏠</span>
+                  <h3 className="text-lg font-bold text-gray-900">Ich bin Betreuer</h3>
+                </div>
+                <p className="text-sm text-gray-600 text-center">
+                  Erweitere dein Geschäft
+                </p>
+              </button>
+            </div>
+          </div>
+        )}
         
         {isBetaUser && (
           <div className="mt-6 inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-full">

@@ -11,6 +11,8 @@ const SearchPage = lazy(() => import('./pages/SearchPage'));
 const BetreuerProfilePage = lazy(() => import('./pages/BetreuerProfilePage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
 const ImpressumPage = lazy(() => import('./pages/ImpressumPage'));
 const DatenschutzPage = lazy(() => import('./pages/DatenschutzPage'));
 const AgbPage = lazy(() => import('./pages/AgbPage'));
@@ -44,6 +46,8 @@ function App() {
           <Route path="/betreuer/:id" element={<BetreuerProfilePage />} />
           <Route path="/registrieren" element={<RegisterPage />} />
           <Route path="/anmelden" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/impressum" element={<ImpressumPage />} />
           <Route path="/datenschutz" element={<DatenschutzPage />} />
           <Route path="/agb" element={<AgbPage />} />
