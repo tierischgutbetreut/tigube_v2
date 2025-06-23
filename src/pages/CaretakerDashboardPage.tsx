@@ -9,7 +9,7 @@ import type { ClientData } from '../components/ui/ClientDetailsAccordion';
 import { useAuth } from '../lib/auth/AuthContext';
 import { useEffect, useState, useRef } from 'react';
 import { caretakerProfileService, ownerCaretakerService } from '../lib/supabase/db';
-import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info, Lock, Briefcase, Verified, Eye } from 'lucide-react';
+import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info, Lock, Briefcase, Verified, Eye, EyeOff, KeyRound, Trash2, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
 import useFeatureAccess from '../hooks/useFeatureAccess';
@@ -644,7 +644,7 @@ function CaretakerDashboardPage() {
   const avatarUrl = profileData.profile_photo_url || profileData.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=f3f4f6&color=374151&length=2`;
 
   // Tab-Navigation für Übersicht/Fotos
-  const [activeTab, setActiveTab] = useState<'uebersicht' | 'fotos' | 'texte' | 'kunden' | 'bewertungen'>('uebersicht');
+  const [activeTab, setActiveTab] = useState<'uebersicht' | 'fotos' | 'texte' | 'kunden' | 'bewertungen' | 'sicherheit'>('uebersicht');
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
 
@@ -738,6 +738,148 @@ function CaretakerDashboardPage() {
     } catch (error) {
       console.error('Fehler beim Entfernen des Kunden:', error);
       alert('Fehler beim Entfernen des Kunden. Bitte versuchen Sie es erneut.');
+    }
+  };
+
+  // Sicherheit Tab - Passwort ändern
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false
+  });
+
+  // Passwort ändern Handler
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    setPasswordError(null);
+    setPasswordSuccess(false);
+
+    // Validierung
+    if (!passwordData.currentPassword) {
+      setPasswordError('Bitte gib dein aktuelles Passwort ein.');
+      return;
+    }
+
+    if (!passwordData.newPassword) {
+      setPasswordError('Bitte gib ein neues Passwort ein.');
+      return;
+    }
+
+    if (passwordData.newPassword.length < 8) {
+      setPasswordError('Das neue Passwort muss mindestens 8 Zeichen lang sein.');
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordError('Die neuen Passwörter stimmen nicht überein.');
+      return;
+    }
+
+    if (passwordData.currentPassword === passwordData.newPassword) {
+      setPasswordError('Das neue Passwort muss sich vom aktuellen Passwort unterscheiden.');
+      return;
+    }
+
+    try {
+      setPasswordLoading(true);
+
+      // Erst das aktuelle Passwort verifizieren
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email!,
+        password: passwordData.currentPassword
+      });
+
+      if (signInError) {
+        setPasswordError('Das aktuelle Passwort ist nicht korrekt.');
+        return;
+      }
+
+      // Neues Passwort setzen
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: passwordData.newPassword
+      });
+
+      if (updateError) {
+        setPasswordError('Fehler beim Aktualisieren des Passworts: ' + updateError.message);
+        return;
+      }
+
+      setPasswordSuccess(true);
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+
+      // Erfolg nach 3 Sekunden ausblenden
+      setTimeout(() => setPasswordSuccess(false), 3000);
+
+    } catch (error: any) {
+      console.error('Fehler beim Ändern des Passworts:', error);
+      setPasswordError('Ein unerwarteter Fehler ist aufgetreten.');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  // Konto löschen
+  const [deleteAccountConfirmation, setDeleteAccountConfirmation] = useState('');
+  const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+
+  // Konto löschen Handler
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+
+    if (deleteAccountConfirmation !== 'KONTO LÖSCHEN') {
+      alert('Bitte gib "KONTO LÖSCHEN" in das Bestätigungsfeld ein.');
+      return;
+    }
+
+    const finalConfirmation = window.confirm(
+      'Bist du dir absolut sicher, dass du dein Konto löschen möchtest?\n\n' +
+      '⚠️ WARNUNG: Diese Aktion kann nicht rückgängig gemacht werden!\n\n' +
+      '• Alle deine Profildaten werden gelöscht\n' +
+      '• Alle Nachrichten und Konversationen werden gelöscht\n' +
+      '• Alle Kundendaten werden gelöscht\n' +
+      '• Du verlierst den Zugang zu deinem Konto\n\n' +
+      'Klicke OK, um dein Konto endgültig zu löschen.'
+    );
+
+    if (!finalConfirmation) return;
+
+    try {
+      setDeleteAccountLoading(true);
+
+      // Import der userService deleteUser Funktion
+      const { userService } = await import('../lib/supabase/db');
+      const { error } = await userService.deleteUser(user.id);
+
+      if (error) {
+        console.error('Fehler beim Löschen des Kontos:', error);
+        alert('Fehler beim Löschen des Kontos. Bitte versuche es erneut oder kontaktiere den Support.');
+        return;
+      }
+
+      // Der User wird automatisch ausgeloggt durch die deleteUser Funktion
+      alert('Dein Konto wurde erfolgreich gelöscht. Du wirst zur Startseite weitergeleitet.');
+      
+      // Navigation zur Startseite erfolgt automatisch durch den Auth-Context
+    } catch (error: any) {
+      console.error('Fehler beim Löschen des Kontos:', error);
+      alert('Ein unerwarteter Fehler ist aufgetreten. Bitte versuche es erneut oder kontaktiere den Support.');
+    } finally {
+      setDeleteAccountLoading(false);
     }
   };
 
@@ -1008,6 +1150,16 @@ function CaretakerDashboardPage() {
               }`}
             >
               Bewertungen
+            </button>
+            <button
+              onClick={() => setActiveTab('sicherheit')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'sicherheit'
+                  ? 'border-primary-500 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Sicherheit
             </button>
           </nav>
         </div>
@@ -1534,6 +1686,235 @@ function CaretakerDashboardPage() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {activeTab === 'sicherheit' && (
+        <div className="space-y-8">
+          {/* Passwort ändern */}
+          <div className="bg-white rounded-xl shadow p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <KeyRound className="h-6 w-6 text-primary-600" />
+              <h2 className="text-xl font-semibold text-gray-900">Passwort ändern</h2>
+            </div>
+            
+            <form onSubmit={handlePasswordChange} className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Links: Aktuelles Passwort */}
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Aktuelles Passwort</h3>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Aktuelles Passwort <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPasswords.current ? 'text' : 'password'}
+                        className="input pr-10 w-full"
+                        value={passwordData.currentPassword}
+                        onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                        placeholder="Dein aktuelles Passwort"
+                        disabled={passwordLoading}
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        onClick={() => setShowPasswords(prev => ({ ...prev, current: !prev.current }))}
+                        tabIndex={-1}
+                      >
+                        {showPasswords.current ? (
+                          <EyeOff className="h-5 w-5 text-gray-400" />
+                        ) : (
+                          <Eye className="h-5 w-5 text-gray-400" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rechts: Neues Passwort */}
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Neues Passwort</h3>
+                  <div className="space-y-4">
+                    {/* Neues Passwort */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Neues Passwort <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPasswords.new ? 'text' : 'password'}
+                          className="input pr-10 w-full"
+                          value={passwordData.newPassword}
+                          onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                          placeholder="Mindestens 8 Zeichen"
+                          disabled={passwordLoading}
+                          required
+                          minLength={8}
+                        />
+                        <button
+                          type="button"
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                          onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
+                          tabIndex={-1}
+                        >
+                          {showPasswords.new ? (
+                            <EyeOff className="h-5 w-5 text-gray-400" />
+                          ) : (
+                            <Eye className="h-5 w-5 text-gray-400" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Passwort bestätigen */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Neues Passwort bestätigen <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPasswords.confirm ? 'text' : 'password'}
+                          className="input pr-10 w-full"
+                          value={passwordData.confirmPassword}
+                          onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                          placeholder="Neues Passwort wiederholen"
+                          disabled={passwordLoading}
+                          required
+                        />
+                        <button
+                          type="button"
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                          onClick={() => setShowPasswords(prev => ({ ...prev, confirm: !prev.confirm }))}
+                          tabIndex={-1}
+                        >
+                          {showPasswords.confirm ? (
+                            <EyeOff className="h-5 w-5 text-gray-400" />
+                          ) : (
+                            <Eye className="h-5 w-5 text-gray-400" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fehler und Erfolg */}
+              {passwordError && (
+                <div className="flex items-center gap-2 text-red-600 text-sm">
+                  <AlertTriangle className="h-4 w-4" />
+                  {passwordError}
+                </div>
+              )}
+
+              {passwordSuccess && (
+                <div className="flex items-center gap-2 text-green-600 text-sm">
+                  <Check className="h-4 w-4" />
+                  Passwort erfolgreich geändert!
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <div className="flex justify-start">
+                <button
+                  type="submit"
+                  className="btn-primary py-2 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={passwordLoading}
+                >
+                  {passwordLoading ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Wird geändert...
+                    </div>
+                  ) : (
+                    'Passwort ändern'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Konto löschen */}
+          <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <Trash2 className="h-6 w-6 text-red-600" />
+              <h2 className="text-xl font-semibold text-red-900">Gefährlicher Bereich</h2>
+            </div>
+            
+            <div className="mb-6">
+              <h3 className="text-lg font-medium text-red-900 mb-2">Konto löschen</h3>
+              <p className="text-red-700 text-sm mb-4">
+                ⚠️ <strong>Warnung:</strong> Wenn du dein Konto löschst, werden alle deine Daten unwiderruflich gelöscht. 
+                Dies umfasst dein Profil, alle Nachrichten, Kundendaten und alle anderen mit deinem Konto verbundenen Informationen.
+              </p>
+              
+              <div className="bg-red-100 border border-red-200 rounded-lg p-4 mb-4">
+                <h4 className="font-medium text-red-900 mb-2">Was wird gelöscht:</h4>
+                <ul className="text-red-800 text-sm space-y-1">
+                  <li>• Dein komplettes Betreuer-Profil</li>
+                  <li>• Alle Nachrichten und Konversationen</li>
+                  <li>• Alle gespeicherten Kundendaten</li>
+                  <li>• Alle Bewertungen und Feedback</li>
+                  <li>• Alle hochgeladenen Fotos</li>
+                  <li>• Dein Benutzerkonto und Login-Daten</li>
+                </ul>
+              </div>
+
+              {!showDeleteConfirmation ? (
+                <button
+                  onClick={() => setShowDeleteConfirmation(true)}
+                  className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors text-sm font-medium"
+                >
+                  Konto löschen
+                </button>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-red-900 mb-2">
+                      Um dein Konto zu löschen, gib <strong>"KONTO LÖSCHEN"</strong> in das Feld ein:
+                    </label>
+                    <input
+                      type="text"
+                      className="input w-full max-w-xs border-red-300 focus:border-red-500 focus:ring-red-500"
+                      value={deleteAccountConfirmation}
+                      onChange={(e) => setDeleteAccountConfirmation(e.target.value)}
+                      placeholder="KONTO LÖSCHEN"
+                      disabled={deleteAccountLoading}
+                    />
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleDeleteAccount}
+                      disabled={deleteAccountConfirmation !== 'KONTO LÖSCHEN' || deleteAccountLoading}
+                      className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {deleteAccountLoading ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Wird gelöscht...
+                        </div>
+                      ) : (
+                        'Konto endgültig löschen'
+                      )}
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setShowDeleteConfirmation(false);
+                        setDeleteAccountConfirmation('');
+                      }}
+                      disabled={deleteAccountLoading}
+                      className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 transition-colors text-sm font-medium"
+                    >
+                      Abbrechen
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
