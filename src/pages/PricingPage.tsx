@@ -21,16 +21,18 @@ export default function PricingPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [selectedTrigger, setSelectedTrigger] = useState<'limit_reached' | 'feature_blocked' | 'general'>('general');
   
-  // Setze den Default-Tab basierend auf dem User-Profil
-  const defaultUserType = userProfile?.user_type || 'owner';
-  const [selectedUserType, setSelectedUserType] = useState<'owner' | 'caretaker'>(defaultUserType);
+  // Setze den Default-Tab basierend auf dem User-Profil, aber nur beim ersten Laden
+  const [selectedUserType, setSelectedUserType] = useState<'owner' | 'caretaker'>('owner');
+  const [hasInitialized, setHasInitialized] = useState(false);
 
-  // Update selectedUserType wenn sich das User-Profil ändert
+  // Update selectedUserType nur beim ersten Laden des User-Profils, danach ist der Toggle frei
   useEffect(() => {
-    if (userProfile?.user_type && selectedUserType !== userProfile.user_type) {
+    // Nur beim ersten Laden das User-Profil als Default setzen
+    if (userProfile?.user_type && !hasInitialized) {
       setSelectedUserType(userProfile.user_type);
+      setHasInitialized(true);
     }
-  }, [userProfile?.user_type, selectedUserType]);
+  }, [userProfile?.user_type, hasInitialized]);
 
   const handleSelectPlan = async (plan: 'basic' | 'premium') => {
     console.log('Plan selected:', plan);
