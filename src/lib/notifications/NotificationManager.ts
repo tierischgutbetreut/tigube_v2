@@ -1,9 +1,8 @@
 /**
- * NotificationManager - Handle browser notifications and sounds
+ * NotificationManager - Handle browser notifications
  */
 export class NotificationManager {
   private permission: NotificationPermission = 'default'
-  private soundEnabled = true
   private notificationsEnabled = true
 
   constructor() {
@@ -50,7 +49,7 @@ export class NotificationManager {
       tag: conversationId, // Prevent multiple notifications from same conversation
       badge: '/Image/Logos/tigube_logo_klein.png',
       requireInteraction: false,
-      silent: !this.soundEnabled
+      silent: true // Always silent since we removed sound support
     })
 
     // Handle notification click
@@ -79,7 +78,7 @@ export class NotificationManager {
     const notification = new Notification(`${senderName} schreibt...`, {
       icon: '/Image/Logos/tigube_logo_klein.png',
       tag: `typing-${conversationId}`,
-      silent: true, // No sound for typing notifications
+      silent: true,
       requireInteraction: false
     })
 
@@ -89,65 +88,6 @@ export class NotificationManager {
     }, 3000)
 
     return notification
-  }
-
-  /**
-   * Play notification sound
-   */
-  playNotificationSound() {
-    if (!this.soundEnabled) {
-      return
-    }
-
-    try {
-      // Create a simple notification sound using Web Audio API
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
-      const oscillator = audioContext.createOscillator()
-      const gainNode = audioContext.createGain()
-      
-      oscillator.connect(gainNode)
-      gainNode.connect(audioContext.destination)
-      
-      oscillator.frequency.value = 800
-      oscillator.type = 'sine'
-      
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3)
-      
-      oscillator.start(audioContext.currentTime)
-      oscillator.stop(audioContext.currentTime + 0.3)
-    } catch (error) {
-      console.log('Could not play notification sound:', error)
-    }
-  }
-
-  /**
-   * Play typing sound
-   */
-  playTypingSound() {
-    if (!this.soundEnabled) {
-      return
-    }
-
-    try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
-      const oscillator = audioContext.createOscillator()
-      const gainNode = audioContext.createGain()
-      
-      oscillator.connect(gainNode)
-      gainNode.connect(audioContext.destination)
-      
-      oscillator.frequency.value = 400
-      oscillator.type = 'square'
-      
-      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime)
-      gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.1)
-      
-      oscillator.start(audioContext.currentTime)
-      oscillator.stop(audioContext.currentTime + 0.1)
-    } catch (error) {
-      console.log('Could not play typing sound:', error)
-    }
   }
 
   /**
@@ -170,7 +110,6 @@ export class NotificationManager {
       const settings = localStorage.getItem('tigube_notification_settings')
       if (settings) {
         const parsed = JSON.parse(settings)
-        this.soundEnabled = parsed.soundEnabled ?? true
         this.notificationsEnabled = parsed.notificationsEnabled ?? true
       }
     } catch (error) {
@@ -184,7 +123,6 @@ export class NotificationManager {
   private saveSettings() {
     try {
       const settings = {
-        soundEnabled: this.soundEnabled,
         notificationsEnabled: this.notificationsEnabled,
         permission: this.permission
       }
@@ -192,14 +130,6 @@ export class NotificationManager {
     } catch (error) {
       console.warn('Failed to save notification settings:', error)
     }
-  }
-
-  /**
-   * Enable/disable sound notifications
-   */
-  setSoundEnabled(enabled: boolean) {
-    this.soundEnabled = enabled
-    this.saveSettings()
   }
 
   /**
@@ -216,7 +146,6 @@ export class NotificationManager {
   getSettings() {
     return {
       permission: this.permission,
-      soundEnabled: this.soundEnabled,
       notificationsEnabled: this.notificationsEnabled,
       browserSupport: 'Notification' in window
     }

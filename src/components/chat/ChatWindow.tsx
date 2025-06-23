@@ -72,8 +72,6 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
     if (!isTyping) {
       setIsTyping(true)
       sendTypingIndicator(conversation.id, currentUserId, true)
-      // Play subtle typing sound
-      notificationManager.playTypingSound()
     }
 
     // Clear existing timeout
@@ -164,9 +162,6 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
                 window.focus()
               }
             )
-            
-            // Play notification sound
-            notificationManager.playNotificationSound()
           }
         },
         (error) => {

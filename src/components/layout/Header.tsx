@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, PawPrint as Paw, MessageCircle, LogOut } from 'lucide-react';
+import { Menu, X, PawPrint as Paw, MessageCircle, LogOut, Shield } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { useNotifications } from '../../lib/notifications/NotificationContext';
+import { useAdmin } from '../../lib/admin/useAdmin';
 import NotificationBadge from '../ui/NotificationBadge';
 
 function Header() {
@@ -13,6 +14,7 @@ function Header() {
   const navigate = useNavigate();
   const { isAuthenticated, userProfile, signOut, loading } = useAuth();
   const { unreadCount } = useNotifications();
+  const { isAdmin, adminUser, loading: adminLoading } = useAdmin();
   
   const isActive = (path: string) => location.pathname === path;
   
@@ -84,6 +86,18 @@ function Header() {
                   Nachrichten
                   <NotificationBadge count={unreadCount} className="ml-1" />
                 </Link>
+                {isAdmin && !adminLoading && (
+                  <a 
+                    href="/admin.html" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm font-medium text-amber-600 hover:text-amber-700 transition-colors"
+                    title="Admin Dashboard"
+                  >
+                    <Shield className="h-4 w-4" />
+                    Admin
+                  </a>
+                )}
                 <button
                   type="button"
                   className="ml-4 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
@@ -118,7 +132,7 @@ function Header() {
               to="/registrieren"
               className="btn btn-primary"
             >
-              Anmelden
+              Registrieren
             </Link>
               </>
             )}
@@ -170,6 +184,18 @@ function Header() {
                     Nachrichten
                     <NotificationBadge count={unreadCount} className="ml-1" />
                   </Link>
+                  {isAdmin && !adminLoading && (
+                    <a 
+                      href="/admin.html" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-3 py-2 rounded-md text-base font-medium text-amber-600 hover:bg-amber-50 hover:text-amber-700"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      <Shield className="h-4 w-4" />
+                      Admin Dashboard
+                    </a>
+                  )}
                   <button
                     type="button"
                     className="ml-3 text-gray-400 hover:text-red-600 transition-colors px-3 py-2 disabled:opacity-50"
@@ -217,7 +243,7 @@ function Header() {
                   to="/registrieren"
                   className="btn btn-primary w-full justify-center"
                 >
-                      Anmelden
+                      Registrieren
                 </Link>
               </div>
                 </>

@@ -90,75 +90,25 @@ export default function PricingPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
       <div className="bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            <h1 className="text-3xl font-bold text-gray-900 mb-3">
               tigube Mitgliedschaften
             </h1>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              {displayUserType === 'owner' 
-                ? 'Finde die perfekte Betreuung für dein Haustier. Starte kostenlos oder upgrade zu Premium für unlimited Kontakte.'
-                : 'Erweitere dein Betreuungsgeschäft. Starte kostenlos oder upgrade zu Professional für Business-Features.'
-              }
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Starte kostenlos oder upgrade für erweiterte Features
             </p>
           </div>
         </div>
       </div>
 
-              {/* User Type Tabs */}
-        <div className="py-8 bg-gray-50 border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Wähle deinen Plan
-              </h2>
-              <p className="text-gray-600">
-                Verschiedene Pläne für Tierbesitzer und Betreuer
-              </p>
-            </div>
-            <div className="flex justify-center">
-              <div className="bg-white rounded-xl p-1.5 shadow-lg border">
-                <button
-                  onClick={() => setSelectedUserType('owner')}
-                  className={`px-8 py-3 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
-                    selectedUserType === 'owner'
-                      ? 'bg-primary-600 text-white shadow-md transform scale-105'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  🐕 Ich bin Tierbesitzer
-                  {selectedUserType === 'owner' && (
-                    <span className="bg-primary-500 text-white text-xs px-2 py-0.5 rounded-full">
-                      €4,90/Monat
-                    </span>
-                  )}
-                </button>
-                <button
-                  onClick={() => setSelectedUserType('caretaker')}
-                  className={`px-8 py-3 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
-                    selectedUserType === 'caretaker'
-                      ? 'bg-primary-600 text-white shadow-md transform scale-105'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  🏠 Ich bin Betreuer
-                  {selectedUserType === 'caretaker' && (
-                    <span className="bg-primary-500 text-white text-xs px-2 py-0.5 rounded-full">
-                      €12,90/Monat
-                    </span>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Pricing Section */}
+              {/* Main Pricing Section */}
         <div className="py-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <PricingGrid 
               userType={displayUserType}
               onSelectPlan={handleSelectPlan}
+              onUserTypeChange={setSelectedUserType}
             />
           </div>
         </div>

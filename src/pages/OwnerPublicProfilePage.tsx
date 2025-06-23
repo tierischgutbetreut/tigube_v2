@@ -426,7 +426,7 @@ function OwnerPublicProfilePage() {
                     )}
                     {pet.gender && (
                       <div className="text-gray-500 text-sm">
-                        Geschlecht: {pet.gender === 'male' ? 'Männlich' : pet.gender === 'female' ? 'Weiblich' : pet.gender}
+                        Geschlecht: {pet.gender === 'Rüde' ? 'Rüde' : pet.gender === 'Hündin' ? 'Hündin' : pet.gender}
                         {pet.neutered && ' (kastriert)'}
                       </div>
                     )}

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { PawPrint as Paw, ChevronLeft, ChevronRight, Upload, Check, AlertCircle, Trash2, Eye, EyeOff, Edit, CopyPlus, Plus, X } from 'lucide-react';
+import { PawPrint as Paw, ChevronLeft, ChevronRight, Upload, Check, AlertCircle, Trash2, Eye, EyeOff, Edit, CopyPlus, Plus, X, ExternalLink } from 'lucide-react';
 import Button from '../components/ui/Button';
 import ServiceSelector from '../components/ui/ServiceSelector';
 import AvailabilityScheduler from '../components/ui/AvailabilityScheduler';
@@ -17,22 +17,54 @@ import { plzService } from '../lib/supabase/db';
 import { useAuth } from '../lib/auth/AuthContext';
 import { SubscriptionService } from '../lib/services/subscriptionService';
 
+// Hilfsfunktionen für localStorage
+const REGISTRATION_CACHE_KEY = 'tigube_registration_data';
+
+function saveRegistrationData(data: any) {
+  try {
+    localStorage.setItem(REGISTRATION_CACHE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.warn('Fehler beim Speichern der Registrierungsdaten:', error);
+  }
+}
+
+function loadRegistrationData() {
+  try {
+    const stored = localStorage.getItem(REGISTRATION_CACHE_KEY);
+    return stored ? JSON.parse(stored) : null;
+  } catch (error) {
+    console.warn('Fehler beim Laden der Registrierungsdaten:', error);
+    return null;
+  }
+}
+
+function clearRegistrationData() {
+  try {
+    localStorage.removeItem(REGISTRATION_CACHE_KEY);
+  } catch (error) {
+    console.warn('Fehler beim Löschen der Registrierungsdaten:', error);
+  }
+}
+
 function RegisterPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { updateProfileState } = useAuth();
   const initialType = searchParams.get('type') || 'owner';
   
+  // Lade gespeicherte Registrierungsdaten
+  const savedData = loadRegistrationData();
+  
   // Fix: Accept both 'caregiver' and 'caretaker' as valid caretaker types
   const [userType, setUserType] = useState<'owner' | 'caretaker'>(
-    initialType === 'caregiver' || initialType === 'caretaker' ? 'caretaker' : 'owner'
+    savedData?.userType || (initialType === 'caregiver' || initialType === 'caretaker' ? 'caretaker' : 'owner')
   );
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(savedData?.step || 1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Formular-Daten für Schritt 1 (Grundlegende Kontoinformationen)
-  const [formStep1, setFormStep1] = useState({
+  const [formStep1, setFormStep1] = useState(savedData?.formStep1 || {
     firstName: '',
     lastName: '',
     email: '',
@@ -41,7 +73,7 @@ function RegisterPage() {
   });
 
   // Formular-Daten für Schritt 2 (Tierbesitzer)
-  const [formStep2Owner, setFormStep2Owner] = useState({
+  const [formStep2Owner, setFormStep2Owner] = useState(savedData?.formStep2Owner || {
     plz: '',
     city: '',
     street: '',
@@ -100,7 +132,7 @@ function RegisterPage() {
     taxNumber: string;
     vatId: string;
   }>(
-    {
+    savedData?.formStep2Caretaker || {
       plz: '',
       city: '',
       street: '',
@@ -138,10 +170,10 @@ function RegisterPage() {
   );
 
   // Benutzer-ID nach der Registrierung
-  const [userId, setUserId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(savedData?.userId || null);
 
   // Neue Variable für Multistep-Formular
-  const [profileStep, setProfileStep] = useState(1); // 1=Kontakt, 2=Services&Preise, 3=Erfahrung, 4=Fotos&Profile
+  const [profileStep, setProfileStep] = useState(savedData?.profileStep || 1); // 1=Kontakt, 2=Services&Preise, 3=Erfahrung, 4=Fotos&Profile
 
   const [showPassword, setShowPassword] = useState(false);
 
@@ -291,6 +323,21 @@ function RegisterPage() {
       otherServices: prev.otherServices.filter((_, i) => i !== idx),
     }));
   };
+
+  // useEffect-Hooks zum automatischen Speichern der Registrierungsdaten
+  useEffect(() => {
+    const dataToSave = {
+      userType,
+      step,
+      profileStep,
+      userId,
+      formStep1,
+      formStep2Owner,
+      formStep2Caretaker,
+      availability: convertAvailabilityToWeekly(availability),
+    };
+    saveRegistrationData(dataToSave);
+  }, [userType, step, profileStep, userId, formStep1, formStep2Owner, formStep2Caretaker, availability]);
 
   // Funktion zum Fortfahren zum nächsten Schritt
   const nextStep = async () => {
@@ -549,6 +596,9 @@ function RegisterPage() {
           updateProfileState(freshProfile);
         }
         
+        // Registrierung erfolgreich abgeschlossen - Cache-Daten löschen
+        clearRegistrationData();
+        
         navigate(userType === 'owner' ? '/dashboard-owner' : '/dashboard-caretaker');
       } catch (err: any) {
         console.error('Fehler beim Vervollständigen des Profils:', err);
@@ -690,12 +740,14 @@ function RegisterPage() {
               userId,
               {
                 name: pet.name,
-                type: pet.type,
+                type: pet.type === 'Andere' ? pet.typeOther : pet.type,
                 breed: pet.breed || undefined,
                 age: pet.age ? parseInt(pet.age) : undefined,
                 weight: pet.weight ? parseFloat(pet.weight) : undefined,
                 photoUrl: pet.photoUrl || undefined,
-                description: pet.description || undefined
+                description: pet.description || undefined,
+                gender: pet.gender || undefined,
+                neutered: pet.neutered || false
               }
             );
             if (petError) throw petError;
@@ -832,6 +884,9 @@ function RegisterPage() {
         if (!freshProfileError2 && freshProfile) {
           updateProfileState(freshProfile);
         }
+        
+        // Registrierung erfolgreich abgeschlossen - Cache-Daten löschen
+        clearRegistrationData();
         
         navigate(userType === 'owner' ? '/dashboard-owner' : '/dashboard-caretaker');
       } catch (err: any) {
@@ -1063,12 +1118,14 @@ function RegisterPage() {
                   />
                   <label htmlFor="terms" className="ml-2 block text-sm text-gray-600">
                     Ich akzeptiere die{' '}
-                    <Link to="/agb" className="text-primary-600 hover:text-primary-700">
+                    <Link to="/agb" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:text-primary-700 inline-flex items-center gap-1">
                       Nutzungsbedingungen
+                      <ExternalLink className="h-3 w-3" />
                     </Link>{' '}
                     und{' '}
-                    <Link to="/datenschutz" className="text-primary-600 hover:text-primary-700">
+                    <Link to="/datenschutz" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:text-primary-700 inline-flex items-center gap-1">
                       Datenschutzbestimmungen
+                      <ExternalLink className="h-3 w-3" />
                     </Link>
                   </label>
                 </div>
@@ -1345,13 +1402,13 @@ function RegisterPage() {
                                   onChange={(e) => updatePet(index, 'type', e.target.value)}
                                 >
                                   <option value="">Tierart auswählen</option>
-                                  <option value="dog">Hund</option>
-                                  <option value="cat">Katze</option>
-                                  <option value="bird">Vogel</option>
-                                  <option value="rabbit">Kaninchen</option>
-                                  <option value="other">Andere</option>
+                                  <option value="Hund">Hund</option>
+                                  <option value="Katze">Katze</option>
+                                  <option value="Vogel">Vogel</option>
+                                  <option value="Kaninchen">Kaninchen</option>
+                                  <option value="Andere">Andere</option>
                                 </select>
-                                {pet.type === 'other' && (
+                                {pet.type === 'Andere' && (
                                   <input
                                     type="text"
                                     className="input mt-2"
@@ -1446,7 +1503,7 @@ function RegisterPage() {
                                 onChange={(e) => updatePet(index, 'description', e.target.value)}
                               ></textarea>
                             </div>
-                            {pet.type === 'dog' && (
+                            {pet.type === 'Hund' && (
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                                 <div>
                                   <label htmlFor={`petGender-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
@@ -1459,8 +1516,8 @@ function RegisterPage() {
                                     onChange={e => updatePet(index, 'gender', e.target.value)}
                                   >
                                     <option value="">Geschlecht wählen</option>
-                                    <option value="male">Rüde</option>
-                                    <option value="female">Hündin</option>
+                                    <option value="Rüde">Rüde</option>
+                                    <option value="Hündin">Hündin</option>
                                   </select>
                                 </div>
                                 <div className="flex items-center mt-6 md:mt-0">
