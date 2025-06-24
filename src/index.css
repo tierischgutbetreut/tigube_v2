@@ -205,8 +205,3 @@
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
   }
 }
-
-/* n8n Branding im Chat-Widget ausblenden */
-#n8n-chat .n8n-chat__footer {
-  display: none !important;
-}
