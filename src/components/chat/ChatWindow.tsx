@@ -52,11 +52,33 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
   const { refreshUnreadCount } = useNotifications()
 
   // Determine the other user (not current user)
-  const otherUser = conversation.owner.id === currentUserId 
-    ? conversation.caretaker 
-    : conversation.owner
+  const otherUser = conversation?.owner?.id === currentUserId 
+    ? conversation?.caretaker 
+    : conversation?.owner
+
+  // Sicherheitscheck für otherUser
+  if (!otherUser) {
+    console.error('❌ ChatWindow: Anderer User nicht gefunden in Konversation:', conversation);
+    return (
+      <div className="h-full flex items-center justify-center p-4">
+        <div className="text-center">
+          <p className="text-red-600 font-medium">Fehler beim Laden des Chats</p>
+          <p className="text-gray-500 text-sm mt-1">User-Daten nicht verfügbar</p>
+          {onBack && (
+            <button 
+              onClick={onBack}
+              className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+            >
+              Zurück
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const getDisplayName = () => {
+    if (!otherUser) return 'Unbekannt';
     const firstName = otherUser.first_name || ''
     const lastName = otherUser.last_name || ''
     return `${firstName} ${lastName}`.trim() || 'Unbekannt'
@@ -175,12 +197,12 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
         conversation.id,
         currentUserId,
         (userId) => {
-          if (userId === otherUser.id) {
+          if (otherUser && userId === otherUser.id) {
             setOtherUserTyping(true)
           }
         },
         (userId) => {
-          if (userId === otherUser.id) {
+          if (otherUser && userId === otherUser.id) {
             setOtherUserTyping(false)
           }
         },
@@ -194,12 +216,12 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
         conversation.id,
         currentUserId,
         (userId) => {
-          if (userId === otherUser.id) {
+          if (otherUser && userId === otherUser.id) {
             setOtherUserOnline(true)
           }
         },
         (userId) => {
-          if (userId === otherUser.id) {
+          if (otherUser && userId === otherUser.id) {
             setOtherUserOnline(false)
           }
         },
@@ -240,7 +262,7 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
         clearTimeout(typingTimeoutRef.current)
       }
     }
-  }, [conversation.id, currentUserId, otherUser.id])
+  }, [conversation.id, currentUserId, otherUser?.id, refreshUnreadCount])
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {

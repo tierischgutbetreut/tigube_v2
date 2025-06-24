@@ -20,6 +20,7 @@ export type UserProfileUpdate = {
   profileCompleted?: boolean;
   userType?: 'owner' | 'caretaker';
   profilePhotoUrl?: string;
+  // E-Mail wird NICHT hier gespeichert - nur in Supabase Auth!
 };
 
 export type PetData = {
@@ -105,6 +106,7 @@ export const userService = {
     if (profileData.profileCompleted !== undefined) updateData.profile_completed = profileData.profileCompleted;
     if (profileData.userType !== undefined) updateData.user_type = profileData.userType;
     if (profileData.profilePhotoUrl !== undefined) updateData.profile_photo_url = profileData.profilePhotoUrl;
+    // E-Mail wird NICHT in der users-Tabelle gespeichert - nur in Auth!
 
     const { data, error } = await supabase
       .from('users')
@@ -113,6 +115,25 @@ export const userService = {
       .select();
 
     return { data, error };
+  },
+
+  // E-Mail-Adresse aktualisieren (mit korrekter Supabase-Syntax)
+  updateEmail: async (newEmail: string) => {
+    try {
+      const currentUrl = window.location.origin;
+      // Immer explizit auf das Dashboard weiterleiten!
+      const redirectUrl = `${currentUrl}/dashboard-owner`;
+
+      const { data, error } = await supabase.auth.updateUser(
+        { email: newEmail },
+        { emailRedirectTo: redirectUrl }
+      );
+
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error: any) {
+      return { data: null, error: { message: error.message } };
+    }
   },
 
   // Benutzerprofil abrufen
