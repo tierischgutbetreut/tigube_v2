@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import Header from './Header';
 import Footer from './Footer';
 import CookieBanner from '../ui/CookieBanner';
+import FeedbackForm from '../ui/FeedbackForm';
 
 interface LayoutProps {
   children: ReactNode;
@@ -22,6 +23,7 @@ function Layout({ children }: LayoutProps) {
       </main>
       {!isMessagesPage && <Footer />}
       <CookieBanner />
+      <FeedbackForm />
     </div>
   );
 }
