@@ -115,50 +115,31 @@ export async function getUserConversations(
           last_name: '', 
           profile_photo_url: null 
         }
-        console.log('🔍 Processing conversation:', conversation.id)
         
-        // Get all messages for this conversation to find the latest one
-        const { data: allMessages, error: messagesError } = await supabase
+        // Get only the latest message and unread count - much more efficient
+        const { data: latestMessage } = await supabase
           .from('messages')
           .select('id, content, created_at, sender_id, message_type, read_at')
           .eq('conversation_id', conversation.id)
           .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
 
-        console.log('📧 Messages found for conversation', conversation.id, ':', allMessages?.length || 0)
-        console.log('📧 Messages error:', messagesError)
-        console.log('📧 First message:', allMessages?.[0])
-
-        let lastMessage = null
-        let unreadCount = 0
-
-        if (allMessages && allMessages.length > 0) {
-          // Get the most recent message
-          lastMessage = allMessages[0]
-          console.log('✅ Set lastMessage:', lastMessage)
-          
-          // Count unread messages (messages from other users that haven't been read)
-          unreadCount = allMessages.filter(msg => 
-            msg.sender_id !== userId && msg.read_at === null
-          ).length
-          console.log('🔢 Unread count:', unreadCount)
-        } else {
-          console.log('❌ No messages found for conversation', conversation.id)
-        }
+        // Get unread count for current user only  
+        const { count: unreadCount } = await supabase
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('conversation_id', conversation.id)
+          .neq('sender_id', userId)
+          .is('read_at', null)
 
         const result = {
           ...conversation,
           owner,
           caretaker,
-          last_message: lastMessage || undefined,
-          unread_count: unreadCount
+          last_message: latestMessage || undefined,
+          unread_count: unreadCount || 0
         } as ConversationWithUsers
-
-        console.log('📤 Final conversation result:', {
-          id: conversation.id,
-          hasLastMessage: !!result.last_message,
-          lastMessageContent: result.last_message?.content,
-          unreadCount: result.unread_count
-        })
 
         return result
       })

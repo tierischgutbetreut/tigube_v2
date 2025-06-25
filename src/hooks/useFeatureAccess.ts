@@ -8,12 +8,37 @@ export function useFeatureAccess() {
   const { user } = useAuth();
   const [isChecking, setIsChecking] = useState(false);
 
+  // Beta-Phase Logik: Während der Beta-Phase sind ALLE authentifizierten User Premium
+  const betaEndDate = new Date('2025-10-31T23:59:59.000Z');
+  const isBetaPhaseActive = new Date() < betaEndDate;
+  
+  // Während der Beta-Phase: ALLE User haben Premium-Zugriff, unabhängig von der Subscription
+  const isBetaActive = isBetaPhaseActive && user?.id;
+  
+  // Fallback für fehlende Subscription während der Beta-Phase
+  const effectiveSubscription = subscription || (isBetaActive ? {
+    id: 'beta-fallback',
+    user_id: user?.id || '',
+    plan_type: 'free',
+    status: 'trial',
+    trial_end: betaEndDate
+  } : null);
+
   const checkFeature = useCallback(async (
     featureType: FeatureType,
     targetUserId?: string
   ) => {
-    if (!user?.id || !subscription) {
+    if (!user?.id) {
       return { allowed: false, reason: 'Not authenticated' };
+    }
+    
+    // Während der Beta-Phase: Alle Features sind für alle User erlaubt
+    if (isBetaActive) {
+      return { allowed: true, reason: 'Beta access - unlimited during trial period' };
+    }
+
+    if (!subscription) {
+      return { allowed: false, reason: 'No subscription found' };
     }
 
     setIsChecking(true);
@@ -28,7 +53,7 @@ export function useFeatureAccess() {
     } finally {
       setIsChecking(false);
     }
-  }, [user, subscription]);
+  }, [user, subscription, isBetaActive]);
 
   const trackUsage = useCallback(async (
     featureType: FeatureType,
@@ -55,29 +80,31 @@ export function useFeatureAccess() {
   }, [checkFeature]);
 
   const canWriteReviews = useCallback(() => {
-    if (!subscription) return false;
-    return FeatureGateService.getFeatureLimits(subscription.plan_type, subscription.user_type).can_write_reviews;
-  }, [subscription]);
+    if (isBetaActive) return true; // Beta users get all features
+    if (!effectiveSubscription) return false;
+    return FeatureGateService.getFeatureLimits(effectiveSubscription.plan_type, 'owner').can_write_reviews;
+  }, [effectiveSubscription, isBetaActive]);
 
   const hasAdvancedFilters = useCallback(() => {
-    if (!subscription) return false;
-    return FeatureGateService.getFeatureLimits(subscription.plan_type, subscription.user_type).has_advanced_filters;
-  }, [subscription]);
+    if (isBetaActive) return true; // Beta users get all features
+    if (!effectiveSubscription) return false;
+    return FeatureGateService.getFeatureLimits(effectiveSubscription.plan_type, 'owner').has_advanced_filters;
+  }, [effectiveSubscription, isBetaActive]);
 
   const maxEnvironmentImages = useCallback(() => {
-    if (!subscription) return 0;
-    return FeatureGateService.getFeatureLimits(subscription.plan_type, subscription.user_type).max_environment_images;
-  }, [subscription]);
+    if (isBetaActive) return 6; // Beta users get max environment images
+    if (!effectiveSubscription) return 0;
+    return FeatureGateService.getFeatureLimits(effectiveSubscription.plan_type, 'owner').max_environment_images;
+  }, [effectiveSubscription, isBetaActive]);
 
-  const contactLimit = subscription ? 
-    FeatureGateService.getFeatureLimits(subscription.plan_type, subscription.user_type).contact_requests_per_month : 0;
+  const contactLimit = isBetaActive ? 999 : (effectiveSubscription ? 
+    FeatureGateService.getFeatureLimits(effectiveSubscription.plan_type, 'owner').contact_requests_per_month : 0);
 
-  const bookingLimit = subscription ? 
-    FeatureGateService.getFeatureLimits(subscription.plan_type, subscription.user_type).booking_requests_per_month : 0;
+  const bookingLimit = isBetaActive ? 999 : (effectiveSubscription ? 
+    FeatureGateService.getFeatureLimits(effectiveSubscription.plan_type, 'owner').booking_requests_per_month : 0);
 
-  const isBetaUser = subscription?.status === 'trial';
-  const betaEndDate = new Date('2025-10-31');
-  const isBetaActive = new Date() < betaEndDate && isBetaUser;
+  // During beta phase, all users should be treated as premium users
+  const isEffectivelyPremium = isBetaActive || effectiveSubscription?.plan_type === 'premium' || effectiveSubscription?.plan_type === 'professional';
 
   return {
     // Core methods
@@ -97,11 +124,11 @@ export function useFeatureAccess() {
     bookingLimit,
     
     // Beta status
-    isBetaUser,
     isBetaActive,
+    isEffectivelyPremium,
     
     // Subscription info
-    subscription,
+    subscription: effectiveSubscription,
     user
   };
 }

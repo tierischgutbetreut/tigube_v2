@@ -190,7 +190,7 @@ function FeedbackForm() {
             rich_text: [
               {
                 text: {
-                  content: `👤 Name: ${formData.name}\n\n📝 Beschreibung:\n${formData.description}\n\n🔗 Seite: ${metadata.url}\n\n🌐 Browser: ${getBrowserName(metadata.userAgent)}\n\n📱 Auflösung: ${metadata.viewport.width}x${metadata.viewport.height}\n\n⏰ Zeitpunkt: ${new Date(metadata.timestamp).toLocaleString('de-DE')}\n\n📸 Bild: ${imageUrl ? 'Hochgeladen' : 'Kein Bild'}`
+                  content: `👤 Name: ${formData.name}\n\n📝 Beschreibung:\n${formData.description}\n\n🔗 Seite: ${metadata.url}\n\n🌐 Browser: ${getBrowserName(metadata.userAgent)}\n\n📱 Auflösung: ${metadata.viewport.width}x${metadata.viewport.height}\n\n⏰ Zeitpunkt: ${new Date(metadata.timestamp).toLocaleString('de-DE')}\n\n�� Bild: ${imageUrl ? imageUrl : 'Kein Bild'}`
                 }
               }
             ]

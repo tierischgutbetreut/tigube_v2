@@ -122,6 +122,27 @@ function SearchPage() {
       let data = await searchCaretakersService(filters);
       console.log('📊 Service returned:', data);
       
+      // Fallback to mock data if database is empty (for development)
+      if (!data || data.length === 0) {
+        console.log('🔄 No data from database, using mock data for development');
+        const { mockCaregivers } = await import('../data/mockData');
+        data = mockCaregivers.map(mock => ({
+          id: mock.id,
+          name: mock.name,
+          avatar: mock.avatar,
+          location: mock.location,
+          rating: mock.rating,
+          reviewCount: mock.reviewCount,
+          hourlyRate: mock.hourlyRate,
+          prices: { default: mock.hourlyRate },
+          services: mock.services,
+          bio: mock.bio,
+          verified: mock.verified,
+          isCommercial: false
+        }));
+        console.log('📊 Using mock data:', data);
+      }
+      
       // Client-seitige Verfügbarkeits-Filterung (da noch keine DB-Unterstützung)
       if ((selectedAvailabilityDay || selectedAvailabilityTime) && data) {
         console.log('🕒 Applying availability filters...');

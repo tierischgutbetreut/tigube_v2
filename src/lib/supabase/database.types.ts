@@ -426,6 +426,7 @@ export type Database = {
       owner_caretaker_connections: {
         Row: {
           caretaker_id: string
+          connection_type: string
           created_at: string
           id: string
           owner_id: string
@@ -434,6 +435,7 @@ export type Database = {
         }
         Insert: {
           caretaker_id: string
+          connection_type: string
           created_at?: string
           id?: string
           owner_id: string
@@ -442,6 +444,7 @@ export type Database = {
         }
         Update: {
           caretaker_id?: string
+          connection_type?: string
           created_at?: string
           id?: string
           owner_id?: string
