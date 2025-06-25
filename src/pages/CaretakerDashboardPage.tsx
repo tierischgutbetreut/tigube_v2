@@ -8,7 +8,7 @@ import CommercialInfoInput from '../components/ui/CommercialInfoInput';
 import type { ClientData } from '../components/ui/ClientDetailsAccordion';
 import { useAuth } from '../lib/auth/AuthContext';
 import { useEffect, useState, useRef } from 'react';
-import { caretakerProfileService, ownerCaretakerService, userService } from '../lib/supabase/db';
+import { caretakerProfileService, ownerCaretakerService } from '../lib/supabase/db';
 import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info, Lock, Briefcase, Verified, Eye, EyeOff, KeyRound, Trash2, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
@@ -25,10 +25,12 @@ function CaretakerDashboardPage() {
   const [editData, setEditData] = useState(false);
   const [caretakerData, setCaretakerData] = useState({
     phoneNumber: userProfile?.phone_number || '',
+    email: user?.email || '',
     plz: userProfile?.plz || '',
     street: userProfile?.street || '',
     city: userProfile?.city || ''
   });
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   // --- Verfügbarkeits-State ---
   type TimeSlot = { start: string; end: string };
@@ -523,6 +525,7 @@ function CaretakerDashboardPage() {
   useEffect(() => {
     setCaretakerData({
       phoneNumber: userProfile?.phone_number || '',
+      email: user?.email || '',
       plz: userProfile?.plz || '',
       street: userProfile?.street || '',
       city: userProfile?.city || ''
@@ -548,7 +551,16 @@ function CaretakerDashboardPage() {
       setCaretakerData(d => ({ ...d, phoneNumber: value }));
     }
   };
-
+  const handleEmailChange = (value: string) => {
+    setCaretakerData(d => ({ ...d, email: value }));
+    if (value.trim() === '') {
+      setEmailError('E-Mail-Adresse ist ein Pflichtfeld');
+    } else if (!/^\S+@\S+\.\S+$/.test(value)) {
+      setEmailError('Bitte geben Sie eine gültige E-Mail-Adresse ein');
+    } else {
+      setEmailError(null);
+    }
+  };
   const handleSaveCaretakerData = async () => {
     if (!user) return;
 
@@ -558,7 +570,7 @@ function CaretakerDashboardPage() {
 
       // Only include fields that have changed
       if (caretakerData.phoneNumber !== (userProfile?.phone_number || '')) dataToUpdate.phoneNumber = caretakerData.phoneNumber;
-      // E-Mail wird NICHT im Profil gespeichert - nur in Auth!
+      if (caretakerData.email !== (userProfile?.email || '')) dataToUpdate.email = caretakerData.email;
       if (caretakerData.street !== (userProfile?.street || '')) dataToUpdate.street = caretakerData.street;
 
       // Handle PLZ and City logic
@@ -595,6 +607,7 @@ function CaretakerDashboardPage() {
   const handleCancelEdit = () => {
     setCaretakerData({
       phoneNumber: userProfile?.phone_number || '',
+      email: user?.email || '',
       plz: userProfile?.plz || '',
       street: userProfile?.street || '',
       city: userProfile?.city || ''
@@ -606,7 +619,7 @@ function CaretakerDashboardPage() {
   const fallbackProfile = {
     first_name: user?.email?.split('@')[0] || 'Benutzer',
     last_name: '',
-    // E-Mail wird NICHT hier gespeichert - nur in Auth! (user?.email)
+    email: user?.email || '',
     phone_number: '',
     plz: '',
     city: '',
@@ -626,7 +639,7 @@ function CaretakerDashboardPage() {
 
   // Profilquelle: userProfile (users-Tabelle)!
   const profileData = userProfile || fallbackProfile;
-  const fullName = `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || user?.email || 'Benutzer';
+  const fullName = `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || profileData.email;
   const initials = getInitials(profileData.first_name, profileData.last_name);
   const avatarUrl = profileData.profile_photo_url || profileData.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=f3f4f6&color=374151&length=2`;
 
@@ -870,80 +883,6 @@ function CaretakerDashboardPage() {
     }
   };
 
-  // E-Mail-Änderung (eindeutige States)
-  const [emailChangeData, setEmailChangeData] = useState({ newEmail: '' });
-  const [emailChangeLoading, setEmailChangeLoading] = useState(false);
-  const [emailChangeError, setEmailChangeError] = useState<string | null>(null);
-  const [emailChangeSuccess, setEmailChangeSuccess] = useState(false);
-
-  const validateEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email) && email.length <= 254;
-  };
-
-  useEffect(() => {
-    if (emailChangeSuccess) {
-      const timer = setTimeout(() => setEmailChangeSuccess(false), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [emailChangeSuccess]);
-
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const type = urlParams.get('type');
-    const emailChangeSuccessFlag = localStorage.getItem('email_change_success');
-    if (type === 'email_change' || emailChangeSuccessFlag === 'true') {
-      setEmailChangeSuccess(true);
-      setEmailChangeData({ newEmail: '' });
-      localStorage.removeItem('email_change_success');
-      localStorage.removeItem('email_confirmed');
-      if (type === 'email_change') {
-        setTimeout(() => {
-          const currentPath = window.location.pathname;
-          window.history.replaceState({}, document.title, currentPath);
-        }, 1000);
-      }
-    }
-  }, []);
-
-  const handleEmailChangeInput = (value: string) => {
-    setEmailChangeData({ newEmail: value });
-    setEmailChangeError(null);
-  };
-
-  const handleEmailChangeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    setEmailChangeError(null);
-    setEmailChangeSuccess(false);
-    if (!emailChangeData.newEmail.trim()) {
-      setEmailChangeError('Bitte gib eine neue E-Mail-Adresse ein.');
-      return;
-    }
-    if (!validateEmail(emailChangeData.newEmail)) {
-      setEmailChangeError('Bitte gib eine gültige E-Mail-Adresse ein.');
-      return;
-    }
-    if (emailChangeData.newEmail.toLowerCase() === user.email?.toLowerCase()) {
-      setEmailChangeError('Die neue E-Mail-Adresse muss sich von der aktuellen unterscheiden.');
-      return;
-    }
-    try {
-      setEmailChangeLoading(true);
-      const result = await userService.updateEmail(emailChangeData.newEmail);
-      if (result.error) {
-        setEmailChangeError(result.error.message);
-        return;
-      }
-      setEmailChangeSuccess(true);
-      setEmailChangeData({ newEmail: '' });
-    } catch (error: any) {
-      setEmailChangeError('Ein unerwarteter Fehler ist aufgetreten.');
-    } finally {
-      setEmailChangeLoading(false);
-    }
-  };
-
   if (authLoading || loading) return <LoadingSpinner />;
   if (!user) {
     return (
@@ -1070,10 +1009,25 @@ function CaretakerDashboardPage() {
                         <Phone className="h-4 w-4 text-gray-500" />
                         <span className="text-gray-700">{caretakerData.phoneNumber || '—'}</span>
                       </div>
-
+                      <div className="flex items-center gap-3">
+                        <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                        </svg>
+                        <span className="text-gray-700">{caretakerData.email || '—'}</span>
+                      </div>
                     </>
                   ) : (
                     <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">PLZ</label>
+                        <input
+                          type="text"
+                          className="input w-full"
+                          value={caretakerData.plz}
+                          onChange={e => setCaretakerData(d => ({ ...d, plz: e.target.value }))}
+                          placeholder="PLZ"
+                        />
+                      </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Straße & Hausnummer</label>
                         <input
@@ -1084,27 +1038,15 @@ function CaretakerDashboardPage() {
                           placeholder="Straße und Hausnummer"
                         />
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">PLZ</label>
-                          <input
-                            type="text"
-                            className="input w-full"
-                            value={caretakerData.plz}
-                            onChange={e => setCaretakerData(d => ({ ...d, plz: e.target.value }))}
-                            placeholder="PLZ"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Ort</label>
-                          <input
-                            type="text"
-                            className="input w-full"
-                            value={caretakerData.city}
-                            onChange={e => setCaretakerData(d => ({ ...d, city: e.target.value }))}
-                            placeholder="Ort"
-                          />
-                        </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Ort</label>
+                        <input
+                          type="text"
+                          className="input w-full"
+                          value={caretakerData.city}
+                          onChange={e => setCaretakerData(d => ({ ...d, city: e.target.value }))}
+                          placeholder="Ort"
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Telefonnummer</label>
@@ -1116,11 +1058,27 @@ function CaretakerDashboardPage() {
                           placeholder="+49 123 456789"
                         />
                       </div>
-
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          E-Mail <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="email"
+                          className={`input w-full ${emailError ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
+                          value={caretakerData.email}
+                          onChange={e => handleEmailChange(e.target.value)}
+                          placeholder="ihre@email.de"
+                          required
+                        />
+                        {emailError && (
+                          <p className="text-red-500 text-xs mt-1">{emailError}</p>
+                        )}
+                      </div>
                       <div className="flex gap-2 pt-2">
                         <button
                           className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm"
                           onClick={handleSaveCaretakerData}
+                          disabled={!!emailError || !caretakerData.email.trim()}
                         >
                           Speichern
                         </button>
@@ -1872,110 +1830,6 @@ function CaretakerDashboardPage() {
                     </div>
                   ) : (
                     'Passwort ändern'
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {/* E-Mail-Adresse ändern */}
-          <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
-            <div className="flex items-center gap-3 mb-6">
-              <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-              </svg>
-              <h2 className="text-xl font-semibold text-gray-900">E-Mail-Adresse ändern</h2>
-            </div>
-            
-            <div className="bg-blue-50 rounded-lg p-4 mb-6">
-              <div className="flex items-start">
-                <svg className="h-5 w-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div className="text-sm">
-                  <p className="font-medium text-blue-800">Wichtig</p>
-                  <p className="text-blue-700 mt-1">
-                    Die Änderung Ihrer E-Mail-Adresse betrifft sowohl die Anmeldung als auch Ihr Profil. 
-                    Sie erhalten eine Bestätigungs-E-Mail an die neue Adresse.
-                  </p>
-                  <p className="text-blue-700 mt-2 font-semibold">
-                    Aus Sicherheitsgründen muss die Änderung zusätzlich über einen Link in Ihrer <span className="underline">bisherigen E-Mail-Adresse</span> bestätigt werden.<br/>
-                    Erst nach dieser Bestätigung wird die neue E-Mail-Adresse aktiv!
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <form onSubmit={handleEmailChangeSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Aktuelle E-Mail</h3>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Aktuelle E-Mail-Adresse
-                    </label>
-                    <input
-                      type="email"
-                      className="input w-full bg-gray-50"
-                      value={user?.email || ''}
-                      disabled
-                      readOnly
-                    />
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Neue E-Mail</h3>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Neue E-Mail-Adresse <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      className="input w-full"
-                      value={emailChangeData.newEmail}
-                      onChange={e => handleEmailChangeInput(e.target.value)}
-                      placeholder="ihre.neue@email.de"
-                      disabled={emailChangeLoading}
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-              {emailChangeError && (
-                <div className="flex items-center gap-2 text-red-600 text-sm">
-                  <AlertTriangle className="h-4 w-4" />
-                  {emailChangeError}
-                </div>
-              )}
-              {emailChangeSuccess && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex items-start">
-                    <Check className="h-5 w-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" />
-                    <div className="text-sm">
-                      <p className="font-medium text-green-800">E-Mail-Änderung eingeleitet!</p>
-                      <p className="text-green-700 mt-1">
-                        Eine Bestätigungs-E-Mail wurde gesendet. Bitte prüfen Sie Ihr Postfach (auch den Spam-Ordner) und klicken Sie auf den Bestätigungslink.
-                      </p>
-                      <p className="text-green-600 text-xs mt-2">
-                        💡 Bis zur Bestätigung können Sie sich weiterhin mit Ihrer aktuellen E-Mail-Adresse anmelden.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div className="flex justify-start">
-                <button
-                  type="submit"
-                  className="btn-primary py-2 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={emailChangeLoading}
-                >
-                  {emailChangeLoading ? (
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Wird geändert...
-                    </div>
-                  ) : (
-                    'E-Mail ändern'
                   )}
                 </button>
               </div>

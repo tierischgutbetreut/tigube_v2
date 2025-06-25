@@ -1,6 +1,6 @@
 import Layout from '../components/layout/Layout';
 import Button from '../components/ui/Button';
-import { MapPin, Phone, PawPrint, Edit, Shield, Heart, Trash, Check, X, Plus, Upload, LogOut, Settings, Camera, AlertTriangle, Trash2, Briefcase, User, MessageCircle, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { MapPin, Phone, PawPrint, Edit, Shield, Heart, Trash, Check, X, Plus, Upload, LogOut, Settings, Camera, AlertTriangle, Trash2, Briefcase, User, MessageCircle, KeyRound, Eye, EyeOff, Mail, Star } from 'lucide-react';
 import { mockPetOwners, mockBookings, mockCaregivers } from '../data/mockData';
 import { formatCurrency } from '../lib/utils';
 import { Link } from 'react-router-dom';
@@ -102,6 +102,7 @@ function OwnerDashboardPage() {
   const [editData, setEditData] = useState(false);
   const [ownerData, setOwnerData] = useState({
     phoneNumber: '',
+    email: '',
     plz: '',
     street: '',
     location: ''
@@ -126,6 +127,9 @@ function OwnerDashboardPage() {
   const [contacts, setContacts] = useState<any[]>([]);
   const [contactsLoading, setContactsLoading] = useState(true);
   const [contactsError, setContactsError] = useState<string | null>(null);
+  const [favoriteCaretakers, setFavoriteCaretakers] = useState<any[]>([]);
+  const [favoritesLoading, setFavoritesLoading] = useState(true);
+  const [favoritesError, setFavoritesError] = useState<string | null>(null);
   const [shareSettings, setShareSettings] = useState<ShareSettings>({
     phoneNumber: true,
     email: false,
@@ -138,6 +142,7 @@ function OwnerDashboardPage() {
   const [shareSettingsLoading, setShareSettingsLoading] = useState(false);
   const [shareSettingsError, setShareSettingsError] = useState<string | null>(null);
   const [shareSettingsSaveMsg, setShareSettingsSaveMsg] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [editPet, setEditPet] = useState<string | null>(null);
   const [editPetData, setEditPetData] = useState<PetFormData>({ name: '', type: '', typeOther: '', breed: '', age: '', weight: '', image: '', description: '', gender: '', neutered: false });
   // State für Edit-Modus und lokale Kopie der Betreuungsvorlieben
@@ -157,6 +162,9 @@ function OwnerDashboardPage() {
   const [caretakerToDelete, setCaretakerToDelete] = useState<any | null>(null);
   const [deleteCaretakerConfirmationText, setDeleteCaretakerConfirmationText] = useState('');
 
+  // State für Favoriten entfernen
+  const [removingFavoriteId, setRemovingFavoriteId] = useState<string | null>(null);
+
   // State für Passwort ändern
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -172,61 +180,35 @@ function OwnerDashboardPage() {
     confirm: false
   });
 
-  // State für E-Mail ändern (vereinfacht)
-  const [emailData, setEmailData] = useState({
-    newEmail: ''
-  });
-  const [emailLoading, setEmailLoading] = useState(false);
-  const [emailError, setEmailError] = useState<string | null>(null);
-  const [emailSuccess, setEmailSuccess] = useState(false);
+  // Im Komponenten-Body (OwnerDashboardPage), nach den anderen useState-Definitionen:
+  const [newEmail, setNewEmail] = useState('');
+  const [currentPasswordForEmail, setCurrentPasswordForEmail] = useState('');
+  const [emailChangeLoading, setEmailChangeLoading] = useState(false);
+  const [emailChangeError, setEmailChangeError] = useState<string | null>(null);
+  const [emailChangeSuccess, setEmailChangeSuccess] = useState<string | null>(null);
 
   // Load user data on component mount and when userProfile changes
   useEffect(() => {
+    // console.log('✨ OwnerDashboardPage userProfile effect triggered.'); // Clean up debug log
+    // console.log('🔍 Current userProfile:', userProfile); // Clean up debug log
+    // console.log('🔍 userProfile.postal_code:', userProfile?.postal_code); // Clean up debug log
+    
     if (userProfile) {
       setOwnerData({
         phoneNumber: userProfile.phone_number || '',
+        email: userProfile.email || '',
         plz: userProfile.plz || '',
         street: userProfile.street || '',
         location: userProfile.city || '',
       });
+    } else if (user && !authLoading) {
+      // Fallback: Setze E-Mail vom Auth-User
+      setOwnerData(prev => ({
+        ...prev,
+        email: user.email || ''
+      }));
     }
   }, [userProfile, user, authLoading]);
-
-  // E-Mail Success-Meldung automatisch ausblenden
-  useEffect(() => {
-    if (emailSuccess) {
-      const timer = setTimeout(() => setEmailSuccess(false), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [emailSuccess]);
-
-  // Prüfe auf erfolgreiche E-Mail-Bestätigung beim Laden der Seite
-  useEffect(() => {
-    // Prüfe URL-Parameter für E-Mail-Bestätigung
-    const urlParams = new URLSearchParams(window.location.search);
-    const type = urlParams.get('type');
-    
-    // Prüfe auch localStorage-Flag
-    const emailChangeSuccess = localStorage.getItem('email_change_success');
-    
-    if (type === 'email_change' || emailChangeSuccess === 'true') {
-      console.log('📧 E-Mail-Bestätigung erkannt (URL oder localStorage)');
-      setEmailSuccess(true);
-      setEmailData({ newEmail: '' });
-      
-      // Entferne Flags
-      localStorage.removeItem('email_change_success');
-      localStorage.removeItem('email_confirmed');
-      
-      // Entferne Parameter aus URL nach kurzer Verzögerung
-      if (type === 'email_change') {
-        setTimeout(() => {
-          const currentPath = window.location.pathname;
-          window.history.replaceState({}, document.title, currentPath);
-        }, 1000);
-      }
-    }
-  }, []);
 
   // Haustiere aus DB laden
   useEffect(() => {
@@ -289,6 +271,31 @@ function OwnerDashboardPage() {
     };
 
     fetchSavedCaretakers();
+  }, [user]);
+
+  // Favoriten aus DB laden
+  useEffect(() => {
+    const fetchFavoriteCaretakers = async () => {
+      if (!user) return;
+      setFavoritesLoading(true);
+      setFavoritesError(null);
+      try {
+        const { data, error } = await ownerCaretakerService.getFavoriteCaretakers(user.id);
+        if (error) {
+          setFavoritesError('Fehler beim Laden der Favoriten!');
+          setFavoriteCaretakers([]);
+        } else {
+          setFavoriteCaretakers(data || []);
+        }
+      } catch (e) {
+        setFavoritesError('Fehler beim Laden der Favoriten!');
+        setFavoriteCaretakers([]);
+      } finally {
+        setFavoritesLoading(false);
+      }
+    };
+
+    fetchFavoriteCaretakers();
   }, [user]);
 
   // Tierarzt-Infos aus DB laden - nur einmal und nicht im Edit-Modus
@@ -711,6 +718,35 @@ function OwnerDashboardPage() {
     setDeleteCaretakerConfirmationText('');
   };
 
+  // Favoriten entfernen Handler
+  const handleRemoveFavorite = async (caregiver: any, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!user) return;
+    
+    setRemovingFavoriteId(caregiver.id);
+    
+    try {
+      const { error } = await ownerCaretakerService.toggleFavorite(user.id, caregiver.id);
+      
+      if (error) {
+        console.error('Fehler beim Entfernen des Favoriten:', error);
+        alert('Fehler beim Entfernen des Favoriten. Bitte versuchen Sie es erneut.');
+        return;
+      }
+      
+      // Entferne den Favoriten aus der lokalen Liste
+      setFavoriteCaretakers(prev => prev.filter(fav => fav.id !== caregiver.id));
+      
+    } catch (error) {
+      console.error('Unerwarteter Fehler beim Entfernen des Favoriten:', error);
+      alert('Fehler beim Entfernen des Favoriten. Bitte versuchen Sie es erneut.');
+    } finally {
+      setRemovingFavoriteId(null);
+    }
+  };
+
   const handleStartChat = async (caregiver: any, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -790,24 +826,32 @@ function OwnerDashboardPage() {
   };
 
   const validateEmail = (email: string): boolean => {
-    // Einfache, aber zuverlässige E-Mail-Validierung
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email) && email.length <= 254;
+    return emailRegex.test(email);
   };
 
-
+  const handleEmailChange = (value: string) => {
+    setOwnerData(d => ({ ...d, email: value }));
+    
+    if (value.trim() === '') {
+      setEmailError('E-Mail-Adresse ist ein Pflichtfeld');
+    } else if (!validateEmail(value)) {
+      setEmailError('Bitte geben Sie eine gültige E-Mail-Adresse ein');
+    } else {
+      setEmailError(null);
+    }
+  };
 
   const handleSaveOwnerData = async () => {
     if (!user) return; // Should not happen due to auth check, but for safety
 
     try {
-
-
       // Prepare data for updateProfile
       const dataToUpdate: { [key: string]: any } = {};
 
       // Only include fields that have changed
       if (ownerData.phoneNumber !== (userProfile?.phone_number || '')) dataToUpdate.phoneNumber = ownerData.phoneNumber;
+      if (ownerData.email !== (userProfile?.email || '')) dataToUpdate.email = ownerData.email;
       if (ownerData.street !== (userProfile?.street || '')) dataToUpdate.street = ownerData.street;
 
       // Handle PLZ and City logic
@@ -846,28 +890,21 @@ function OwnerDashboardPage() {
           return;
       }
 
+      // Call the service to update the user profile
+      const { data: updatedProfile, error: updateError } = await userService.updateUserProfile(user.id, dataToUpdate);
 
-
-      // Call the service to update the remaining user profile data
-      if (Object.keys(dataToUpdate).length > 0) {
-        const { data: profileData, error: updateError } = await userService.updateUserProfile(user.id, dataToUpdate);
-        if (updateError) {
-          console.error('Fehler beim Speichern der Kontaktdaten:', updateError);
-          throw new Error(`Fehler beim Speichern der Kontaktdaten: ${updateError.message || 'Unbekannter Fehler'}`);
+      if (updateError) {
+        console.error('Fehler beim Speichern der Kontaktdaten:', updateError);
+      } else {
+        // Profil nach dem Speichern neu laden (Race-Condition vermeiden)
+        const { data: freshProfile, error: freshError } = await userService.getUserProfile(user.id);
+        if (!freshError && freshProfile) {
+          updateProfileState(freshProfile);
         }
+        setEditData(false);
       }
-
-      console.log('Profile updated successfully');
-      
-      // Profil nach dem Speichern neu laden (Race-Condition vermeiden)
-      const { data: freshProfile, error: freshError } = await userService.getUserProfile(user.id);
-      if (!freshError && freshProfile) {
-        updateProfileState(freshProfile);
-      }
-      setEditData(false);
-    } catch (e: any) {
+    } catch (e) {
       console.error('Exception beim Speichern der Kontaktdaten:', e);
-      alert(`Fehler beim Speichern: ${e.message || 'Unbekannter Fehler'}`);
     }
   };
 
@@ -876,13 +913,20 @@ function OwnerDashboardPage() {
     if (userProfile) {
       setOwnerData({
         phoneNumber: userProfile.phone_number || '',
+        email: userProfile.email || '',
         plz: userProfile.plz || '',
         street: userProfile.street || '',
         location: userProfile.city || '',
       });
+    } else if (user) {
+       // Fallback for users without a profile yet
+        setOwnerData(prev => ({
+          ...prev,
+          email: user.email || '' // Keep email from auth if profile is missing
+        }));
     } else {
        // Should not happen
-       setOwnerData({ phoneNumber: '', plz: '', street: '', location: '' });
+       setOwnerData({ phoneNumber: '', email: '', plz: '', street: '', location: '' });
     }
     setEditData(false); // Exit edit mode
   };
@@ -1237,57 +1281,6 @@ function OwnerDashboardPage() {
     }
   };
 
-  // E-Mail ändern Handler (komplett neu)
-  const handleEmailChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-
-    setEmailError(null);
-    setEmailSuccess(false);
-
-    // Validierung
-    if (!emailData.newEmail.trim()) {
-      setEmailError('Bitte gib eine neue E-Mail-Adresse ein.');
-      return;
-    }
-
-    if (!validateEmail(emailData.newEmail)) {
-      setEmailError('Bitte gib eine gültige E-Mail-Adresse ein.');
-      return;
-    }
-
-    if (emailData.newEmail.toLowerCase() === user.email?.toLowerCase()) {
-      setEmailError('Die neue E-Mail-Adresse muss sich von der aktuellen unterscheiden.');
-      return;
-    }
-
-    try {
-      setEmailLoading(true);
-
-      console.log('🔄 E-Mail-Änderung von', user.email, 'zu', emailData.newEmail);
-      console.log('🔍 Aktuelle URL für Debug:', window.location.href);
-      console.log('🔍 Origin:', window.location.origin);
-      console.log('🔍 Pathname:', window.location.pathname);
-
-      const result = await userService.updateEmail(emailData.newEmail);
-
-      if (result.error) {
-        setEmailError(result.error.message);
-        return;
-      }
-
-      console.log('✅ E-Mail-Änderung erfolgreich eingeleitet');
-      setEmailSuccess(true);
-      setEmailData({ newEmail: '' });
-
-    } catch (error: any) {
-      console.error('💥 E-Mail-Änderung Fehler:', error);
-      setEmailError('Ein unerwarteter Fehler ist aufgetreten.');
-    } finally {
-      setEmailLoading(false);
-    }
-  };
-
   return (
     <div className="bg-gray-50 min-h-screen py-10">
       <div className="container-custom max-w-4xl">
@@ -1372,7 +1365,6 @@ function OwnerDashboardPage() {
                           <Phone className="h-4 w-4 text-gray-500" />
                           <span className="text-gray-700">{userProfile?.phone_number || '—'}</span>
                         </div>
-
                       </>
                     ) : (
                       <div className="space-y-3">
@@ -1416,11 +1408,27 @@ function OwnerDashboardPage() {
                             placeholder="+49 123 456789"
                           />
                         </div>
-
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            E-Mail <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="email"
+                            className={`input w-full ${emailError ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
+                            value={ownerData.email}
+                            onChange={e => handleEmailChange(e.target.value)}
+                            placeholder="ihre@email.de"
+                            required
+                          />
+                          {emailError && (
+                            <p className="text-red-500 text-xs mt-1">{emailError}</p>
+                          )}
+                        </div>
                         <div className="flex gap-2 pt-2">
                           <button
                             className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm"
                             onClick={handleSaveOwnerData}
+                            disabled={!!emailError || !ownerData.email.trim()}
                           >
                             Speichern
                           </button>
@@ -1486,77 +1494,173 @@ function OwnerDashboardPage() {
           <>
             {/* Kontakte */}
             <div className="mb-8">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Heart className="h-5 w-5" />Meine Betreuer</h2>
-              {contactsLoading ? (
-                <div className="text-gray-500">Betreuer werden geladen ...</div>
-              ) : contactsError ? (
-                <div className="text-red-500">{contactsError}</div>
-              ) : contacts.length === 0 ? (
-                <div className="text-gray-500">
-                  Noch keine Betreuer gespeichert. 
-                  <br />
-                  <span className="text-sm">Verwenden Sie den "Als Betreuer speichern" Button in einem Chat, um Betreuer hier anzuzeigen.</span>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {contacts.map((caregiver: any) => (
-                    <div key={caregiver.id} className="bg-white rounded-xl shadow-sm p-4 flex gap-4 items-center relative min-h-[110px]">
-                      {/* Action Icons oben rechts */}
-                      <div className="absolute top-4 right-4 flex gap-2">
-                        {/* Profil ansehen */}
-                        <Link
-                          to={`/betreuer/${caregiver.id}`}
-                          className="text-gray-400 hover:text-primary-600 transition-colors"
-                          title="Profil ansehen"
-                        >
-                          <User className="h-3.5 w-3.5" />
-                        </Link>
-                        {/* Chat öffnen */}
-                        <button
-                          type="button"
-                          className="text-gray-400 hover:text-green-600 transition-colors"
-                          title="Chat öffnen"
-                          onClick={(e) => handleStartChat(caregiver, e)}
-                        >
-                          <MessageCircle className="h-3.5 w-3.5" />
-                        </button>
-                        {/* Betreuer entfernen */}
-                        <button
-                          type="button"
-                          className="text-gray-400 hover:text-red-600 transition-colors"
-                          aria-label="Betreuer entfernen"
-                          onClick={(e) => handleDeleteContact(caregiver, e)}
-                          title="Betreuer entfernen"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                      <img src={caregiver.avatar} alt={caregiver.name} className="w-20 h-20 rounded-full object-cover border-2 border-primary-100" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <div className="font-bold text-lg truncate">{caregiver.name}</div>
-                          {caregiver.isCommercial && (
-                            <span className="bg-gradient-to-r from-purple-600 to-purple-700 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md text-center flex items-center justify-center">
-                              <Briefcase className="h-3 w-3 mr-1" /> Pro
-                            </span>
+              {/* Meine Betreuer (nur echte Betreuer aus Chats, nicht Favoriten) */}
+              <div className="mb-8">
+                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                  <MessageCircle className="h-5 w-5" />
+                  Meine Betreuer
+                </h2>
+                
+                {contactsLoading ? (
+                  <div className="text-gray-500">Betreuer werden geladen ...</div>
+                ) : contactsError ? (
+                  <div className="text-red-500">{contactsError}</div>
+                ) : contacts.length === 0 ? (
+                  <div className="text-gray-500">
+                    Noch keine Betreuer gespeichert. 
+                    <br />
+                    <span className="text-sm">Verwenden Sie den "Als Betreuer speichern" Button in einem Chat, um Betreuer hier anzuzeigen.</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {contacts.map((caregiver: any) => (
+                      <div key={caregiver.id} className="bg-white rounded-xl shadow-sm p-4 flex gap-4 items-center relative min-h-[110px]">
+                        {/* Action Icons oben rechts */}
+                        <div className="absolute top-4 right-4 flex gap-2">
+                          {/* Favoriten-Herz */}
+                          {caregiver.isFavorite && (
+                            <div className="text-primary-500" title="Favorit">
+                              <Heart className="h-3.5 w-3.5 fill-current" />
+                            </div>
                           )}
+                          {/* Profil ansehen */}
+                          <Link
+                            to={`/betreuer/${caregiver.id}`}
+                            className="text-gray-400 hover:text-primary-600 transition-colors"
+                            title="Profil ansehen"
+                          >
+                            <User className="h-3.5 w-3.5" />
+                          </Link>
+                          {/* Chat öffnen */}
+                          <button
+                            type="button"
+                            className="text-gray-400 hover:text-green-600 transition-colors"
+                            title="Chat öffnen"
+                            onClick={(e) => handleStartChat(caregiver, e)}
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" />
+                          </button>
+                          {/* Betreuer entfernen */}
+                          <button
+                            type="button"
+                            className="text-gray-400 hover:text-red-600 transition-colors"
+                            aria-label="Betreuer entfernen"
+                            onClick={(e) => handleDeleteContact(caregiver, e)}
+                            title="Betreuer entfernen"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         </div>
-                        <div className="flex items-center text-gray-600 text-sm mt-1 mb-2 gap-1">
-                          <MapPin className="h-4 w-4 mr-1" />
-                          <span className="truncate">{caregiver.location}</span>
-                        </div>
-                        <div className="flex flex-wrap gap-2 mt-1">
-                          {caregiver.services.map((service: string) => (
-                            <span key={service} className="inline-block bg-primary-50 text-primary-700 text-xs px-2 py-0.5 rounded-full">
-                              {service}
-                            </span>
-                          ))}
+                        <img src={caregiver.avatar} alt={caregiver.name} className="w-20 h-20 rounded-full object-cover border-2 border-primary-100" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="font-bold text-lg truncate">{caregiver.name}</div>
+                            {caregiver.isCommercial && (
+                              <span className="bg-gradient-to-r from-purple-600 to-purple-700 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md text-center flex items-center justify-center">
+                                <Briefcase className="h-3 w-3 mr-1" /> Pro
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center text-gray-600 text-sm mt-1 mb-2 gap-1">
+                            <MapPin className="h-4 w-4 mr-1" />
+                            <span className="truncate">{caregiver.location}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {caregiver.services.map((service: string) => (
+                              <span key={service} className="inline-block bg-primary-50 text-primary-700 text-xs px-2 py-0.5 rounded-full">
+                                {service}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Favoriten (nur favorisierte Betreuer, die NICHT als Betreuer gespeichert sind) */}
+              <div>
+                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                  <Heart className="h-5 w-5" />
+                  Favoriten
+                </h2>
+                
+                {favoritesLoading ? (
+                  <div className="text-gray-500">Favoriten werden geladen ...</div>
+                ) : favoritesError ? (
+                  <div className="text-red-500">{favoritesError}</div>
+                ) : favoriteCaretakers.length === 0 ? (
+                  <div className="text-gray-500">
+                    Noch keine Favoriten markiert.
+                    <br />
+                    <span className="text-sm">Verwenden Sie das Herz-Symbol auf Betreuer-Profilen, um Favoriten zu markieren.</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {favoriteCaretakers.map((caregiver: any) => (
+                      <div key={`fav-${caregiver.id}`} className="bg-white rounded-xl shadow-sm p-4 flex gap-4 items-center relative min-h-[110px] border border-primary-100">
+                        {/* Action Icons oben rechts */}
+                        <div className="absolute top-4 right-4 flex gap-2">
+                          {/* Favoriten-Herz (klickbar zum Entfernen) */}
+                          <button
+                            type="button"
+                            className="text-primary-500 hover:text-red-500 transition-colors disabled:opacity-50"
+                            title="Favorit entfernen"
+                            onClick={(e) => handleRemoveFavorite(caregiver, e)}
+                            disabled={removingFavoriteId === caregiver.id}
+                          >
+                            {removingFavoriteId === caregiver.id ? (
+                              <div className="w-3.5 h-3.5 border border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              <Heart className="h-3.5 w-3.5 fill-current" />
+                            )}
+                          </button>
+                          {/* Profil ansehen */}
+                          <Link
+                            to={`/betreuer/${caregiver.id}`}
+                            className="text-gray-400 hover:text-primary-600 transition-colors"
+                            title="Profil ansehen"
+                          >
+                            <User className="h-3.5 w-3.5" />
+                          </Link>
+                          {/* Chat öffnen */}
+                          <button
+                            type="button"
+                            className="text-gray-400 hover:text-green-600 transition-colors"
+                            title="Chat öffnen"
+                            onClick={(e) => handleStartChat(caregiver, e)}
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <img src={caregiver.avatar} alt={caregiver.name} className="w-20 h-20 rounded-full object-cover border-2 border-primary-100" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="font-bold text-lg truncate">{caregiver.name}</div>
+                            {caregiver.isCommercial && (
+                              <span className="bg-gradient-to-r from-purple-600 to-purple-700 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md text-center flex items-center justify-center">
+                                <Briefcase className="h-3 w-3 mr-1" /> Pro
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center text-gray-600 text-sm mt-1 mb-2 gap-1">
+                            <MapPin className="h-4 w-4 mr-1" />
+                            <span className="truncate">{caregiver.location}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {caregiver.services.map((service: string) => (
+                              <span key={service} className="inline-block bg-primary-50 text-primary-700 text-xs px-2 py-0.5 rounded-full">
+                                {service}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </>
         )}
@@ -2179,10 +2283,19 @@ function OwnerDashboardPage() {
                 Informationen mit Betreuern teilen
               </h2>
               <div className="bg-white rounded-xl shadow-sm p-6">
-                <p className="text-gray-600 mb-6">
-                  Wählen Sie aus, welche Informationen Sie mit Ihren Betreuern teilen möchten. 
-                  Diese Einstellungen gelten für alle aktuellen und zukünftigen Betreuer-Kontakte.
-                </p>
+                <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                  <div className="flex items-start">
+                    <Shield className="h-5 w-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
+                    <div className="text-sm">
+                      <p className="font-medium text-blue-800">Datenschutz-Hinweis</p>
+                      <p className="text-blue-700 mt-1">
+                        Wählen Sie aus, welche Informationen Sie mit Ihren Betreuern teilen möchten. 
+                        Diese Einstellungen gelten für alle aktuellen und zukünftigen Betreuer-Kontakte.
+                        Ihre Daten werden nur mit den von Ihnen ausgewählten Betreuern geteilt und sind durch unsere Datenschutzrichtlinien geschützt.
+                      </p>
+                    </div>
+                  </div>
+                </div>
                 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between py-3 border-b border-gray-100">
@@ -2314,19 +2427,171 @@ function OwnerDashboardPage() {
                     <p className="text-green-700 text-sm">{shareSettingsSaveMsg}</p>
                   </div>
                 )}
+              </div>
+            </div>
 
-                <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                  <div className="flex items-start">
-                    <Shield className="h-5 w-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
-                    <div className="text-sm">
-                      <p className="font-medium text-blue-800">Datenschutz-Hinweis</p>
-                      <p className="text-blue-700 mt-1">
-                        Ihre Daten werden nur mit den von Ihnen ausgewählten Betreuern geteilt und sind durch unsere Datenschutzrichtlinien geschützt. 
-                        Sie können diese Einstellungen jederzeit ändern. Ihre freigegebenen Daten sind für gespeicherte Betreuer im deren Dashboard unter "Kunden" einsehbar.
-                      </p>
+            {/* E-Mail-Adresse ändern */}
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                E-Mail-Adresse ändern
+              </h2>
+              <div className="bg-white rounded-xl shadow-sm p-6">
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setEmailChangeError(null);
+                    setEmailChangeSuccess(null);
+                    setEmailChangeLoading(true);
+                    // Validierung
+                    if (!newEmail.trim() || !currentPasswordForEmail.trim()) {
+                      setEmailChangeError('Bitte füllen Sie alle Felder aus.');
+                      setEmailChangeLoading(false);
+                      return;
+                    }
+                    if (!validateEmail(newEmail)) {
+                      setEmailChangeError('Bitte geben Sie eine gültige E-Mail-Adresse ein.');
+                      setEmailChangeLoading(false);
+                      return;
+                    }
+                    if (newEmail.trim() === user?.email) {
+                      setEmailChangeError('Die neue E-Mail-Adresse muss sich von der aktuellen unterscheiden.');
+                      setEmailChangeLoading(false);
+                      return;
+                    }
+                    // Passwort prüfen und E-Mail ändern
+                    try {
+                      // 1. Passwort prüfen
+                      const { error: signInError } = await supabase.auth.signInWithPassword({
+                        email: user.email!,
+                        password: currentPasswordForEmail
+                      });
+                      if (signInError) {
+                        setEmailChangeError('Das aktuelle Passwort ist nicht korrekt.');
+                        setEmailChangeLoading(false);
+                        return;
+                      }
+                      // 2. E-Mail ändern
+                      const { error: updateError } = await supabase.auth.updateUser({
+                        email: newEmail.trim()
+                      });
+                      if (updateError) {
+                        setEmailChangeError('Fehler beim Ändern der E-Mail-Adresse: ' + updateError.message);
+                        setEmailChangeLoading(false);
+                        return;
+                      }
+                      setEmailChangeSuccess('E-Mail-Änderung eingeleitet! Bitte bestätigen Sie die Änderung über den Link, der an Ihre alte E-Mail-Adresse gesendet wurde.');
+                      setNewEmail('');
+                      setCurrentPasswordForEmail('');
+                    } catch (err: any) {
+                      setEmailChangeError('Ein unerwarteter Fehler ist aufgetreten.');
+                    } finally {
+                      setEmailChangeLoading(false);
+                    }
+                  }}
+                  className="space-y-6"
+                >
+                  {/* Hinweis in gelblicher Box */}
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-start">
+                      <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
+                      <div className="text-sm text-yellow-800">
+                        <p className="font-medium mb-1">Wichtiger Hinweis</p>
+                        <p>
+                          Die Bestätigung der Änderung wird an Ihre <strong>alte E-Mail-Adresse</strong> gesendet 
+                          und muss dort bestätigt werden, bevor die neue E-Mail-Adresse aktiv wird.
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Links: Aktuelle E-Mail */}
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">Aktuelle E-Mail</h3>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          E-Mail-Adresse
+                        </label>
+                        <input
+                          type="email"
+                          className="input w-full bg-gray-100 cursor-not-allowed"
+                          value={user?.email || ''}
+                          disabled
+                        />
+                      </div>
+                    </div>
+
+                    {/* Rechts: Neue E-Mail + Passwort */}
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-4">Neue E-Mail</h3>
+                      <div className="space-y-4">
+                        {/* Neue E-Mail */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Neue E-Mail-Adresse <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="email"
+                            className="input w-full"
+                            value={newEmail}
+                            onChange={e => setNewEmail(e.target.value)}
+                            placeholder="neue@email.de"
+                            required
+                          />
+                        </div>
+
+                        {/* Aktuelles Passwort */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Aktuelles Passwort <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="password"
+                            className="input w-full"
+                            value={currentPasswordForEmail}
+                            onChange={e => setCurrentPasswordForEmail(e.target.value)}
+                            placeholder="Ihr aktuelles Passwort"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Fehler und Erfolg */}
+                  {emailChangeError && (
+                    <div className="flex items-center gap-2 text-red-600 text-sm">
+                      <AlertTriangle className="h-4 w-4" />
+                      {emailChangeError}
+                    </div>
+                  )}
+
+                  {emailChangeSuccess && (
+                    <div className="flex items-center gap-2 text-green-600 text-sm">
+                      <Check className="h-4 w-4" />
+                      {emailChangeSuccess}
+                    </div>
+                  )}
+
+                  {/* Submit Button */}
+                  <div className="flex justify-start">
+                    <button
+                      type="submit"
+                      className="btn btn-primary py-2 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={emailChangeLoading}
+                    >
+                      {emailChangeLoading ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Wird geändert...
+                        </div>
+                      ) : (
+                        'E-Mail ändern'
+                      )}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
 
@@ -2459,7 +2724,7 @@ function OwnerDashboardPage() {
                   <div className="flex justify-start">
                     <button
                       type="submit"
-                      className="btn-primary py-2 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="btn btn-primary py-2 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
                       disabled={passwordLoading}
                     >
                       {passwordLoading ? (
@@ -2469,119 +2734,6 @@ function OwnerDashboardPage() {
                         </div>
                       ) : (
                         'Passwort ändern'
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-
-            {/* E-Mail-Adresse ändern */}
-            <div className="mb-8">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                </svg>
-                E-Mail-Adresse ändern
-              </h2>
-              <div className="bg-white rounded-xl shadow-sm p-6">
-                <div className="bg-blue-50 rounded-lg p-4 mb-6">
-                  <div className="flex items-start">
-                    <svg className="h-5 w-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div className="text-sm">
-                      <p className="font-medium text-blue-800">Wichtig</p>
-                      <p className="text-blue-700 mt-1">
-                        Die Änderung Ihrer E-Mail-Adresse betrifft sowohl die Anmeldung als auch Ihr Profil. 
-                        Sie erhalten eine Bestätigungs-E-Mail an die neue Adresse.
-                      </p>
-                      <p className="text-blue-700 mt-2 font-semibold">
-                        Aus Sicherheitsgründen muss die Änderung zusätzlich über einen Link in Ihrer <span className="underline">bisherigen E-Mail-Adresse</span> bestätigt werden.<br/>
-                        Erst nach dieser Bestätigung wird die neue E-Mail-Adresse aktiv!
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <form onSubmit={handleEmailChange} className="space-y-6">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Links: Aktuelle E-Mail */}
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-4">Aktuelle E-Mail</h3>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Aktuelle E-Mail-Adresse
-                        </label>
-                        <input
-                          type="email"
-                          className="input w-full bg-gray-50"
-                          value={user?.email || ''}
-                          disabled
-                          readOnly
-                        />
-                      </div>
-                    </div>
-
-                    {/* Rechts: Neue E-Mail */}
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-4">Neue E-Mail</h3>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Neue E-Mail-Adresse <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="email"
-                          className="input w-full"
-                          value={emailData.newEmail}
-                          onChange={(e) => setEmailData({ newEmail: e.target.value })}
-                          placeholder="ihre.neue@email.de"
-                          disabled={emailLoading}
-                          required
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Fehler und Erfolg */}
-                  {emailError && (
-                    <div className="flex items-center gap-2 text-red-600 text-sm">
-                      <AlertTriangle className="h-4 w-4" />
-                      {emailError}
-                    </div>
-                  )}
-
-                  {emailSuccess && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <div className="flex items-start">
-                        <Check className="h-5 w-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" />
-                        <div className="text-sm">
-                          <p className="font-medium text-green-800">E-Mail-Änderung eingeleitet!</p>
-                          <p className="text-green-700 mt-1">
-                            Eine Bestätigungs-E-Mail wurde gesendet. Bitte prüfen Sie Ihr Postfach (auch den Spam-Ordner) und klicken Sie auf den Bestätigungslink.
-                          </p>
-                          <p className="text-green-600 text-xs mt-2">
-                            💡 Bis zur Bestätigung können Sie sich weiterhin mit Ihrer aktuellen E-Mail-Adresse anmelden.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Submit Button */}
-                  <div className="flex justify-start">
-                    <button
-                      type="submit"
-                      className="btn-primary py-2 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={emailLoading}
-                    >
-                      {emailLoading ? (
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          Wird geändert...
-                        </div>
-                      ) : (
-                        'E-Mail ändern'
                       )}
                     </button>
                   </div>

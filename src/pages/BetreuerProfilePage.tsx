@@ -6,7 +6,7 @@ import Button from '../components/ui/Button';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import AvailabilityDisplay from '../components/ui/AvailabilityDisplay';
 import { ReviewForm } from '../components/ui/ReviewForm';
-import { caretakerSearchService } from '../lib/supabase/db';
+import { caretakerSearchService, ownerCaretakerService } from '../lib/supabase/db';
 import { formatCurrency } from '../lib/utils';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase/client';
@@ -55,8 +55,9 @@ function BetreuerProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  const { checkFeature, trackUsage, isBetaActive } = useFeatureAccess();
+  const { checkFeature, trackUsage, isBetaActive, subscription } = useFeatureAccess();
   const [isFavorite, setIsFavorite] = useState(false);
+  const [isFavoriteLoading, setIsFavoriteLoading] = useState(false);
   const [caretaker, setCaretaker] = useState<Caretaker | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +101,22 @@ function BetreuerProfilePage() {
 
     fetchCaretaker();
   }, [id]);
+
+  // Lade Favoriten-Status wenn User eingeloggt ist
+  useEffect(() => {
+    const fetchFavoriteStatus = async () => {
+      if (!user || !id) return;
+      
+      try {
+        const { isFavorite: favoriteStatus } = await ownerCaretakerService.isFavorite(user.id, id);
+        setIsFavorite(favoriteStatus);
+      } catch (error) {
+        console.error('Error fetching favorite status:', error);
+      }
+    };
+
+    fetchFavoriteStatus();
+  }, [user, id]);
 
   // Bewertungen von echter DB laden
   useEffect(() => {
@@ -166,7 +183,7 @@ function BetreuerProfilePage() {
 
     try {
       // Feature Gate Check: Contact Request Limit
-      // Beta users get unlimited access
+      // Beta users get unlimited access during beta phase
       if (!isBetaActive) {
         const accessCheck = await checkFeature('contact_request', caretaker.id);
         
@@ -256,6 +273,40 @@ function BetreuerProfilePage() {
       // TODO: Show error toast
     } finally {
       setIsSubmittingReview(false);
+    }
+  };
+
+  // Favoriten Toggle Handler
+  const handleFavoriteToggle = async () => {
+    if (!isAuthenticated || !user) {
+      // Umleitung zur Login-Seite mit return URL
+      navigate(`/anmelden?redirect=${encodeURIComponent(`/betreuer/${id}`)}&action=favorite&caretaker=${encodeURIComponent(caretaker?.name || '')}`);
+      return;
+    }
+
+    if (!caretaker?.id) {
+      console.error('Caretaker ID fehlt');
+      return;
+    }
+
+    setIsFavoriteLoading(true);
+
+    try {
+      const { isFavorite: newFavoriteStatus, error } = await ownerCaretakerService.toggleFavorite(user.id, caretaker.id);
+      
+      if (error) {
+        console.error('Fehler beim Aktualisieren der Favoriten:', error);
+        // TODO: Toast-Benachrichtigung anzeigen
+        return;
+      }
+
+      setIsFavorite(newFavoriteStatus);
+      // TODO: Success Toast anzeigen
+    } catch (error) {
+      console.error('Unerwarteter Fehler beim Favorisieren:', error);
+      // TODO: Toast-Benachrichtigung anzeigen
+    } finally {
+      setIsFavoriteLoading(false);
     }
   };
 
@@ -356,10 +407,14 @@ function BetreuerProfilePage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setIsFavorite(!isFavorite)}
+                      onClick={handleFavoriteToggle}
                       className="p-1 focus:ring-0 focus:ring-offset-0"
+                      disabled={isFavoriteLoading}
+                      title={isFavorite ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'}
                     >
-                      {isFavorite ? (
+                      {isFavoriteLoading ? (
+                        <div className="w-5 h-5 border-2 border-primary-300 border-t-primary-600 rounded-full animate-spin" />
+                      ) : isFavorite ? (
                         <Heart className="h-5 w-5 text-primary-500 fill-primary-500" />
                       ) : (
                         <Heart className="h-5 w-5 text-primary-500 hover:text-primary-600" />

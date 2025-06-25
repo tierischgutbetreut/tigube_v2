@@ -20,7 +20,6 @@ export type UserProfileUpdate = {
   profileCompleted?: boolean;
   userType?: 'owner' | 'caretaker';
   profilePhotoUrl?: string;
-  // E-Mail wird NICHT hier gespeichert - nur in Supabase Auth!
 };
 
 export type PetData = {
@@ -106,7 +105,6 @@ export const userService = {
     if (profileData.profileCompleted !== undefined) updateData.profile_completed = profileData.profileCompleted;
     if (profileData.userType !== undefined) updateData.user_type = profileData.userType;
     if (profileData.profilePhotoUrl !== undefined) updateData.profile_photo_url = profileData.profilePhotoUrl;
-    // E-Mail wird NICHT in der users-Tabelle gespeichert - nur in Auth!
 
     const { data, error } = await supabase
       .from('users')
@@ -115,25 +113,6 @@ export const userService = {
       .select();
 
     return { data, error };
-  },
-
-  // E-Mail-Adresse aktualisieren (mit korrekter Supabase-Syntax)
-  updateEmail: async (newEmail: string) => {
-    try {
-      const currentUrl = window.location.origin;
-      // Immer explizit auf das Dashboard weiterleiten!
-      const redirectUrl = `${currentUrl}/dashboard-owner`;
-
-      const { data, error } = await supabase.auth.updateUser(
-        { email: newEmail },
-        { emailRedirectTo: redirectUrl }
-      );
-
-      if (error) throw error;
-      return { data, error: null };
-    } catch (error: any) {
-      return { data: null, error: { message: error.message } };
-    }
   },
 
   // Benutzerprofil abrufen
@@ -860,20 +839,47 @@ export const caretakerSearchService = {
 
 // Owner Caretaker Connections Service
 export const ownerCaretakerService = {
-  // Speichere einen Betreuer für einen Tierbesitzer
+  // Speichere einen Betreuer für einen Tierbesitzer (aus Chat)
   async saveCaretaker(ownerId: string, caretakerId: string) {
     try {
-      const { data, error } = await supabase
+      // Prüfe ob bereits eine Verbindung existiert
+      const { data: existing, error: existingError } = await supabase
         .from('owner_caretaker_connections')
-        .insert({
-          owner_id: ownerId,
-          caretaker_id: caretakerId
-        })
-        .select()
-        .single()
+        .select('id, connection_type')
+        .eq('owner_id', ownerId)
+        .eq('caretaker_id', caretakerId)
+        .maybeSingle()
       
-      if (error) throw error
-      return { data, error: null }
+      if (existingError) throw existingError
+      
+      if (existing) {
+        // Verbindung existiert - wandle zu Betreuer um (egal ob vorher Favorit)
+        const { data, error } = await supabase
+          .from('owner_caretaker_connections')
+          .update({ 
+            connection_type: 'caretaker'
+          })
+          .eq('id', existing.id)
+          .select()
+          .single()
+        
+        if (error) throw error
+        return { data, error: null }
+      } else {
+        // Neue Verbindung erstellen als Betreuer
+        const { data, error } = await supabase
+          .from('owner_caretaker_connections')
+          .insert({
+            owner_id: ownerId,
+            caretaker_id: caretakerId,
+            connection_type: 'caretaker'
+          })
+          .select()
+          .single()
+        
+        if (error) throw error
+        return { data, error: null }
+      }
     } catch (error) {
       console.error('Error saving caretaker:', error)
       return { data: null, error: (error as Error).message }
@@ -897,7 +903,7 @@ export const ownerCaretakerService = {
     }
   },
 
-  // Prüfe ob ein Betreuer bereits gespeichert ist
+  // Prüfe ob ein Betreuer bereits als Betreuer gespeichert ist (nicht nur als Favorit)
   async isCaretakerSaved(ownerId: string, caretakerId: string) {
     try {
       const { data, error } = await supabase
@@ -905,6 +911,7 @@ export const ownerCaretakerService = {
         .select('id')
         .eq('owner_id', ownerId)
         .eq('caretaker_id', caretakerId)
+        .eq('connection_type', 'caretaker')  // Nur echte Betreuer zählen
         .maybeSingle()
       
       if (error) throw error
@@ -915,14 +922,86 @@ export const ownerCaretakerService = {
     }
   },
 
-  // Lade alle gespeicherten Betreuer für einen Owner
-  async getSavedCaretakers(ownerId: string) {
+  // Favoriten-Funktionalität: Betreuer als Favorit markieren oder entfernen (NUR wenn noch kein Betreuer)
+  async toggleFavorite(ownerId: string, caretakerId: string) {
     try {
-      // Erst die Verbindungen laden
+      // Prüfe ob Verbindung bereits existiert
+      const { data: existing, error: existingError } = await supabase
+        .from('owner_caretaker_connections')
+        .select('id, connection_type')
+        .eq('owner_id', ownerId)
+        .eq('caretaker_id', caretakerId)
+        .maybeSingle()
+      
+      if (existingError) throw existingError
+      
+      if (existing) {
+        // Verbindung existiert
+        if (existing.connection_type === 'caretaker') {
+          // Bereits ein Betreuer - kann nicht als Favorit markiert werden
+          return { isFavorite: false, error: 'Dieser Betreuer ist bereits in Ihren gespeicherten Betreuern' }
+        }
+        
+        if (existing.connection_type === 'favorite') {
+          // Favorit entfernen = Verbindung komplett löschen
+          const { error } = await supabase
+            .from('owner_caretaker_connections')
+            .delete()
+            .eq('id', existing.id)
+          
+          if (error) throw error
+          return { isFavorite: false, error: null }
+        }
+      } else {
+        // Verbindung existiert nicht - erstelle sie als Favorit
+        const { data, error } = await supabase
+          .from('owner_caretaker_connections')
+          .insert({
+            owner_id: ownerId,
+            caretaker_id: caretakerId,
+            connection_type: 'favorite'
+          })
+          .select('connection_type')
+          .single()
+        
+        if (error) throw error
+        return { isFavorite: data.connection_type === 'favorite', error: null }
+      }
+      
+      return { isFavorite: false, error: null }
+    } catch (error) {
+      console.error('Error toggling favorite:', error)
+      return { isFavorite: false, error: (error as Error).message }
+    }
+  },
+
+  // Prüfe ob ein Betreuer als Favorit markiert ist
+  async isFavorite(ownerId: string, caretakerId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('owner_caretaker_connections')
+        .select('connection_type')
+        .eq('owner_id', ownerId)
+        .eq('caretaker_id', caretakerId)
+        .maybeSingle()
+      
+      if (error) throw error
+      return { isFavorite: data?.connection_type === 'favorite', error: null }
+    } catch (error) {
+      console.error('Error checking if caretaker is favorite:', error)
+      return { isFavorite: false, error: (error as Error).message }
+    }
+  },
+
+  // Lade nur die favorisierten Betreuer für einen Owner (die NICHT als Betreuer gespeichert sind)
+  async getFavoriteCaretakers(ownerId: string) {
+    try {
+      // Erst die Favoriten-Verbindungen laden (nur Favoriten, keine Betreuer)
       const { data: connections, error: connectionsError } = await supabase
         .from('owner_caretaker_connections')
         .select('caretaker_id, created_at')
         .eq('owner_id', ownerId)
+        .eq('connection_type', 'favorite')  // Nur reine Favoriten
         .order('created_at', { ascending: false })
       
       if (connectionsError) throw connectionsError
@@ -959,7 +1038,65 @@ export const ownerCaretakerService = {
           email: '', // Not available in search view
           phone: '', // Not available in search view
           user_id: caretaker.id, // Use caretaker ID as user_id
-          saved_at: connection.created_at
+          saved_at: connection.created_at,
+          isFavorite: true
+        }
+      }).filter(Boolean)
+      
+      return { data: transformedData || [], error: null }
+    } catch (error) {
+      console.error('Error getting favorite caretakers:', error)
+      return { data: [], error: (error as Error).message }
+    }
+  },
+
+  // Lade nur die echten Betreuer für einen Owner (die aus Chat gespeichert wurden)
+  async getSavedCaretakers(ownerId: string) {
+    try {
+      // Erst die Betreuer-Verbindungen laden (nur echte Betreuer, keine Favoriten)
+      const { data: connections, error: connectionsError } = await supabase
+        .from('owner_caretaker_connections')
+        .select('caretaker_id, created_at, connection_type')
+        .eq('owner_id', ownerId)
+        .eq('connection_type', 'caretaker')  // Nur echte Betreuer, keine reinen Favoriten
+        .order('created_at', { ascending: false })
+      
+      if (connectionsError) throw connectionsError
+      
+      if (!connections || connections.length === 0) {
+        return { data: [], error: null }
+      }
+      
+      // Dann die Caretaker-Daten aus der Search View laden
+      const caretakerIds = connections.map(c => c.caretaker_id)
+      const { data: caretakers, error: careteakersError } = await supabase
+        .from('caretaker_search_view')
+        .select('*')
+        .in('id', caretakerIds)
+      
+      if (careteakersError) throw careteakersError
+      
+      // Transform data to match the expected format
+      const transformedData = connections.map(connection => {
+        const caretaker = caretakers?.find(c => c.id === connection.caretaker_id)
+        if (!caretaker) return null
+        
+        return {
+          id: caretaker.id,
+          name: caretaker.full_name || `${caretaker.first_name || ''} ${caretaker.last_name || ''}`.trim() || 'Unbekannt',
+          avatar: caretaker.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(caretaker.first_name || 'U')}&background=f3f4f6&color=374151`,
+          location: caretaker.city && caretaker.plz ? `${caretaker.city} ${caretaker.plz}` : (caretaker.city || 'Ort nicht angegeben'),
+          services: Array.isArray(caretaker.services) ? caretaker.services : [],
+          rating: Number(caretaker.rating) || 0,
+          reviews_count: caretaker.review_count || 0,
+          hourly_rate: Number(caretaker.hourly_rate) || 0,
+          description: caretaker.short_about_me || 'Keine Beschreibung verfügbar.',
+          isCommercial: caretaker.is_commercial || false,
+          email: '', // Not available in search view
+          phone: '', // Not available in search view
+          user_id: caretaker.id, // Use caretaker ID as user_id
+          saved_at: connection.created_at,
+          isFavorite: false  // Betreuer sind nie Favoriten (mutual exclusivity)
         }
       }).filter(Boolean)
       

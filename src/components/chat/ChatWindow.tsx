@@ -262,7 +262,7 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
         clearTimeout(typingTimeoutRef.current)
       }
     }
-  }, [conversation.id, currentUserId, otherUser?.id, refreshUnreadCount])
+  }, [conversation.id, currentUserId, otherUser?.id])
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -324,51 +324,28 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
   }
 
   const handleConfirmDelete = async () => {
-    console.log('=== DELETE CONVERSATION START ===')
-    console.log('Conversation ID:', conversation.id)
-    console.log('Current User ID:', currentUserId)
-    console.log('Conversation owner:', conversation.owner.id)
-    console.log('Conversation caretaker:', conversation.caretaker.id)
-    
     setIsDeleting(true)
     try {
-      console.log('Calling deleteConversation...')
-      
       // Delete the entire conversation and all messages
       const { error } = await deleteConversation(conversation.id, currentUserId)
       
-      console.log('deleteConversation response:', { error })
-      
       if (error) {
-        console.error('❌ Error deleting chat:', error)
-        // TODO: Show error in UI instead of alert
+        console.error('Error deleting chat:', error)
         return
       }
       
-      console.log('✅ Delete successful, notifying parent components...')
-      
       // Notify parent components about deletion
       if (onConversationDeleted) {
-        console.log('Calling onConversationDeleted for conversation:', conversation.id)
         onConversationDeleted(conversation.id)
-      } else {
-        console.log('⚠️ onConversationDeleted callback not provided')
       }
       
       // Navigate back to messages list
       if (onBack) {
-        console.log('Calling onBack...')
         onBack()
-      } else {
-        console.log('⚠️ onBack callback not provided')
       }
-      
-      console.log('=== DELETE CONVERSATION SUCCESS ===')
     } catch (error) {
-      console.error('❌ Catch block - Error deleting chat:', error)
-      // TODO: Show error in UI instead of alert
+      console.error('Error deleting chat:', error)
     } finally {
-      console.log('=== DELETE CONVERSATION CLEANUP ===')
       setShowDeleteModal(false)
       setIsDeleting(false)
     }

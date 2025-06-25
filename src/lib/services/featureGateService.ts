@@ -102,11 +102,11 @@ export class FeatureGateService {
     targetUserId?: string
   ): Promise<{ allowed: boolean; reason?: string; currentUsage?: number; limit?: number }> {
     try {
-      // Während Beta-Phase: Alles erlaubt
-      const betaEndDate = new Date('2025-10-31');
+      // Während Beta-Phase: Alles erlaubt für Trial-User
+      const betaEndDate = new Date('2025-10-31T23:59:59.000Z');
       const now = new Date();
       if (now < betaEndDate && subscription.status === 'trial') {
-        return { allowed: true, reason: 'Beta access' };
+        return { allowed: true, reason: 'Beta access - unlimited during trial period' };
       }
 
       const limits = this.getFeatureLimits(subscription.plan_type, subscription.user_type);

@@ -1,5 +1,8 @@
--- Fix caretaker_search_view to include prices field
+-- Fix caretaker_search_view to include missing fields: prices and is_commercial
+-- This ensures the search functionality works properly
+
 DROP VIEW IF EXISTS caretaker_search_view;
+
 CREATE VIEW caretaker_search_view AS
 SELECT 
   u.id,
@@ -7,7 +10,7 @@ SELECT
   u.last_name,
   CASE 
     WHEN u.first_name IS NOT NULL AND u.last_name IS NOT NULL 
-    THEN u.first_name || ' ' || LEFT(u.last_name, 1) || '.'
+    THEN u.first_name || ' ' || SUBSTRING(u.last_name, 1, 1) || '.'
     WHEN u.first_name IS NOT NULL 
     THEN u.first_name
     ELSE 'Unbekannt'
@@ -36,4 +39,9 @@ SELECT
   cp.vat_id
 FROM caretaker_profiles cp
 LEFT JOIN users u ON cp.id = u.id
-WHERE u.user_type = 'caretaker'; 
+WHERE u.user_type = 'caretaker'
+  AND cp.is_active = true;  -- Only show active caretakers
+
+-- Grant appropriate permissions
+GRANT SELECT ON caretaker_search_view TO authenticated;
+GRANT SELECT ON caretaker_search_view TO anon; 
