@@ -1,6 +1,6 @@
 import Layout from '../components/layout/Layout';
 import Button from '../components/ui/Button';
-import { MapPin, Phone, PawPrint, Edit, Shield, Heart, Trash, Check, X, Plus, Upload, LogOut, Settings, Camera, AlertTriangle, Trash2, Briefcase, User, MessageCircle, KeyRound, Eye, EyeOff, Mail, Star } from 'lucide-react';
+import { MapPin, Phone, PawPrint, Edit, Shield, Heart, Trash, Check, X, Plus, Upload, LogOut, Settings, Camera, AlertTriangle, Trash2, Briefcase, User, MessageCircle, KeyRound, Eye, EyeOff, Mail, Star, Verified } from 'lucide-react';
 import { mockPetOwners, mockBookings, mockCaregivers } from '../data/mockData';
 import { formatCurrency } from '../lib/utils';
 import { Link } from 'react-router-dom';
@@ -14,6 +14,8 @@ import { plzService } from '../lib/supabase/db';
 import { useNavigate } from 'react-router-dom';
 import { getOrCreateConversation } from '../lib/supabase/chatService';
 import { supabase } from '../lib/supabase/client';
+import Badge from '../components/ui/Badge';
+import { calculateAge } from '../lib/utils';
 
 const ALL_SERVICES = [
   'Gassi-Service',
@@ -30,7 +32,7 @@ interface PetFormData {
   type: string;
   typeOther: string;
   breed: string;
-  age: string;
+  birthDate: string;
   weight: string;
   image: string | File;
   description: string;
@@ -97,7 +99,7 @@ function OwnerDashboardPage() {
   const [petsLoading, setPetsLoading] = useState(true);
   const [petError, setPetError] = useState<string | null>(null);
   const [showAddPet, setShowAddPet] = useState(false);
-  const [newPet, setNewPet] = useState<PetFormData>({ name: '', type: '', typeOther: '', breed: '', age: '', weight: '', image: '', description: '', gender: '', neutered: false });
+  const [newPet, setNewPet] = useState<PetFormData>({ name: '', type: '', typeOther: '', breed: '', birthDate: '', weight: '', image: '', description: '', gender: '', neutered: false });
   const [activeTab, setActiveTab] = useState<'uebersicht' | 'tiere' | 'einstellungen'>('uebersicht');
   const [editData, setEditData] = useState(false);
   const [ownerData, setOwnerData] = useState({
@@ -144,7 +146,7 @@ function OwnerDashboardPage() {
   const [shareSettingsSaveMsg, setShareSettingsSaveMsg] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [editPet, setEditPet] = useState<string | null>(null);
-  const [editPetData, setEditPetData] = useState<PetFormData>({ name: '', type: '', typeOther: '', breed: '', age: '', weight: '', image: '', description: '', gender: '', neutered: false });
+  const [editPetData, setEditPetData] = useState<PetFormData>({ name: '', type: '', typeOther: '', breed: '', birthDate: '', weight: '', image: '', description: '', gender: '', neutered: false });
   // State für Edit-Modus und lokale Kopie der Betreuungsvorlieben
   const [editPrefs, setEditPrefs] = useState(false);
   const [editServices, setEditServices] = useState<string[]>([]);
@@ -229,7 +231,7 @@ function OwnerDashboardPage() {
               name: pet.name,
               type: pet.type,
               breed: pet.breed || '',
-              age: pet.age ?? '',
+              birthDate: pet.birth_date || '',
               weight: pet.weight ?? '',
               image: pet.photo_url || '',
               description: pet.description || '',
@@ -552,7 +554,7 @@ function OwnerDashboardPage() {
         name: newPet.name,
         type: typeValue,
         breed: newPet.breed,
-        age: Number(newPet.age),
+        birthDate: newPet.birthDate,
         weight: newPet.weight ? Number(newPet.weight) : undefined,
         photoUrl: photoUrl,
         description: newPet.description,
@@ -568,7 +570,7 @@ function OwnerDashboardPage() {
         name: pet.name,
         type: pet.type,
         breed: pet.breed || '',
-        age: pet.age ?? '',
+        birthDate: pet.birth_date || '',
         weight: pet.weight ?? '',
         image: pet.photo_url || '',
         description: pet.description || '',
@@ -576,7 +578,7 @@ function OwnerDashboardPage() {
         neutered: pet.neutered || false,
       })));
       setShowAddPet(false);
-      setNewPet({ name: '', type: '', typeOther: '', breed: '', age: '', weight: '', image: '', description: '', gender: '', neutered: false });
+      setNewPet({ name: '', type: '', typeOther: '', breed: '', birthDate: '', weight: '', image: '', description: '', gender: '', neutered: false });
     } catch (e) {
       setPetError('Fehler beim Hinzufügen des Tiers!');
     }
@@ -597,7 +599,7 @@ function OwnerDashboardPage() {
         name: editPetData.name,
         type: editPetData.type === 'Andere' ? editPetData.typeOther : editPetData.type,
         breed: editPetData.breed,
-        age: Number(editPetData.age),
+        birthDate: editPetData.birthDate,
         weight: editPetData.weight ? Number(editPetData.weight) : undefined,
         photoUrl: photoUrl,
         description: editPetData.description,
@@ -613,7 +615,7 @@ function OwnerDashboardPage() {
         name: pet.name,
         type: pet.type,
         breed: pet.breed || '',
-        age: pet.age ?? '',
+        birthDate: pet.birth_date || '',
         weight: pet.weight ?? '',
         image: pet.photo_url || '',
         description: pet.description || '',
@@ -621,7 +623,7 @@ function OwnerDashboardPage() {
         neutered: pet.neutered || false,
       })));
       setEditPet(null);
-              setEditPetData({ name: '', type: '', typeOther: '', breed: '', age: '', weight: '', image: '', description: '', gender: '', neutered: false });
+              setEditPetData({ name: '', type: '', typeOther: '', breed: '', birthDate: '', weight: '', image: '', description: '', gender: '', neutered: false });
     } catch (e) {
       setPetError('Fehler beim Bearbeiten des Tiers!');
     }
@@ -639,7 +641,7 @@ function OwnerDashboardPage() {
         name: pet.name,
         type: pet.type,
         breed: pet.breed || '',
-        age: pet.age ?? '',
+        birthDate: pet.birth_date || '',
         weight: pet.weight ?? '',
         image: pet.photo_url || '',
         description: pet.description || '',
@@ -669,7 +671,7 @@ function OwnerDashboardPage() {
         type: pet.type,
         typeOther: '',
         breed: pet.breed,
-        age: pet.age.toString(),
+        birthDate: pet.birthDate || '',
         weight: pet.weight?.toString() || '',
         image: pet.image,
         description: pet.description || '',
@@ -1726,7 +1728,7 @@ function OwnerDashboardPage() {
                           <div className="grid grid-cols-2 gap-3 mb-4">
                             <div className="bg-gray-50 rounded-lg p-3">
                               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Alter</div>
-                              <div className="text-sm font-semibold text-gray-900">{pet.age} Jahre</div>
+                              <div className="text-sm font-semibold text-gray-900">{pet.birthDate ? calculateAge(pet.birthDate) : '—'} Jahre</div>
                             </div>
                             {pet.weight && (
                               <div className="bg-gray-50 rounded-lg p-3">
@@ -1804,13 +1806,16 @@ function OwnerDashboardPage() {
                               value={editPetData.breed}
                               onChange={e => setEditPetData(p => ({ ...p, breed: e.target.value }))}
                             />
-                            <input
-                              type="number"
-                              className="input w-full"
-                              placeholder="Alter (Jahre)"
-                              value={editPetData.age}
-                              onChange={e => setEditPetData(p => ({ ...p, age: e.target.value }))}
-                            />
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Geburtsdatum</label>
+                              <input
+                                type="date"
+                                className="input w-full"
+                                value={editPetData.birthDate}
+                                max={new Date().toISOString().split('T')[0]}
+                                onChange={e => setEditPetData(p => ({ ...p, birthDate: e.target.value }))}
+                              />
+                            </div>
                             <input
                               type="number"
                               className="input w-full"
@@ -1931,13 +1936,16 @@ function OwnerDashboardPage() {
                       value={newPet.breed}
                       onChange={e => setNewPet(p => ({ ...p, breed: e.target.value }))}
                     />
-                    <input
-                      type="number"
-                      className="input"
-                      placeholder="Alter (Jahre)"
-                      value={newPet.age}
-                      onChange={e => setNewPet(p => ({ ...p, age: e.target.value }))}
-                    />
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Geburtsdatum</label>
+                      <input
+                        type="date"
+                        className="input"
+                        value={newPet.birthDate}
+                        max={new Date().toISOString().split('T')[0]}
+                        onChange={e => setNewPet(p => ({ ...p, birthDate: e.target.value }))}
+                      />
+                    </div>
                     <input
                       type="number"
                       className="input"
@@ -1994,7 +2002,7 @@ function OwnerDashboardPage() {
                       <button
                         type="button"
                         className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
-                        onClick={() => { setShowAddPet(false); setNewPet({ name: '', type: '', typeOther: '', breed: '', age: '', weight: '', image: '', description: '', gender: '', neutered: false }); }}
+                        onClick={() => { setShowAddPet(false); setNewPet({ name: '', type: '', typeOther: '', breed: '', birthDate: '', weight: '', image: '', description: '', gender: '', neutered: false }); }}
                       >
                         <X className="h-4 w-4 inline" /> Abbrechen
                       </button>
