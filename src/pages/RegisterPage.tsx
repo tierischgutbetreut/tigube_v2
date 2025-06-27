@@ -46,11 +46,42 @@ function clearRegistrationData() {
   }
 }
 
+// Validierung der localStorage-Daten
+async function validateRegistrationData(savedData: any): Promise<boolean> {
+  if (!savedData || !savedData.userId) {
+    return false;
+  }
+
+  try {
+    // Prüfe, ob der Benutzer noch authentifiziert ist
+    const { data: authUser } = await supabase.auth.getUser();
+    if (!authUser?.user || authUser.user.id !== savedData.userId) {
+      console.log('Gespeicherte userId stimmt nicht mit aktuellem Auth-User überein');
+      return false;
+    }
+
+    // Prüfe, ob der Benutzer in der Datenbank existiert
+    const { data: userProfile, error } = await userService.getUserProfile(savedData.userId);
+    if (error || !userProfile) {
+      console.log('Benutzer existiert nicht in der Datenbank');
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.warn('Fehler bei der Validierung der Registrierungsdaten:', error);
+    return false;
+  }
+}
+
 function RegisterPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { updateProfileState } = useAuth();
   const initialType = searchParams.get('type') || 'owner';
+  
+  // State für die Initialisierung
+  const [isInitialized, setIsInitialized] = useState(false);
   
   // Lade gespeicherte Registrierungsdaten
   const savedData = loadRegistrationData();
@@ -204,6 +235,42 @@ function RegisterPage() {
   // State für das aktuelle Inputfeld (neuer Wunsch)
   const [otherServiceInput, setOtherServiceInput] = useState('');
 
+  // Validierung beim ersten Laden
+  useEffect(() => {
+    const initializeComponent = async () => {
+      const savedData = loadRegistrationData();
+      
+      if (savedData && savedData.userId) {
+        // Validiere die gespeicherten Daten
+        const isValid = await validateRegistrationData(savedData);
+        
+        if (!isValid) {
+          // Daten sind ungültig, lösche sie und setze auf Standardwerte zurück
+          console.log('Gespeicherte Registrierungsdaten sind ungültig, lösche sie...');
+          clearRegistrationData();
+          
+          // Setze Komponente auf Anfangszustand zurück
+          setUserType(initialType === 'caregiver' || initialType === 'caretaker' ? 'caretaker' : 'owner');
+          setStep(1);
+          setProfileStep(1);
+          setUserId(null);
+          setFormStep1({
+            firstName: '',
+            lastName: '',
+            email: '',
+            password: '',
+            termsAccepted: false
+          });
+          // Andere States werden bereits durch die ursprünglichen Initialwerte abgedeckt
+        }
+      }
+      
+      setIsInitialized(true);
+    };
+
+    initializeComponent();
+  }, []);
+
   function handleSlotChange(day: string, idx: number, field: 'start' | 'end', value: string) {
     setAvailability(avail => {
       const slots = [...avail[day]];
@@ -284,7 +351,7 @@ function RegisterPage() {
     if (formStep2Owner.services.includes(service)) {
       setFormStep2Owner({
         ...formStep2Owner,
-        services: formStep2Owner.services.filter(s => s !== service)
+        services: formStep2Owner.services.filter((s: string) => s !== service)
       });
     } else {
       setFormStep2Owner({
@@ -939,6 +1006,19 @@ function RegisterPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="container-custom max-w-3xl">
+        {/* Loading während Initialisierung */}
+        {!isInitialized && (
+          <div className="flex justify-center items-center min-h-[400px]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Lade Registrierung...</p>
+            </div>
+          </div>
+        )}
+        
+        {/* Hauptinhalt nur anzeigen wenn initialisiert */}
+        {isInitialized && (
+          <>
         {/* Headline & Beschreibung */}
         {step === 1 ? (
           <div className="text-center mb-8">
@@ -1990,7 +2070,7 @@ function RegisterPage() {
         )}
         
         {/* Login Link */}
-        {step === 1 && (
+        {step === 1 && isInitialized && (
           <div className="text-center mt-8">
             <p className="text-gray-600">
               Bereits registriert?{' '}
@@ -1999,6 +2079,8 @@ function RegisterPage() {
               </Link>
             </p>
           </div>
+        )}
+        </>
         )}
       </div>
     </div>
