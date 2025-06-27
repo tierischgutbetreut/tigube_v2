@@ -657,15 +657,31 @@ function RegisterPage() {
           if (caretakerError) throw caretakerError;
         }
 
-        // Nach Dashboard navigieren
-        const { data: freshProfile, error: freshProfileError1 } = await userService.getUserProfile(userId);
-        if (!freshProfileError1 && freshProfile) {
-          updateProfileState(freshProfile);
+        // Nach Dashboard navigieren - WICHTIG: Auth-Kontext komplett aktualisieren
+        try {
+          const { data: freshProfile, error: freshProfileError } = await userService.getUserProfile(userId);
+          if (!freshProfileError && freshProfile) {
+            // Warte kurz für DB-Synchronisation
+            await new Promise(resolve => setTimeout(resolve, 100));
+            updateProfileState(freshProfile);
+            console.log('✅ Profile state updated after registration:', freshProfile);
+          } else {
+            console.error('❌ Failed to fetch fresh profile:', freshProfileError);
+          }
+        } catch (profileErr) {
+          console.error('❌ Error updating profile state:', profileErr);
         }
         
         // Registrierung erfolgreich abgeschlossen - Cache-Daten löschen
         clearRegistrationData();
         
+        // Kurze Verzögerung für UI-Update vor Navigation
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Robuste Profile-Aktualisierung vor Navigation
+        await updateProfileStateRobust(userId, '(nextStep)');
+        
+        console.log('🔄 Navigating to dashboard from nextStep...');
         navigate(userType === 'owner' ? '/dashboard-owner' : '/dashboard-caretaker');
       } catch (err: any) {
         console.error('Fehler beim Vervollständigen des Profils:', err);
@@ -946,15 +962,31 @@ function RegisterPage() {
           if (caretakerError) throw caretakerError;
         }
 
-        // Nach Dashboard navigieren
-        const { data: freshProfile, error: freshProfileError2 } = await userService.getUserProfile(userId);
-        if (!freshProfileError2 && freshProfile) {
-          updateProfileState(freshProfile);
+        // Nach Dashboard navigieren - WICHTIG: Auth-Kontext komplett aktualisieren
+        try {
+          const { data: freshProfile, error: freshProfileError } = await userService.getUserProfile(userId);
+          if (!freshProfileError && freshProfile) {
+            // Warte kurz für DB-Synchronisation
+            await new Promise(resolve => setTimeout(resolve, 100));
+            updateProfileState(freshProfile);
+            console.log('✅ Profile state updated after registration:', freshProfile);
+          } else {
+            console.error('❌ Failed to fetch fresh profile:', freshProfileError);
+          }
+        } catch (profileErr) {
+          console.error('❌ Error updating profile state:', profileErr);
         }
         
         // Registrierung erfolgreich abgeschlossen - Cache-Daten löschen
         clearRegistrationData();
         
+        // Kurze Verzögerung für UI-Update vor Navigation
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Robuste Profile-Aktualisierung vor Navigation
+        await updateProfileStateRobust(userId, '(nextStep)');
+        
+        console.log('🔄 Navigating to dashboard from nextStep...');
         navigate(userType === 'owner' ? '/dashboard-owner' : '/dashboard-caretaker');
       } catch (err: any) {
         console.error('Fehler beim Vervollständigen des Profils:', err);
@@ -1002,6 +1034,55 @@ function RegisterPage() {
     }
     return result;
   }
+
+  // Robuste Funktion für Profile-Update nach Registrierung
+  const updateProfileStateRobust = async (userId: string, context: string = '') => {
+    console.log(`🔄 Starting robust profile state update ${context}...`);
+    
+    let profileUpdateSuccess = false;
+    let attempts = 0;
+    const maxAttempts = 5;
+    
+    while (!profileUpdateSuccess && attempts < maxAttempts) {
+      attempts++;
+      try {
+        // Kurze Pause zwischen Versuchen
+        if (attempts > 1) {
+          await new Promise(resolve => setTimeout(resolve, 300 * attempts));
+        }
+        
+        console.log(`🔍 Profile update attempt ${attempts}/${maxAttempts} ${context}...`);
+        const { data: freshProfile, error: freshProfileError } = await userService.getUserProfile(userId);
+        
+        if (!freshProfileError && freshProfile && freshProfile.profile_completed) {
+          // Profile erfolgreich geladen und ist vollständig
+          updateProfileState(freshProfile);
+          console.log(`✅ Profile state updated successfully ${context}:`, freshProfile);
+          profileUpdateSuccess = true;
+          
+          // Zusätzliche Pause für React State Update
+          await new Promise(resolve => setTimeout(resolve, 150));
+          
+        } else if (!freshProfileError && freshProfile) {
+          // Profile geladen aber noch nicht vollständig - normaler Fall während Registrierung
+          updateProfileState(freshProfile);
+          console.log(`✅ Partial profile updated, continuing ${context}...`, freshProfile);
+          profileUpdateSuccess = true;
+          await new Promise(resolve => setTimeout(resolve, 150));
+        } else {
+          console.warn(`⚠️ Profile update attempt ${attempts} failed ${context}:`, freshProfileError);
+        }
+      } catch (profileErr) {
+        console.error(`❌ Error in profile update attempt ${attempts} ${context}:`, profileErr);
+      }
+    }
+    
+    if (!profileUpdateSuccess) {
+      console.error(`❌ All profile update attempts failed ${context}`);
+    }
+    
+    return profileUpdateSuccess;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -2110,7 +2191,7 @@ function PhotoDropzone({ index, photoUrl, onUpload, uploading, error }: {
     <div {...getRootProps()} className={`mt-1 border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors ${isDragActive ? 'border-primary-500 bg-primary-50' : 'border-gray-300 bg-white'}` + (uploading ? ' opacity-50 pointer-events-none' : '')}>
       <input {...getInputProps()} />
       {photoUrl ? (
-        <img src={photoUrl} alt="Tierfoto" className="h-24 w-24 object-cover rounded-full mb-2" />
+                              <img src={photoUrl} alt="Tierfoto" className="h-24 w-24 object-cover rounded-xl mb-2" />
       ) : (
         <Upload className="mx-auto h-12 w-12 text-gray-400" />
       )}
