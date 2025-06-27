@@ -16,13 +16,36 @@ function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if we have the required tokens
-    const accessToken = searchParams.get('access_token');
-    const refreshToken = searchParams.get('refresh_token');
-    
-    if (!accessToken || !refreshToken) {
-      setError('Ungültiger oder abgelaufener Link. Bitte fordere einen neuen Link an.');
-    }
+    const checkAuthSession = async () => {
+      try {
+        // Check if user has a valid session (Supabase automatically handles token validation)
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Session error:', error);
+          // Don't show error immediately, let the user try first
+          return;
+        }
+
+        // Only show error if there's clearly no valid way to reset password
+        if (!session) {
+          const accessToken = searchParams.get('access_token');
+          const refreshToken = searchParams.get('refresh_token');
+          const code = searchParams.get('code');
+          
+          // If no session and no tokens/code in URL, the link might be invalid
+          // But we'll let the actual password update attempt handle the validation
+          if (!accessToken && !refreshToken && !code) {
+            console.warn('No session or tokens found, but allowing user to attempt password reset');
+          }
+        }
+      } catch (err) {
+        console.error('Error checking session:', err);
+        // Don't show error immediately, let the user try first
+      }
+    };
+
+    checkAuthSession();
   }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,11 +70,22 @@ function ResetPasswordPage() {
     try {
       setLoading(true);
       
+      // Clear any previous error when starting password update
+      setError(null);
+      
       const { error } = await supabase.auth.updateUser({
         password: password
       });
       
-      if (error) throw error;
+      if (error) {
+        // If update fails, it means the session/link is invalid
+        if (error.message.includes('session') || error.message.includes('unauthorized')) {
+          setError('Ungültiger oder abgelaufener Link. Bitte fordere einen neuen Link an.');
+        } else {
+          throw error;
+        }
+        return;
+      }
       
       setSuccess(true);
       

@@ -26,7 +26,7 @@ export type PetData = {
   name: string;
   type: string; // Zurück zu 'type' entsprechend schema.sql
   breed?: string;
-  age?: number;
+  birthDate?: string;
   weight?: number;
   photoUrl?: string;
   description?: string;
@@ -218,7 +218,7 @@ export const petService = {
         name: petData.name,
         type: petData.type,
         breed: petData.breed || null,
-        age: petData.age || null,
+        birth_date: petData.birthDate || null,
         weight: petData.weight || null,
         photo_url: petData.photoUrl || null,
         description: petData.description || null,
@@ -248,7 +248,7 @@ export const petService = {
     if (petData.name !== undefined) updateData.name = petData.name;
     if (petData.type !== undefined) updateData.type = petData.type;
     if (petData.breed !== undefined) updateData.breed = petData.breed;
-    if (petData.age !== undefined) updateData.age = petData.age;
+    if (petData.birthDate !== undefined) updateData.birth_date = petData.birthDate;
     if (petData.weight !== undefined) updateData.weight = petData.weight;
     if (petData.photoUrl !== undefined) updateData.photo_url = petData.photoUrl;
     if (petData.description !== undefined) updateData.description = petData.description;

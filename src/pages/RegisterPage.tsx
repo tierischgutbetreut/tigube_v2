@@ -79,18 +79,18 @@ function RegisterPage() {
     street: '',
     phoneNumber: '',
     profilePhotoUrl: '',
-    pets: [{
-      name: '',
-      type: '',
-      typeOther: '',
-      breed: '',
-      age: '',
-      weight: '',
-      photoUrl: '',
-      description: '',
-      gender: '',
-      neutered: false,
-    }],
+          pets: [{
+        name: '',
+        type: '',
+        typeOther: '',
+        breed: '',
+        birthDate: '',
+        weight: '',
+        photoUrl: '',
+        description: '',
+        gender: '',
+        neutered: false,
+      }],
     services: [] as string[],
     otherServices: [''],
     vetName: '',
@@ -258,7 +258,7 @@ function RegisterPage() {
           type: '',
           typeOther: '',
           breed: '',
-          age: '',
+          birthDate: '',
           weight: '',
           photoUrl: '',
           description: '',
@@ -449,18 +449,18 @@ function RegisterPage() {
         // Haustiere hinzufügen
         for (const pet of userType === 'owner' ? formStep2Owner.pets : []) {
           if (pet.name && pet.type) {
-            const { error: petError } = await petService.addPet(
-              userId,
-              {
-                name: pet.name,
-                type: pet.type,
-                breed: pet.breed || undefined,
-                age: pet.age ? parseInt(pet.age) : undefined,
-                weight: pet.weight ? parseFloat(pet.weight) : undefined,
-                photoUrl: pet.photoUrl || undefined,
-                description: pet.description || undefined
-              }
-            );
+                          const { error: petError } = await petService.addPet(
+                userId,
+                {
+                  name: pet.name,
+                  type: pet.type,
+                  breed: pet.breed || undefined,
+                  birthDate: pet.birthDate || undefined,
+                  weight: pet.weight ? parseFloat(pet.weight) : undefined,
+                  photoUrl: pet.photoUrl || undefined,
+                  description: pet.description || undefined
+                }
+              );
             if (petError) throw petError;
           }
         }
@@ -739,11 +739,11 @@ function RegisterPage() {
             const { error: petError } = await petService.addPet(
               userId,
               {
-                name: pet.name,
-                type: pet.type === 'Andere' ? pet.typeOther : pet.type,
-                breed: pet.breed || undefined,
-                age: pet.age ? parseInt(pet.age) : undefined,
-                weight: pet.weight ? parseFloat(pet.weight) : undefined,
+                                  name: pet.name,
+                  type: pet.type === 'Andere' ? pet.typeOther : pet.type,
+                  breed: pet.breed || undefined,
+                  birthDate: pet.birthDate || undefined,
+                  weight: pet.weight ? parseFloat(pet.weight) : undefined,
                 photoUrl: pet.photoUrl || undefined,
                 description: pet.description || undefined,
                 gender: pet.gender || undefined,
@@ -1449,17 +1449,16 @@ function RegisterPage() {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                               <div>
-                                <label htmlFor={`petAge-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
-                                  Alter
+                                <label htmlFor={`petBirthDate-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
+                                  Geburtsdatum
                                 </label>
                                 <input
-                                  type="number"
-                                  id={`petAge-${index}`}
+                                  type="date"
+                                  id={`petBirthDate-${index}`}
                                   className="input"
-                                  placeholder="Jahre"
-                                  min="0"
-                                  value={pet.age}
-                                  onChange={(e) => updatePet(index, 'age', e.target.value)}
+                                  value={pet.birthDate}
+                                  onChange={(e) => updatePet(index, 'birthDate', e.target.value)}
+                                  max={new Date().toISOString().split('T')[0]}
                                 />
                               </div>
                               <div>
