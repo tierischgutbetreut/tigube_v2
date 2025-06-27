@@ -1371,16 +1371,6 @@ function OwnerDashboardPage() {
                     ) : (
                       <div className="space-y-3">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">PLZ</label>
-                          <input
-                            type="text"
-                            className="input w-full"
-                            value={ownerData.plz}
-                            onChange={e => setOwnerData(d => ({ ...d, plz: e.target.value }))}
-                            placeholder="PLZ"
-                          />
-                        </div>
-                        <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Straße & Hausnummer</label>
                           <input
                             type="text"
@@ -1390,15 +1380,27 @@ function OwnerDashboardPage() {
                             placeholder="Straße und Hausnummer"
                           />
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Ort</label>
-                          <input
-                            type="text"
-                            className="input w-full"
-                            value={ownerData.location}
-                            onChange={e => setOwnerData(d => ({ ...d, location: e.target.value }))}
-                            placeholder="Ort"
-                          />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">PLZ</label>
+                            <input
+                              type="text"
+                              className="input w-full"
+                              value={ownerData.plz}
+                              onChange={e => setOwnerData(d => ({ ...d, plz: e.target.value }))}
+                              placeholder="PLZ"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Ort</label>
+                            <input
+                              type="text"
+                              className="input w-full"
+                              value={ownerData.location}
+                              onChange={e => setOwnerData(d => ({ ...d, location: e.target.value }))}
+                              placeholder="Ort"
+                            />
+                          </div>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Telefonnummer</label>
