@@ -314,17 +314,9 @@ Dank Profil-Bewertungen und sicheren Abläufen bekommst du genau die Fürsorge, 
                   >
                     Als Betreuer starten
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="lg"
-                    onClick={() => navigate('/mitgliedschaften')}
-                    className="text-primary-600 hover:text-primary-700"
-                  >
-                    💰 Preise anzeigen
-                  </Button>
                 </div>
                 <p className="text-sm text-gray-500 mt-4">
-                  ✅ Sofortiger Zugang • ✅ Alle Features kostenfrei • ✅ Keine Verpflichtung • <button onClick={() => navigate('/mitgliedschaften')} className="underline hover:no-underline">Preise ab €4,90/Monat</button>
+                  ✅ Sofortiger Zugang • ✅ Alle Features kostenfrei • ✅ Keine Verpflichtung
                 </p>
               </div>
               <div className="lg:col-span-2 relative hidden lg:block">

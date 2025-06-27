@@ -432,13 +432,36 @@ function OwnerDashboardPage() {
     );
   }
 
-  if (!userProfile) {
+  // Verwende Fallback-Profil wenn userProfile fehlt (z.B. bei unvollständiger Registrierung)
+  const shouldShowLoadingSpinner = !userProfile && authLoading;
+  
+  if (shouldShowLoadingSpinner) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <LoadingSpinner />
           <h2 className="text-xl font-semibold text-gray-900 mb-2 mt-4">Profil wird geladen ...</h2>
           <p className="text-gray-600">Bitte warten Sie einen Moment. Ihr Profil wird geladen.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Falls UserProfile nicht existiert und wir nicht mehr laden, zeige Setup-Guide
+  if (!userProfile && !authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="text-center max-w-md">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Profil vervollständigen</h2>
+          <p className="text-gray-600 mb-6">
+            Du hast noch kein vollständiges Profil. Vervollständige deine Registrierung, um dein Dashboard zu nutzen.
+          </p>
+          <a
+            href="/registrieren"
+            className="btn btn-primary"
+          >
+            Profil vervollständigen
+          </a>
         </div>
       </div>
     );
