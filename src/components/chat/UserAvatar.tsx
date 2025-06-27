@@ -30,7 +30,7 @@ function UserAvatar({ user, size = 'md', className = '', showOnline = false }: U
     console.warn('UserAvatar: No user data provided')
     return (
       <div className={`relative ${sizeClasses[size]} ${className}`}>
-        <div className="w-full h-full rounded-full bg-gray-300 text-gray-600 flex items-center justify-center font-medium border-2 border-gray-200">
+        <div className="w-full h-full rounded-xl bg-gray-300 text-gray-600 flex items-center justify-center font-medium border-2 border-gray-200">
           ?
         </div>
       </div>
@@ -56,7 +56,7 @@ function UserAvatar({ user, size = 'md', className = '', showOnline = false }: U
         <img
           src={user.profile_photo_url}
           alt={getDisplayName()}
-          className="w-full h-full rounded-full object-cover border-2 border-gray-200"
+          className="w-full h-full rounded-xl object-cover border-2 border-gray-200"
           onError={() => {
             console.warn('Avatar image failed to load:', user.profile_photo_url, 'for user:', user.first_name, user.last_name)
             setImageError(true)
@@ -68,7 +68,7 @@ function UserAvatar({ user, size = 'md', className = '', showOnline = false }: U
           }}
         />
       ) : (
-        <div className="w-full h-full rounded-full bg-gray-100 text-gray-700 flex items-center justify-center font-medium border-2 border-gray-200">
+        <div className="w-full h-full rounded-xl bg-gray-100 text-gray-700 flex items-center justify-center font-medium border-2 border-gray-200">
           {getInitials()}
         </div>
       )}

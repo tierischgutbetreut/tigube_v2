@@ -304,7 +304,7 @@ function OwnerPublicProfilePage() {
               <img
                 src={avatarUrl}
                 alt={fullName}
-                className="w-32 h-32 rounded-full object-cover border-4 border-primary-100 shadow"
+                className="w-32 h-32 rounded-xl object-cover border-4 border-primary-100 shadow"
                 loading="lazy"
               />
               <div className="absolute bottom-2 right-2 bg-primary-500 rounded-full p-2 shadow">
@@ -395,7 +395,7 @@ function OwnerPublicProfilePage() {
                     <img 
                       src={pet.photo_url} 
                       alt={pet.name} 
-                      className="w-20 h-20 rounded-full object-cover border-2 border-primary-100" 
+                      className="w-20 h-20 rounded-xl object-cover border-2 border-primary-100" 
                       loading="lazy"
                       onError={(e) => {
                         // Fallback wenn Bild nicht laden kann
@@ -410,7 +410,7 @@ function OwnerPublicProfilePage() {
                   ) : null}
                   {/* Fallback Avatar - wird angezeigt wenn kein Bild oder Fehler beim Laden */}
                   <div 
-                    className="w-20 h-20 rounded-full bg-gray-100 border-2 border-primary-100 flex items-center justify-center text-gray-400 text-2xl font-bold"
+                    className="w-20 h-20 rounded-xl bg-gray-100 border-2 border-primary-100 flex items-center justify-center text-gray-400 text-2xl font-bold"
                     style={{ display: pet.photo_url ? 'none' : 'flex' }}
                   >
                     {pet.name ? pet.name.charAt(0) : <PawPrint className="h-8 w-8" />}

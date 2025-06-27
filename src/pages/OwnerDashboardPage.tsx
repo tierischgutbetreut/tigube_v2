@@ -67,7 +67,7 @@ function PhotoDropzone({ photoUrl, onUpload }: {
     <div {...getRootProps()} className={`mt-1 border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors ${isDragActive ? 'border-primary-500 bg-primary-50' : 'border-gray-300 bg-white'}`}>
       <input {...getInputProps()} />
       {previewUrl ? (
-        <img src={previewUrl} alt="Tierfoto" className="h-24 w-24 object-cover rounded-full mb-2" />
+                      <img src={previewUrl} alt="Tierfoto" className="h-24 w-24 object-cover rounded-xl mb-2" />
       ) : (
         <Upload className="mx-auto h-12 w-12 text-gray-400" />
       )}
@@ -1316,7 +1316,7 @@ function OwnerDashboardPage() {
               <img
                 src={avatarUrl}
                 alt={fullName}
-                className="w-32 h-32 rounded-full object-cover border-4 border-primary-100 shadow"
+                className="w-32 h-32 rounded-xl object-cover border-4 border-primary-100 shadow"
               />
               {/* Overlay-Button für Upload */}
               <label className="absolute bottom-2 right-2 bg-white rounded-full p-2 shadow cursor-pointer hover:bg-primary-50 transition-colors border border-gray-200">
@@ -1331,7 +1331,7 @@ function OwnerDashboardPage() {
                 />
                 <Camera className="h-5 w-5 text-primary-600" />
               </label>
-              {avatarUploading && <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-full"><LoadingSpinner /></div>}
+              {avatarUploading && <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-xl"><LoadingSpinner /></div>}
               {avatarError && <div className="absolute left-0 right-0 -bottom-8 text-xs text-red-500 text-center">{avatarError}</div>}
             </div>
             
@@ -1578,7 +1578,7 @@ function OwnerDashboardPage() {
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
-                        <img src={caregiver.avatar} alt={caregiver.name} className="w-20 h-20 rounded-full object-cover border-2 border-primary-100" />
+                        <img src={caregiver.avatar} alt={caregiver.name} className="w-20 h-20 rounded-xl object-cover border-2 border-primary-100" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <div className="font-bold text-lg truncate">{caregiver.name}</div>
@@ -1661,7 +1661,7 @@ function OwnerDashboardPage() {
                             <MessageCircle className="h-3.5 w-3.5" />
                           </button>
                         </div>
-                        <img src={caregiver.avatar} alt={caregiver.name} className="w-20 h-20 rounded-full object-cover border-2 border-primary-100" />
+                        <img src={caregiver.avatar} alt={caregiver.name} className="w-20 h-20 rounded-xl object-cover border-2 border-primary-100" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <div className="font-bold text-lg truncate">{caregiver.name}</div>

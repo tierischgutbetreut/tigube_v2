@@ -975,7 +975,7 @@ function CaretakerDashboardPage() {
             <img
               src={avatarUrl}
               alt={fullName}
-              className="w-32 h-32 rounded-full object-cover border-4 border-primary-100 shadow"
+              className="w-32 h-32 rounded-xl object-cover border-4 border-primary-100 shadow"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=f3f4f6&color=374151&length=2`;
@@ -995,7 +995,7 @@ function CaretakerDashboardPage() {
               />
               <Camera className="h-5 w-5 text-primary-600" />
             </label>
-            {uploading && <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-full"><div className="w-10 h-10 border-4 border-green-400 border-t-transparent rounded-full animate-spin"></div></div>}
+            {uploading && <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-xl"><div className="w-10 h-10 border-4 border-green-400 border-t-transparent rounded-full animate-spin"></div></div>}
           </div>
           <div className="flex-1 w-full">
             <div className="flex flex-col lg:flex-row gap-8">
