@@ -4,6 +4,10 @@ import { supabase, auth } from '../supabase/client';
 import { userService } from '../supabase/db';
 import { SubscriptionService } from '../services/subscriptionService';
 
+// Cross-Tab-Logout-Konstanten
+const LOGOUT_BROADCAST_CHANNEL = 'tigube_logout';
+const LOGOUT_STORAGE_KEY = 'tigube_logout_signal';
+
 interface AuthContextType {
   user: User | null;
   userProfile: any | null;
@@ -27,6 +31,102 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
   const isAuthenticated = !!user; // Derived state
+
+  // Cross-Tab-Logout-Funktionen
+  const broadcastLogout = useCallback(() => {
+    try {
+      // Versuche BroadcastChannel API (moderne Browser)
+      if (typeof BroadcastChannel !== 'undefined') {
+        const channel = new BroadcastChannel(LOGOUT_BROADCAST_CHANNEL);
+        channel.postMessage({ type: 'LOGOUT', timestamp: Date.now() });
+        channel.close();
+        console.log('📡 Logout broadcast sent via BroadcastChannel');
+      } else {
+        // Fallback zu localStorage Event (für ältere Browser)
+        localStorage.setItem(LOGOUT_STORAGE_KEY, Date.now().toString());
+        // Entferne den Key sofort wieder (localStorage Event wird trotzdem gefeuert)
+        localStorage.removeItem(LOGOUT_STORAGE_KEY);
+        console.log('📡 Logout broadcast sent via localStorage');
+      }
+    } catch (error) {
+      console.error('❌ Failed to broadcast logout:', error);
+    }
+  }, []);
+
+  const handleCrossTabLogout = useCallback(async () => {
+    console.log('🔄 Cross-tab logout detected, signing out...');
+    
+    // Prüfe ob wir überhaupt eingeloggt sind (verhindert unnötige Aktionen)
+    if (!user) {
+      console.log('👍 Already logged out, ignoring cross-tab logout signal');
+      return;
+    }
+    
+    setLoading(true);
+    setUser(null);
+    setUserProfile(null);
+    setSubscription(null);
+    
+    try {
+      // Stille Logout ohne Broadcast (um Endlosschleife zu vermeiden)
+      await supabase.auth.signOut();
+      console.log('✅ Cross-tab logout completed');
+    } catch (error) {
+      console.error('❌ Error during cross-tab logout:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  // Cross-Tab-Logout-Listener
+  useEffect(() => {
+    let broadcastChannel: BroadcastChannel | null = null;
+    
+    const setupCrossTabLogout = () => {
+      try {
+        // Versuche BroadcastChannel API
+        if (typeof BroadcastChannel !== 'undefined') {
+          broadcastChannel = new BroadcastChannel(LOGOUT_BROADCAST_CHANNEL);
+          broadcastChannel.addEventListener('message', (event) => {
+            if (event.data?.type === 'LOGOUT') {
+              console.log('📡 Received logout broadcast via BroadcastChannel');
+              handleCrossTabLogout();
+            }
+          });
+          console.log('✅ BroadcastChannel logout listener setup');
+        } else {
+          // Fallback zu localStorage Event
+          const handleStorageChange = (event: StorageEvent) => {
+            if (event.key === LOGOUT_STORAGE_KEY && event.newValue) {
+              console.log('📡 Received logout broadcast via localStorage');
+              handleCrossTabLogout();
+            }
+          };
+          
+          window.addEventListener('storage', handleStorageChange);
+          console.log('✅ localStorage logout listener setup');
+          
+          // Cleanup function für localStorage
+          return () => {
+            window.removeEventListener('storage', handleStorageChange);
+          };
+        }
+      } catch (error) {
+        console.error('❌ Failed to setup cross-tab logout listener:', error);
+      }
+    };
+
+    const cleanup = setupCrossTabLogout();
+
+    return () => {
+      if (broadcastChannel) {
+        broadcastChannel.close();
+      }
+      if (cleanup && typeof cleanup === 'function') {
+        cleanup();
+      }
+    };
+  }, [handleCrossTabLogout]);
 
   // Callback function to load the user profile and update state
   const loadUserProfile = useCallback(async (userId: string) => {
@@ -256,12 +356,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null); // Explicitly clear user state immediately
     setUserProfile(null); // Explicitly clear profile state immediately
     setSubscription(null); // Clear subscription data
+    
     try {
+      // Benachrichtige alle anderen Tabs BEVOR der eigentliche Logout
+      console.log('📡 Broadcasting logout to all tabs...');
+      broadcastLogout();
+      
       const { error } = await auth.signOut();
       if (error) {
         console.error('Logout-Fehler:', error);
         throw error;
       }
+      
+      console.log('✅ Successfully signed out');
       // onAuthStateChange listener will fire, setting user to null, which triggers Effect 3 to clear profile
       // (Effect 3 removed, clearing is now explicit or handled by state reset on user null)
        setUser(null); // Explicitly clear user state
