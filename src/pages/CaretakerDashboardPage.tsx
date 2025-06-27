@@ -9,7 +9,7 @@ import type { ClientData } from '../components/ui/ClientDetailsAccordion';
 import { useAuth } from '../lib/auth/AuthContext';
 import { useEffect, useState, useRef } from 'react';
 import { caretakerProfileService, ownerCaretakerService } from '../lib/supabase/db';
-import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info, Lock, Briefcase, Verified, Eye, EyeOff, KeyRound, Trash2, AlertTriangle } from 'lucide-react';
+import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info, Lock, Briefcase, Verified, Eye, EyeOff, KeyRound, Trash2, AlertTriangle, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
 import useFeatureAccess from '../hooks/useFeatureAccess';
@@ -756,6 +756,19 @@ function CaretakerDashboardPage() {
     confirm: false
   });
 
+  // E-Mail ändern State
+  const [newEmail, setNewEmail] = useState('');
+  const [currentPasswordForEmail, setCurrentPasswordForEmail] = useState('');
+  const [emailChangeLoading, setEmailChangeLoading] = useState(false);
+  const [emailChangeError, setEmailChangeError] = useState<string | null>(null);
+  const [emailChangeSuccess, setEmailChangeSuccess] = useState<string | null>(null);
+
+  // E-Mail-Validierung
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   // Passwort ändern Handler
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1009,25 +1022,10 @@ function CaretakerDashboardPage() {
                         <Phone className="h-4 w-4 text-gray-500" />
                         <span className="text-gray-700">{caretakerData.phoneNumber || '—'}</span>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                        </svg>
-                        <span className="text-gray-700">{caretakerData.email || '—'}</span>
-                      </div>
+
                     </>
                   ) : (
                     <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">PLZ</label>
-                        <input
-                          type="text"
-                          className="input w-full"
-                          value={caretakerData.plz}
-                          onChange={e => setCaretakerData(d => ({ ...d, plz: e.target.value }))}
-                          placeholder="PLZ"
-                        />
-                      </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Straße & Hausnummer</label>
                         <input
@@ -1038,15 +1036,27 @@ function CaretakerDashboardPage() {
                           placeholder="Straße und Hausnummer"
                         />
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Ort</label>
-                        <input
-                          type="text"
-                          className="input w-full"
-                          value={caretakerData.city}
-                          onChange={e => setCaretakerData(d => ({ ...d, city: e.target.value }))}
-                          placeholder="Ort"
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">PLZ</label>
+                          <input
+                            type="text"
+                            className="input w-full"
+                            value={caretakerData.plz}
+                            onChange={e => setCaretakerData(d => ({ ...d, plz: e.target.value }))}
+                            placeholder="PLZ"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Ort</label>
+                          <input
+                            type="text"
+                            className="input w-full"
+                            value={caretakerData.city}
+                            onChange={e => setCaretakerData(d => ({ ...d, city: e.target.value }))}
+                            placeholder="Ort"
+                          />
+                        </div>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Telefonnummer</label>
@@ -1058,30 +1068,13 @@ function CaretakerDashboardPage() {
                           placeholder="+49 123 456789"
                         />
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          E-Mail <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="email"
-                          className={`input w-full ${emailError ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
-                          value={caretakerData.email}
-                          onChange={e => handleEmailChange(e.target.value)}
-                          placeholder="ihre@email.de"
-                          required
-                        />
-                        {emailError && (
-                          <p className="text-red-500 text-xs mt-1">{emailError}</p>
-                        )}
-                      </div>
                       <div className="flex gap-2 pt-2">
-                        <button
-                          className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm"
-                          onClick={handleSaveCaretakerData}
-                          disabled={!!emailError || !caretakerData.email.trim()}
-                        >
-                          Speichern
-                        </button>
+                                                  <button
+                            className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm"
+                            onClick={handleSaveCaretakerData}
+                          >
+                            Speichern
+                          </button>
                         <button
                           className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
                           onClick={handleCancelEdit}
@@ -1691,6 +1684,170 @@ function CaretakerDashboardPage() {
       )}
       {activeTab === 'sicherheit' && (
         <div className="space-y-8">
+          {/* E-Mail-Adresse ändern */}
+          <div className="bg-white rounded-xl shadow p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <Mail className="h-6 w-6 text-primary-600" />
+              <h2 className="text-xl font-semibold text-gray-900">E-Mail-Adresse ändern</h2>
+            </div>
+            
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setEmailChangeError(null);
+                setEmailChangeSuccess(null);
+                setEmailChangeLoading(true);
+                // Validierung
+                if (!newEmail.trim() || !currentPasswordForEmail.trim()) {
+                  setEmailChangeError('Bitte füllen Sie alle Felder aus.');
+                  setEmailChangeLoading(false);
+                  return;
+                }
+                if (!validateEmail(newEmail)) {
+                  setEmailChangeError('Bitte geben Sie eine gültige E-Mail-Adresse ein.');
+                  setEmailChangeLoading(false);
+                  return;
+                }
+                if (newEmail.trim() === user?.email) {
+                  setEmailChangeError('Die neue E-Mail-Adresse muss sich von der aktuellen unterscheiden.');
+                  setEmailChangeLoading(false);
+                  return;
+                }
+                // Passwort prüfen und E-Mail ändern
+                try {
+                  // 1. Passwort prüfen
+                  const { error: signInError } = await supabase.auth.signInWithPassword({
+                    email: user.email!,
+                    password: currentPasswordForEmail
+                  });
+                  if (signInError) {
+                    setEmailChangeError('Das aktuelle Passwort ist nicht korrekt.');
+                    setEmailChangeLoading(false);
+                    return;
+                  }
+                  // 2. E-Mail ändern
+                  const { error: updateError } = await supabase.auth.updateUser({
+                    email: newEmail.trim()
+                  });
+                  if (updateError) {
+                    setEmailChangeError('Fehler beim Ändern der E-Mail-Adresse: ' + updateError.message);
+                    setEmailChangeLoading(false);
+                    return;
+                  }
+                  setEmailChangeSuccess('E-Mail-Änderung eingeleitet! Bitte bestätigen Sie die Änderung über den Link, der an Ihre alte E-Mail-Adresse gesendet wurde.');
+                  setNewEmail('');
+                  setCurrentPasswordForEmail('');
+                } catch (err: any) {
+                  setEmailChangeError('Ein unerwarteter Fehler ist aufgetreten.');
+                } finally {
+                  setEmailChangeLoading(false);
+                }
+              }}
+              className="space-y-6"
+            >
+              {/* Hinweis in gelblicher Box */}
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
+                  <div className="text-sm text-yellow-800">
+                    <p className="font-medium mb-1">Wichtiger Hinweis</p>
+                    <p>
+                      Die Bestätigung der Änderung wird an Ihre <strong>alte E-Mail-Adresse</strong> gesendet 
+                      und muss dort bestätigt werden, bevor die neue E-Mail-Adresse aktiv wird.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Links: Aktuelle E-Mail */}
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Aktuelle E-Mail</h3>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      E-Mail-Adresse
+                    </label>
+                    <input
+                      type="email"
+                      className="input w-full bg-gray-100 cursor-not-allowed"
+                      value={user?.email || ''}
+                      disabled
+                    />
+                  </div>
+                </div>
+
+                {/* Rechts: Neue E-Mail + Passwort */}
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Neue E-Mail</h3>
+                  <div className="space-y-4">
+                    {/* Neue E-Mail */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Neue E-Mail-Adresse <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        className="input w-full"
+                        value={newEmail}
+                        onChange={e => setNewEmail(e.target.value)}
+                        placeholder="neue@email.de"
+                        required
+                      />
+                    </div>
+
+                    {/* Aktuelles Passwort */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Aktuelles Passwort <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="password"
+                        className="input w-full"
+                        value={currentPasswordForEmail}
+                        onChange={e => setCurrentPasswordForEmail(e.target.value)}
+                        placeholder="Ihr aktuelles Passwort"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fehler und Erfolg */}
+              {emailChangeError && (
+                <div className="flex items-center gap-2 text-red-600 text-sm">
+                  <AlertTriangle className="h-4 w-4" />
+                  {emailChangeError}
+                </div>
+              )}
+
+              {emailChangeSuccess && (
+                <div className="flex items-center gap-2 text-green-600 text-sm">
+                  <Check className="h-4 w-4" />
+                  {emailChangeSuccess}
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <div className="flex justify-start">
+                <button
+                  type="submit"
+                  className="btn-primary py-2 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={emailChangeLoading}
+                >
+                  {emailChangeLoading ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Wird geändert...
+                    </div>
+                  ) : (
+                    'E-Mail ändern'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+
           {/* Passwort ändern */}
           <div className="bg-white rounded-xl shadow p-6">
             <div className="flex items-center gap-3 mb-6">
