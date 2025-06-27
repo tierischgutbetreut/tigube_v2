@@ -280,18 +280,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []); // Empty dependency array: subscription is stable
 
   // Effect 3: Load profile when user state changes (if not loading already)
-  // This effect is now handled within getInitialSessionAndProfile and signIn
-  /*
+  // Dieser Effect sorgt dafür, dass das Profil geladen wird, wenn der User verfügbar ist aber das Profil fehlt
+  // Das passiert z.B. beim direkten Navigieren zu Dashboard-Seiten
   useEffect(() => {
     let mounted = true;
     console.log('✨ AuthContext user state change profile load effect.');
     console.log('🔍 User state change effect deps:', { user: !!user, userProfile: !!userProfile, loading });
 
     const loadProfileIfMissing = async () => {
-       if (user && !userProfile && mounted && !loading) { // Only load if user exists, profile missing, mounted, and not in overall loading state
-          console.log('🔍 User state changed, profile missing. Attempting to load profile...', user.id);
-          // We don't set a specific profileLoading here, relying on the overall loading state
-          await loadUserProfile(user.id); // loadUserProfile now updates state internally
+       if (user && !userProfile && mounted && !loading) { 
+          console.log('🔍 User exists but profile missing. Loading profile...', user.id);
+          // Setze Loading-State temporär um Race-Conditions zu vermeiden
+          setLoading(true);
+          try {
+            await loadUserProfile(user.id);
+          } finally {
+            if (mounted) setLoading(false);
+          }
        } else if (!user && userProfile) {
            console.log('🔍 User signed out, clearing profile.');
            setUserProfile(null); // Ensure profile is cleared if user becomes null
@@ -306,8 +311,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted = false;
     };
 
-  }, [user, loadUserProfile, loading]); // Depend on user, loadUserProfile, and loading state
-  */
+  }, [user, userProfile, loading, loadUserProfile]); // Depend on user, userProfile, loading, and loadUserProfile
 
 
   const signIn = async (email: string, password: string) => {

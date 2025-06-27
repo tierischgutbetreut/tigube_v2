@@ -423,40 +423,56 @@ function CaretakerDashboardPage() {
       if (!user) return;
       setLoading(true);
       setError(null);
-      const { data, error } = await caretakerProfileService.getProfile(user.id);
-      if (error) setError('Fehler beim Laden des Profils!');
-      setProfile(data);
       
-      // Texte-States und Verfügbarkeit aktualisieren wenn Profil geladen wird
-      if (data) {
-        setShortDescription((data as any).short_about_me || '');
-        setShortDescDraft((data as any).short_about_me || '');
-        setAboutMe((data as any).long_about_me || '');
-        setAboutMeDraft((data as any).long_about_me || '');
+      try {
+        const { data, error } = await caretakerProfileService.getProfile(user.id);
+        if (error) {
+          console.error('Caretaker profile loading error:', error);
+          // Für 406 Fehler oder PGRST116 (not found) erstelle ein leeres Profil
+          if (error.message?.includes('PGRST116') || error.code === 'PGRST116') {
+            console.log('No caretaker profile found, creating empty profile for user:', user.id);
+            setProfile(null); // Zeige Setup-Guide an
+          } else {
+            setError('Fehler beim Laden des Profils!');
+          }
+          setLoading(false);
+          return;
+        }
+
+        setProfile(data);
         
-        // Aktualisiere skillsDraft mit geladenen Daten
-        const loadedPrices = (data as any).prices || {};
-        // Stelle sicher, dass Standard-Preisfelder immer vorhanden sind
-        const mergedPrices = { ...defaultPriceFields, ...loadedPrices };
-        
-        setSkillsDraft({
-          services: (data as any).services || [],
-          animal_types: (data as any).animal_types || [],
-          qualifications: (data as any).qualifications || [],
-          experience_description: (data as any).experience_description || '',
-          prices: mergedPrices,
-          languages: (data as any).languages || [],
-          isCommercial: (data as any).is_commercial || false,
-          companyName: (data as any).company_name || '',
-          taxNumber: (data as any).tax_number || '',
-          vatId: (data as any).vat_id || '',
-        });
-        
-        // Aktualisiere Fotos-State
-        setPhotos((data as any).home_photos || []);
-        
-        // Verfügbarkeit aus der Datenbank laden und validieren
-        const dbAvailability = (data as any).availability;
+        // Texte-States und Verfügbarkeit aktualisieren wenn Profil geladen wird
+        if (data) {
+          setShortDescription((data as any).short_about_me || '');
+          setShortDescDraft((data as any).short_about_me || '');
+          setAboutMe((data as any).long_about_me || '');
+          setAboutMeDraft((data as any).long_about_me || '');
+          
+          // Aktualisiere skillsDraft mit geladenen Daten
+          const loadedPrices = (data as any).prices || {};
+          // Stelle sicher, dass Standard-Preisfelder immer vorhanden sind
+          const mergedPrices = { ...defaultPriceFields, ...loadedPrices };
+          
+          setSkillsDraft({
+            services: (data as any).services || [],
+            animal_types: (data as any).animal_types || [],
+            qualifications: (data as any).qualifications || [],
+            experience_description: (data as any).experience_description || '',
+            prices: mergedPrices,
+            languages: (data as any).languages || [],
+            isCommercial: (data as any).is_commercial || false,
+            companyName: (data as any).company_name || '',
+            taxNumber: (data as any).tax_number || '',
+            vatId: (data as any).vat_id || '',
+          });
+          
+          // Aktualisiere Fotos-State - filtere ungültige URLs
+          const validPhotos = ((data as any).home_photos || [])
+            .filter((url: string) => url && typeof url === 'string' && !url.includes('undefined') && !url.includes('null'));
+          setPhotos(validPhotos);
+          
+          // Verfügbarkeit aus der Datenbank laden und validieren
+          const dbAvailability = (data as any).availability;
         if (dbAvailability && typeof dbAvailability === 'object') {
           // Konvertiere String-Array-Daten zu TimeSlot-Objekten
           const validatedAvailability: AvailabilityState = {};
@@ -515,6 +531,10 @@ function CaretakerDashboardPage() {
             }
           }, 100);
         }
+        }
+      } catch (err) {
+        console.error('Unexpected error loading caretaker profile:', err);
+        setError('Unerwarteter Fehler beim Laden des Profils');
       }
       
       setLoading(false);
@@ -641,7 +661,16 @@ function CaretakerDashboardPage() {
   const profileData = userProfile || fallbackProfile;
   const fullName = `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || profileData.email;
   const initials = getInitials(profileData.first_name, profileData.last_name);
-  const avatarUrl = profileData.profile_photo_url || profileData.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=f3f4f6&color=374151&length=2`;
+  // Sichere Avatar-URL mit Fallback für fehlerhafte URLs
+  const getAvatarUrl = () => {
+    const profileUrl = profileData.profile_photo_url || profileData.avatar_url;
+    if (profileUrl && !profileUrl.includes('undefined') && !profileUrl.includes('null')) {
+      return profileUrl;
+    }
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=f3f4f6&color=374151&length=2`;
+  };
+  
+  const avatarUrl = getAvatarUrl();
 
   // Tab-Navigation für Übersicht/Fotos
   const [activeTab, setActiveTab] = useState<'uebersicht' | 'fotos' | 'texte' | 'kunden' | 'bewertungen' | 'sicherheit'>('uebersicht');
@@ -896,7 +925,9 @@ function CaretakerDashboardPage() {
     }
   };
 
+  // Zeige Loading-Spinner nur wenn wir noch laden (Auth oder Profil)
   if (authLoading || loading) return <LoadingSpinner />;
+  
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -907,6 +938,7 @@ function CaretakerDashboardPage() {
       </div>
     );
   }
+  
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -914,10 +946,23 @@ function CaretakerDashboardPage() {
       </div>
     );
   }
-  if (!profile) {
+  
+  // Wenn kein Caretaker-Profil existiert, erstelle ein Fallback oder zeige Setup-Guide
+  if (!profile && !loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">Kein Caretaker-Profil gefunden.</div>
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="text-center max-w-md">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Caretaker-Profil vervollständigen</h2>
+          <p className="text-gray-600 mb-6">
+            Du hast noch kein vollständiges Caretaker-Profil. Vervollständige deine Registrierung, um dein Dashboard zu nutzen.
+          </p>
+          <a
+            href="/registrieren?type=caretaker"
+            className="btn btn-primary"
+          >
+            Profil vervollständigen
+          </a>
+        </div>
       </div>
     );
   }
@@ -931,6 +976,13 @@ function CaretakerDashboardPage() {
               src={avatarUrl}
               alt={fullName}
               className="w-32 h-32 rounded-full object-cover border-4 border-primary-100 shadow"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=f3f4f6&color=374151&length=2`;
+                if (target.src !== fallbackUrl) {
+                  target.src = fallbackUrl;
+                }
+              }}
             />
             {/* Overlay-Button für Upload */}
             <label className="absolute bottom-2 right-2 bg-white rounded-full p-2 shadow cursor-pointer hover:bg-primary-50 transition-colors border border-gray-200">
