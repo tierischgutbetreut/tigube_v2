@@ -391,13 +391,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateProfileState = (newProfile: any | null) => {
     console.log('🔄 Manually updating profile state:', newProfile);
     console.log('📊 Current userProfile before update:', userProfile);
-    setUserProfile(newProfile);
-    console.log('✅ Profile state update completed');
     
-    // Force re-render mit kleiner Verzögerung
+    // Robuste State-Aktualisierung
+    setUserProfile(newProfile);
+    
+    // Zusätzlicher State-Update nach kurzer Verzögerung um React zu zwingen
     setTimeout(() => {
-      console.log('🔄 Profile state after timeout:', newProfile?.first_name);
-    }, 100);
+      setUserProfile(newProfile);
+      console.log('✅ Profile state force-updated:', newProfile?.first_name);
+    }, 50);
+    
+    console.log('✅ Profile state update completed');
   };
 
   const refreshSubscription = useCallback(async () => {

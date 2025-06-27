@@ -20,6 +20,7 @@ function CaretakerDashboardPage() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [profileLoadAttempts, setProfileLoadAttempts] = useState(0);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editData, setEditData] = useState(false);
@@ -552,6 +553,40 @@ function CaretakerDashboardPage() {
     });
   }, [userProfile, user]);
 
+  // Zusätzlicher useEffect für robustes Profile-Loading nach Registrierung
+  useEffect(() => {
+    const ensureProfileLoaded = async () => {
+      if (user && !userProfile && !authLoading && profileLoadAttempts < 5) {
+        console.log(`🔄 CaretakerDashboard: userProfile missing, attempt ${profileLoadAttempts + 1}/5`);
+        setProfileLoadAttempts(prev => prev + 1);
+        
+        // Verzögerung zwischen Versuchen
+        await new Promise(resolve => setTimeout(resolve, 300 * (profileLoadAttempts + 1)));
+        
+        try {
+          const { userService } = await import('../lib/supabase/db');
+          const { data: freshProfile, error } = await userService.getUserProfile(user.id);
+          
+          if (!error && freshProfile) {
+            console.log('✅ CaretakerDashboard: Profile manually reloaded:', freshProfile);
+                         // Zwinge einen Re-Render durch setzen der careTakerData
+             setCaretakerData({
+               phoneNumber: freshProfile.phone_number || '',
+               email: user.email || '',
+               plz: freshProfile.plz || '',
+               street: (freshProfile as any).street || '',
+               city: freshProfile.city || ''
+             });
+          }
+        } catch (error) {
+          console.error('❌ CaretakerDashboard: Failed to manually reload profile:', error);
+        }
+      }
+    };
+
+    ensureProfileLoaded();
+  }, [user, userProfile, authLoading, profileLoadAttempts]);
+
   // Dummy-Upload-Handler (hier bitte später echten Upload zu Supabase Storage einbauen)
   const handleProfilePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -925,8 +960,23 @@ function CaretakerDashboardPage() {
     }
   };
 
-  // Zeige Loading-Spinner nur wenn wir noch laden (Auth oder Profil)
-  if (authLoading || loading) return <LoadingSpinner />;
+  // Robusteres Loading mit Profile-Check
+  const isReallyLoading = authLoading || loading || (user && !userProfile && profileLoadAttempts < 3);
+  
+  if (isReallyLoading) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center min-h-[400px]">
+          <div className="text-center">
+            <LoadingSpinner />
+            {user && !userProfile && profileLoadAttempts > 0 && (
+              <p className="mt-4 text-gray-600">Lade Profil-Daten... (Versuch {profileLoadAttempts}/3)</p>
+            )}
+          </div>
+        </div>
+      </Layout>
+    );
+  }
   
   if (!user) {
     return (

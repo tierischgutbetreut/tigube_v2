@@ -80,6 +80,7 @@ function PhotoDropzone({ photoUrl, onUpload }: {
 function OwnerDashboardPage() {
   const { user, userProfile, loading: authLoading, updateProfileState, signOut } = useAuth();
   const navigate = useNavigate();
+  const [profileLoadAttempts, setProfileLoadAttempts] = useState(0);
   
   // Refs to track if data has been loaded to prevent unnecessary reloads
   const vetDataLoadedRef = useRef(false);
@@ -211,6 +212,40 @@ function OwnerDashboardPage() {
       }));
     }
   }, [userProfile, user, authLoading]);
+
+  // Zusätzlicher useEffect für robustes Profile-Loading nach Registrierung
+  useEffect(() => {
+    const ensureProfileLoaded = async () => {
+      if (user && !userProfile && !authLoading && profileLoadAttempts < 5) {
+        console.log(`🔄 OwnerDashboard: userProfile missing, attempt ${profileLoadAttempts + 1}/5`);
+        setProfileLoadAttempts(prev => prev + 1);
+        
+        // Verzögerung zwischen Versuchen
+        await new Promise(resolve => setTimeout(resolve, 300 * (profileLoadAttempts + 1)));
+        
+        try {
+          const { userService } = await import('../lib/supabase/db');
+          const { data: freshProfile, error } = await userService.getUserProfile(user.id);
+          
+          if (!error && freshProfile) {
+            console.log('✅ OwnerDashboard: Profile manually reloaded:', freshProfile);
+            // Zwinge einen Re-Render durch setzen der ownerData
+            setOwnerData({
+              phoneNumber: freshProfile.phone_number || '',
+              email: user.email || '',
+              plz: freshProfile.plz || '',
+              street: (freshProfile as any).street || '',
+              location: freshProfile.city || ''
+            });
+          }
+        } catch (error) {
+          console.error('❌ OwnerDashboard: Failed to manually reload profile:', error);
+        }
+      }
+    };
+
+    ensureProfileLoaded();
+  }, [user, userProfile, authLoading, profileLoadAttempts]);
 
   // Haustiere aus DB laden
   useEffect(() => {
@@ -417,8 +452,22 @@ function OwnerDashboardPage() {
     loadShareSettings();
   }, [user]);
 
-  if (authLoading) {
-    return <LoadingSpinner />;
+  // Robusteres Loading mit Profile-Check
+  const isReallyLoading = authLoading || (user && !userProfile && profileLoadAttempts < 3);
+  
+  if (isReallyLoading) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center min-h-[400px]">
+          <div className="text-center">
+            <LoadingSpinner />
+            {user && !userProfile && profileLoadAttempts > 0 && (
+              <p className="mt-4 text-gray-600">Lade Profil-Daten... (Versuch {profileLoadAttempts}/3)</p>
+            )}
+          </div>
+        </div>
+      </Layout>
+    );
   }
 
   if (!user) {

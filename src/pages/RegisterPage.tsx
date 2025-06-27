@@ -1035,6 +1035,55 @@ function RegisterPage() {
     return result;
   }
 
+  // Robuste Funktion für Profile-Update nach Registrierung
+  const updateProfileStateRobust = async (userId: string, context: string = '') => {
+    console.log(`🔄 Starting robust profile state update ${context}...`);
+    
+    let profileUpdateSuccess = false;
+    let attempts = 0;
+    const maxAttempts = 5;
+    
+    while (!profileUpdateSuccess && attempts < maxAttempts) {
+      attempts++;
+      try {
+        // Kurze Pause zwischen Versuchen
+        if (attempts > 1) {
+          await new Promise(resolve => setTimeout(resolve, 300 * attempts));
+        }
+        
+        console.log(`🔍 Profile update attempt ${attempts}/${maxAttempts} ${context}...`);
+        const { data: freshProfile, error: freshProfileError } = await userService.getUserProfile(userId);
+        
+        if (!freshProfileError && freshProfile && freshProfile.profile_completed) {
+          // Profile erfolgreich geladen und ist vollständig
+          updateProfileState(freshProfile);
+          console.log(`✅ Profile state updated successfully ${context}:`, freshProfile);
+          profileUpdateSuccess = true;
+          
+          // Zusätzliche Pause für React State Update
+          await new Promise(resolve => setTimeout(resolve, 150));
+          
+        } else if (!freshProfileError && freshProfile) {
+          // Profile geladen aber noch nicht vollständig - normaler Fall während Registrierung
+          updateProfileState(freshProfile);
+          console.log(`✅ Partial profile updated, continuing ${context}...`, freshProfile);
+          profileUpdateSuccess = true;
+          await new Promise(resolve => setTimeout(resolve, 150));
+        } else {
+          console.warn(`⚠️ Profile update attempt ${attempts} failed ${context}:`, freshProfileError);
+        }
+      } catch (profileErr) {
+        console.error(`❌ Error in profile update attempt ${attempts} ${context}:`, profileErr);
+      }
+    }
+    
+    if (!profileUpdateSuccess) {
+      console.error(`❌ All profile update attempts failed ${context}`);
+    }
+    
+    return profileUpdateSuccess;
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="container-custom max-w-3xl">
