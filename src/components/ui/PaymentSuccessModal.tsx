@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, Crown, Star, X } from 'lucide-react';
+import { CheckCircle, Crown, Star, X, ExternalLink } from 'lucide-react';
 import Button from './Button';
 
 interface PaymentSuccessModalProps {
@@ -28,117 +28,123 @@ export default function PaymentSuccessModal({
         name: 'Premium',
         icon: <Star className="w-16 h-16 text-yellow-500" />,
         color: 'bg-yellow-50 border-yellow-200',
+        price: '€4,90/Monat',
         features: [
-          'Unlimited Kontaktanfragen',
-          'Bewertungen schreiben',
-          'Erweiterte Suchfilter',
-          'Werbefrei',
-          'Premium Support'
-        ],
-        price: '€4,90/Monat'
+          'Unbegrenzte Kontaktanfragen',
+          'Keine Werbung',
+          'Priority Support',
+          'Erweiterte Suchfilter'
+        ]
       };
-    }
-    
-    if (userType === 'caretaker' && planType === 'professional') {
+    } else {
       return {
         name: 'Professional',
         icon: <Crown className="w-16 h-16 text-purple-500" />,
         color: 'bg-purple-50 border-purple-200',
+        price: '€12,90/Monat',
         features: [
-          'Unlimited Buchungsanfragen',
+          'Unbegrenzte Buchungen',
           'Premium Badge',
-          'Bis zu 6 Umgebungsbilder',
-          'Höchste Priorität in Suche',
-          'Werbefrei',
-          'Premium Support'
-        ],
-        price: '€12,90/Monat'
+          'Höchste Suchpriorität',
+          'Keine Werbung',
+          'Erweiterte Analytics',
+          'Business Features'
+        ]
       };
     }
-    
-    return null;
   };
 
   const planInfo = getPlanInfo();
 
+  const handleManageSubscription = () => {
+    // Open Stripe billing portal in new tab
+    window.open('https://billing.stripe.com/p/login/test_00w9AU8GVfV897Q8gJ2oE00', '_blank');
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
-          <div className="flex items-center space-x-3">
-            <CheckCircle className="w-8 h-8 text-green-500" />
-            <h2 className="text-xl font-semibold text-gray-900">
-              Zahlung erfolgreich!
-            </h2>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 relative overflow-hidden">
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors z-10"
+        >
+          <X className="w-6 h-6" />
+        </button>
+
+        {/* Header with success icon */}
+        <div className="text-center pt-8 pb-6">
+          <div className="mb-4">
+            <CheckCircle className="w-20 h-20 text-green-500 mx-auto" />
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Zahlung erfolgreich!
+          </h2>
+          <p className="text-gray-600">
+            Willkommen bei Tigube {planInfo.name}
+          </p>
         </div>
 
-        {/* Content */}
-        <div className="p-6">
-          {planInfo && (
-            <div className={`rounded-lg border p-4 mb-6 ${planInfo.color}`}>
-              <div className="flex items-center space-x-4 mb-4">
-                {planInfo.icon}
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-900">
-                    Tigube {planInfo.name}
-                  </h3>
-                  <p className="text-lg font-medium text-gray-600">
-                    {planInfo.price}
-                  </p>
+        {/* Plan details */}
+        <div className={`mx-6 mb-6 p-4 rounded-lg border ${planInfo.color}`}>
+          <div className="flex items-center justify-center mb-3">
+            {planInfo.icon}
+          </div>
+          <div className="text-center">
+            <h3 className="font-bold text-lg text-gray-900 mb-1">
+              {planInfo.name} Plan
+            </h3>
+            <p className="text-gray-600 text-sm mb-3">
+              {planInfo.price}
+            </p>
+            <div className="space-y-1">
+              {planInfo.features.map((feature, index) => (
+                <div key={index} className="flex items-center text-sm text-gray-700">
+                  <CheckCircle className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                  <span>{feature}</span>
                 </div>
-              </div>
-              
-              <div>
-                <h4 className="font-medium text-gray-900 mb-2">
-                  Deine neuen Features:
-                </h4>
-                <ul className="space-y-1">
-                  {planInfo.features.map((feature, index) => (
-                    <li key={index} className="flex items-center text-sm text-gray-700">
-                      <CheckCircle className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              ))}
             </div>
-          )}
-
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-            <h4 className="font-medium text-green-900 mb-2">
-              ✅ Zahlung bestätigt
-            </h4>
-            <p className="text-sm text-green-700">
-              Dein {planInfo?.name || 'Premium'}-Abonnement ist ab sofort aktiv. 
-              Du kannst alle Features direkt nutzen!
-            </p>
-            {sessionData?.customer_email && (
-              <p className="text-xs text-green-600 mt-2">
-                Bestätigung gesendet an: {sessionData.customer_email}
-              </p>
-            )}
           </div>
+        </div>
 
-          <div className="space-y-3">
-            <Button 
-              onClick={onClose}
-              className="w-full bg-blue-600 hover:bg-blue-700"
-            >
-              Dashboard weiter nutzen
-            </Button>
-            
-            <p className="text-xs text-gray-500 text-center">
-              Du kannst dein Abonnement jederzeit in den Einstellungen verwalten.
+        {/* Customer email */}
+        {sessionData?.customer_email && (
+          <div className="mx-6 mb-6 p-3 bg-gray-50 rounded-lg">
+            <p className="text-sm text-gray-600 text-center">
+              Bestätigungs-E-Mail wurde an<br />
+              <span className="font-medium text-gray-900">
+                {sessionData.customer_email}
+              </span><br />
+              gesendet
             </p>
           </div>
+        )}
+
+        {/* Action buttons */}
+        <div className="px-6 pb-6 space-y-3">
+          <Button
+            onClick={onClose}
+            className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium transition-colors"
+          >
+            Dashboard weiter nutzen
+          </Button>
+          
+          <Button
+            onClick={handleManageSubscription}
+            variant="outline"
+            className="w-full border-gray-300 text-gray-700 hover:bg-gray-50 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Mitgliedschaft verwalten
+          </Button>
+        </div>
+
+        {/* Bottom note */}
+        <div className="bg-gray-50 px-6 py-4 text-center">
+          <p className="text-xs text-gray-500">
+            Du kannst deine Mitgliedschaft jederzeit über das Stripe-Portal verwalten oder kündigen.
+          </p>
         </div>
       </div>
     </div>

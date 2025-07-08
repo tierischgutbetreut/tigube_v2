@@ -30,7 +30,7 @@ export default function PricingPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [selectedTrigger, setSelectedTrigger] = useState<'limit_reached' | 'feature_blocked' | 'general'>('general');
   
-  // Setze den Default-Tab basierend auf dem User-Profil, aber nur beim ersten Laden
+  // Setze den Default-Tab basierend auf dem User-Profil
   const [selectedUserType, setSelectedUserType] = useState<'owner' | 'caretaker'>('owner');
   const [hasInitialized, setHasInitialized] = useState(false);
 
@@ -42,6 +42,9 @@ export default function PricingPage() {
       setHasInitialized(true);
     }
   }, [userProfile?.user_type, hasInitialized]);
+
+  // Für eingeloggte User: verwende immer den User Type aus dem Profil
+  const effectiveUserType = user && userProfile ? userProfile.user_type : selectedUserType;
 
   const handleSelectPlan = async (plan: 'basic' | 'premium') => {
     console.log('Plan selected:', plan);
@@ -81,7 +84,7 @@ export default function PricingPage() {
       console.log('User:', { id: user.id, email: user.email, type: displayUserType });
       
       // Map plan to actual plan type
-      const planType = displayUserType === 'owner' ? 'premium' : 'professional';
+      const planType = effectiveUserType === 'owner' ? 'premium' : 'professional';
       console.log('Plan type:', planType);
       
       // Check Stripe readiness
@@ -90,7 +93,7 @@ export default function PricingPage() {
       // Start Stripe checkout
       console.log('Calling StripeService.startCheckout...');
       await StripeService.startCheckout({
-        userType: displayUserType,
+        userType: effectiveUserType,
         plan: planType,
         userId: user.id,
         userEmail: user.email!
@@ -115,8 +118,8 @@ export default function PricingPage() {
     handleSelectPlan(plan);
   };
 
-  // Verwende den ausgewählten User-Type für die Anzeige
-  const displayUserType = selectedUserType;
+  // Verwende den effektiven User-Type für die Anzeige
+  const displayUserType = effectiveUserType;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -141,6 +144,7 @@ export default function PricingPage() {
               userType={displayUserType}
               onSelectPlan={handleSelectPlan}
               onUserTypeChange={setSelectedUserType}
+              isUserLoggedIn={!!user}
             />
           </div>
         </div>
@@ -248,7 +252,7 @@ export default function PricingPage() {
                  variant="banner"
                  trigger="feature_blocked"
                  featureType="premium_badge"
-                 userType={displayUserType}
+                 userType={effectiveUserType}
                  onClose={() => setSelectedTrigger('general')}
                  onUpgrade={handleUpgradePrompt}
                />
@@ -259,7 +263,7 @@ export default function PricingPage() {
                <UpgradePrompt
                  variant="inline"
                  trigger="general"
-                 userType={displayUserType}
+                 userType={effectiveUserType}
                  onUpgrade={handleUpgradePrompt}
                />
              )}
@@ -332,7 +336,7 @@ export default function PricingPage() {
            variant="modal"
            trigger={selectedTrigger}
            featureType="contact_request"
-           userType={displayUserType}
+           userType={effectiveUserType}
            onClose={() => setShowUpgradeModal(false)}
            onUpgrade={handleUpgradePrompt}
          />

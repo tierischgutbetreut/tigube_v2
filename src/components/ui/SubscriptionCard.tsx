@@ -2,7 +2,7 @@ import React from 'react';
 import { Check, Crown, Star, Zap, Users, Calendar, Camera, TrendingUp, ExternalLink } from 'lucide-react';
 import Button from './Button';
 import { useSubscription } from '../../lib/auth/useSubscription';
-import { getPlanPrice } from '../../lib/stripe/stripeConfig';
+import { getPlanPrice, isStripeTestMode } from '../../lib/stripe/stripeConfig';
 
 interface SubscriptionCardProps {
   plan: 'basic' | 'premium';
@@ -29,18 +29,14 @@ export function SubscriptionCard({
   // Check if user is in beta
   const isBetaUser = subscription?.status === 'trial';
 
-  // Demo-Link für erfolgreiche Zahlung
-  const demoPaymentSuccessUrl = `${window.location.origin}/payment/success?session_id=demo_session_123&user_id=demo_user&plan=${plan === 'premium' ? (userType === 'owner' ? 'premium' : 'professional') : 'basic'}&user_type=${userType}`;
-
   return (
     <div className={`
       subscription-card 
-      ${highlighted ? 'transform scale-105 ring-4 ring-blue-500/20 shadow-2xl' : 'shadow-lg'} 
       ${className}
     `}>
       <div className={`
         relative bg-white rounded-xl border-2 p-6 h-full flex flex-col
-        ${highlighted ? 'border-blue-500' : 'border-gray-200'}
+        ${highlighted ? 'border-blue-500 shadow-2xl transform scale-105' : 'border-gray-200 shadow-lg'}
         transition-all duration-300 hover:shadow-xl
       `}>
         {/* Popular Badge */}
@@ -100,34 +96,7 @@ export function SubscriptionCard({
           ))}
         </div>
 
-        {/* Demo Link für Payment Success */}
-        {plan === 'premium' && import.meta.env.DEV && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-            <div className="text-xs text-green-800 text-center mb-2">
-              <strong>🧪 Demo-Links für {userType === 'owner' ? 'Owner' : 'Caretaker'}:</strong>
-            </div>
-            <div className="flex flex-col gap-2">
-              <a 
-                href={demoPaymentSuccessUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-1 text-xs text-green-700 hover:text-green-900 underline"
-              >
-                <ExternalLink className="w-3 h-3" />
-                Demo: Erfolgreiche Zahlung
-              </a>
-              <a 
-                href={`/${userType === 'owner' ? 'dashboard-owner' : 'dashboard-caretaker'}?payment_success=true&plan=${userType === 'owner' ? 'premium' : 'professional'}&user_type=${userType}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-1 text-xs text-blue-700 hover:text-blue-900 underline"
-              >
-                <ExternalLink className="w-3 h-3" />
-                Demo: Modal im Dashboard
-              </a>
-            </div>
-          </div>
-        )}
+
 
         {/* Beta Notice */}
         {isBetaUser && plan === 'premium' && (
@@ -147,8 +116,8 @@ export function SubscriptionCard({
           </div>
         )}
 
-        {/* Development Test Notice */}
-        {import.meta.env.DEV && plan === 'premium' && (
+        {/* Test Mode Notice - zeige in DEV oder wenn Test-Keys verwendet werden */}
+        {isStripeTestMode && plan === 'premium' && (
           <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-xs text-yellow-800 text-center">
               <strong>Test-Modus:</strong> Nutze Karte 4242 4242 4242 4242 für Test-Zahlungen
@@ -157,7 +126,7 @@ export function SubscriptionCard({
         )}
 
         {/* Stripe Test Mode Notice */}
-        {plan === 'premium' && import.meta.env.DEV && (
+        {plan === 'premium' && isStripeTestMode && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="text-xs text-blue-800 text-center">
               <strong>🔒 Stripe Test-Modus aktiv</strong><br/>
@@ -167,11 +136,23 @@ export function SubscriptionCard({
         )}
 
         {/* CTA Button */}
-        <div className="pt-4">
+        <div className="pt-4 space-y-3">
           {isCurrentPlan ? (
-            <Button variant="outline" disabled className="w-full">
-              Aktueller Plan
-            </Button>
+            <>
+              <Button variant="outline" disabled className="w-full">
+                Aktueller Plan
+              </Button>
+              {plan === 'premium' && (
+                <Button
+                  variant="primary"
+                  className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 border-green-600 hover:border-green-700"
+                  onClick={() => window.open('https://billing.stripe.com/p/login/test_00w9AU8GVfV897Q8gJ2oE00', '_blank')}
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Mitgliedschaft verwalten
+                </Button>
+              )}
+            </>
           ) : isBetaUser && plan === 'premium' ? (
             <Button
               variant={highlighted ? 'primary' : 'outline'}
@@ -305,9 +286,10 @@ interface PricingGridProps {
   onSelectPlan?: (plan: 'basic' | 'premium') => void;
   onUserTypeChange?: (userType: 'owner' | 'caretaker') => void;
   className?: string;
+  isUserLoggedIn?: boolean; // Neu: Flag ob User eingeloggt ist
 }
 
-export function PricingGrid({ userType, onSelectPlan, onUserTypeChange, className = '' }: PricingGridProps) {
+export function PricingGrid({ userType, onSelectPlan, onUserTypeChange, className = '', isUserLoggedIn = false }: PricingGridProps) {
   const { isBetaUser } = useSubscription();
 
   return (
@@ -321,8 +303,8 @@ export function PricingGrid({ userType, onSelectPlan, onUserTypeChange, classNam
           }
         </p>
 
-        {/* User Type Toggle */}
-        {onUserTypeChange && (
+        {/* User Type Toggle - nur für nicht-eingeloggte User */}
+        {onUserTypeChange && !isUserLoggedIn && (
           <div className="flex justify-center mb-12">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl w-full">
               <button
