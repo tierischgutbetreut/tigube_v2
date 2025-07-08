@@ -107,11 +107,43 @@ export const isProduction = config.app.environment === 'production';
 
 // Check if we're using Stripe test keys (works in both dev and production)
 export const isStripeTestMode = stripePublishableKey?.includes('pk_test_') || false;
+export const isStripeLiveMode = stripePublishableKey?.includes('pk_live_') || false;
+
+// Production readiness check
+export const getProductionReadiness = () => {
+  const checks = {
+    hasLiveKeys: isStripeLiveMode,
+    hasPaymentLinks: !!(import.meta.env.VITE_STRIPE_PAYMENT_LINK_OWNER_PREMIUM && import.meta.env.VITE_STRIPE_PAYMENT_LINK_CARETAKER_PROFESSIONAL),
+    hasValidAppUrl: !config.app.url.includes('localhost'),
+    environment: config.app.environment
+  };
+  
+  const isReady = isProduction ? (checks.hasLiveKeys && checks.hasPaymentLinks && checks.hasValidAppUrl) : true;
+  
+  return {
+    ...checks,
+    isReady,
+    warnings: [
+      ...(isProduction && !checks.hasLiveKeys ? ['⚠️ Production läuft mit Test-Keys'] : []),
+      ...(isProduction && !checks.hasPaymentLinks ? ['⚠️ Payment Links fehlen für Production'] : []),
+      ...(isProduction && !checks.hasValidAppUrl ? ['⚠️ App URL ist noch localhost'] : [])
+    ]
+  };
+};
+
+// Production mode warning for test keys
+if (isProduction && isStripeTestMode) {
+  console.warn('🚨 [Stripe Config] WARNUNG: Production-Environment verwendet Test-Keys! Echte Zahlungen sind nicht möglich.');
+}
 
 // Log final configuration with pricing details
+const productionReadiness = getProductionReadiness();
 console.log('[Stripe Config] Final configuration:', {
   isEnabled: config.stripe.isEnabled,
   environment: config.app.environment,
+  stripeMode: isStripeLiveMode ? 'LIVE' : isStripeTestMode ? 'TEST' : 'UNKNOWN',
+  productionReady: productionReadiness.isReady,
+  warnings: productionReadiness.warnings,
   ownerPremiumPrice: formatPrice(config.pricing.ownerPremium),
   caretakerProfessionalPrice: formatPrice(config.pricing.caretakerProfessional),
   appUrl: config.app.url,
