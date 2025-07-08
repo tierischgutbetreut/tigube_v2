@@ -1,22 +1,17 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Search, MapPin, Clock, Shield, Heart, Dog, Cat, Rabbit, Calendar, Briefcase, PawPrint, CheckCircle, X, ChevronDown, Sparkles, Gift, Users } from 'lucide-react';
 import Button from '../components/ui/Button';
-import BetaBanner from '../components/ui/BetaBanner';
-import { SubscriptionService, BETA_CONFIG } from '../lib/services/subscriptionService';
 
-function HomePage() {
+export default function HomePage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchStarted, setSearchStarted] = useState(false);
   const [showMessage, setShowMessage] = useState(!!location.state?.message);
-  const [showBetaBanner, setShowBetaBanner] = useState(true);
   const [formLocation, setFormLocation] = useState('');
   const [service, setService] = useState('Haustierbetreuung');
   const [selectedDay, setSelectedDay] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
-
-  // Beta-Datum formatieren (UTC-Problem vermeiden)
-  const betaEndFormatted = "31. Oktober 2025";
 
   // Verfügbarkeitsoptionen (gleich wie in SearchPage)
   const availabilityDayOptions = [
@@ -67,9 +62,6 @@ function HomePage() {
           </div>
         </div>
       )}
-
-      {/* Beta Banner */}
-      <BetaBanner />
 
       {/* Hero Section */}
       <section className="relative bg-white py-16 md:py-24">
@@ -190,8 +182,6 @@ function HomePage() {
         </div>
       </section>
 
-
-
       {/* How It Works */}
       <section className="py-16 bg-gray-50">
         <div className="container-custom">
@@ -214,9 +204,9 @@ Filtere nach Service, Preis und Verfügbarkeit – und finde passende Angebote."
             <StepCard
               number="2"
               title="Direkt Kontakt aufnehmen"
-              description={`🎉 In der Beta-Phase kannst du alle Features bis ${betaEndFormatted} kostenlos nutzen! 
-Chat direkt mit Betreuern, lade Bilder hoch und bewerte Services – alles ohne Kosten.`}
-              beta={true}
+              description="Melde dich an, um direkt mit Betreuern zu chatten. 
+Mit dem Premium-Plan erhältst du unlimited Kontakte und weitere Features für die beste Betreuungserfahrung."
+              beta={false}
             />
             <StepCard
               number="3"
@@ -235,7 +225,7 @@ Dank Profil-Bewertungen und sicheren Abläufen bekommst du genau die Fürsorge, 
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Das sagen unsere Kunden</h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Tausende Tierbesitzer vertrauen tigube. Das sagen einige von ihnen:
+            Zahlreiche Tierbesitzer vertrauen auf tigube. So berichten sie über ihre Erfahrungen:
             </p>
           </div>
           
@@ -291,13 +281,10 @@ Dank Profil-Bewertungen und sicheren Abläufen bekommst du genau die Fürsorge, 
             <div className="grid grid-cols-1 lg:grid-cols-5">
               <div className="lg:col-span-3 p-8 md:p-12">
                 <div className="flex items-center gap-2 mb-4">
-                  <h2 className="text-3xl font-bold">Bereit für die Beta-Phase?</h2>
-                  <div className="bg-gradient-to-r from-green-400 to-blue-500 text-white text-sm font-bold px-3 py-1 rounded-full animate-pulse">
-                    GRATIS
-                  </div>
+                  <h2 className="text-3xl font-bold">Bereit für Premium-Features?</h2>
                 </div>
                 <p className="text-gray-600 mb-8 max-w-xl">
-                  🎉 <strong>Sichere dir jetzt kostenlosen Zugang bis {betaEndFormatted}</strong> zu allen Premium-Features! Keine Kreditkarte erforderlich. Sei einer der ersten Beta-Tester und finde liebevolle Betreuer in deiner Nähe.
+                  Starte kostenlos mit grundlegenden Features oder upgrade zu Premium für unlimited Kontakte, erweiterte Filter und vieles mehr.
                 </p>
                 <div className="flex flex-wrap gap-4">
                   <Button 
@@ -305,7 +292,7 @@ Dank Profil-Bewertungen und sicheren Abläufen bekommst du genau die Fürsorge, 
                     size="lg"
                     onClick={() => navigate('/registrieren')}
                   >
-                    🐾 Jetzt Beta-Zugang sichern
+                    🐾 Kostenlos starten
                   </Button>
                   <Button 
                     variant="outline" 
@@ -316,7 +303,7 @@ Dank Profil-Bewertungen und sicheren Abläufen bekommst du genau die Fürsorge, 
                   </Button>
                 </div>
                 <p className="text-sm text-gray-500 mt-4">
-                  ✅ Sofortiger Zugang • ✅ Alle Features kostenfrei • ✅ Keine Verpflichtung
+                  ✅ Sofortiger Zugang • ✅ Kostenlose Grundfunktionen • ✅ Jederzeit kündbar
                 </p>
               </div>
               <div className="lg:col-span-2 relative hidden lg:block">
@@ -448,5 +435,3 @@ function Star(props: React.SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
-
-export default HomePage;

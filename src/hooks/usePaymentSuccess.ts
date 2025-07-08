@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { StripeService } from '../lib/stripe/stripeService';
+import { useAuth } from '../lib/auth/AuthContext';
 
 interface PaymentSuccessData {
   isOpen: boolean;
@@ -15,6 +16,7 @@ interface PaymentSuccessData {
 
 export function usePaymentSuccess() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { refreshSubscription } = useAuth();
   const [paymentSuccess, setPaymentSuccess] = useState<PaymentSuccessData>({
     isOpen: false,
     planType: 'premium',
@@ -41,10 +43,12 @@ export function usePaymentSuccess() {
             
             // First, trigger synchronization of the checkout session
             try {
-              const syncResponse = await fetch('/functions/v1/sync-checkout-session', {
+              const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://puvzrdnziuowznetwwey.supabase.co';
+              const syncResponse = await fetch(`${supabaseUrl}/functions/v1/sync-checkout-session`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
                 },
                 body: JSON.stringify({
                   checkout_session_id: sessionId
@@ -54,6 +58,14 @@ export function usePaymentSuccess() {
               if (syncResponse.ok) {
                 const syncResult = await syncResponse.json();
                 console.log('✅ Checkout session synced:', syncResult);
+                
+                // Refresh subscription data to update UI with premium features
+                try {
+                  await refreshSubscription();
+                  console.log('✅ Subscription data refreshed after sync');
+                } catch (refreshError) {
+                  console.warn('⚠️ Failed to refresh subscription data:', refreshError);
+                }
               } else {
                 console.warn('⚠️ Failed to sync checkout session:', await syncResponse.text());
               }

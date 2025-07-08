@@ -155,19 +155,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else if (profile) {
           console.log('✅ Profile loaded successfully:', profile);
           
-          // Erstelle Trial-Subscription für neue User falls noch keine vorhanden
-          if (profile.user_type && !(profile as any).subscription_id) {
-            console.log('🎯 Creating trial subscription for new user...');
-            try {
-              const userType = profile.user_type as 'owner' | 'caretaker';
-              await SubscriptionService.createTrialSubscription(userId, userType);
-              console.log('✅ Trial subscription created successfully');
-            } catch (error) {
-              console.error('❌ Failed to create trial subscription:', error);
-              // Continue anyway - subscription creation failure should not block login
-            }
-          }
-          
           // Lade Subscription-Daten
           try {
             const userSubscription = await SubscriptionService.getActiveSubscription(userId);

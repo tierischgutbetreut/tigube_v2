@@ -757,15 +757,8 @@ function RegisterPage() {
             return;
           }
 
-          // Trial-Subscription für neuen User erstellen
-          try {
-            console.log('🎯 Creating trial subscription for new registered user...');
-            await SubscriptionService.createTrialSubscription(data.user.id, userType);
-            console.log('✅ Trial subscription created during registration');
-          } catch (subscriptionError) {
-            console.error('❌ Failed to create trial subscription during registration:', subscriptionError);
-            // Continue anyway - subscription creation failure should not block registration
-          }
+          // Note: Users start with free tier features by default
+          // No subscription creation needed during registration
 
           // User-ID speichern für Schritt 2
           setUserId(data.user.id);

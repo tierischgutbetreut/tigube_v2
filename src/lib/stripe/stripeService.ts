@@ -15,10 +15,11 @@ export interface CheckoutResult {
   checkoutUrl?: string;
 }
 
-// Payment Link URLs
+// Payment Link URLs - Environment Variable basiert für Live/Test Flexibilität
 const PAYMENT_LINKS = {
-  owner_premium: 'https://buy.stripe.com/test_00w9AU8GVfV897Q8gJ2oE00',
-  caretaker_professional: 'https://buy.stripe.com/test_9B66oIbT7dN03NwgNf2oE01'
+  // Verwende Environment Variables mit Test-Fallbacks
+  owner_premium: import.meta.env.VITE_STRIPE_PAYMENT_LINK_OWNER_PREMIUM || 'https://buy.stripe.com/test_00w9AU8GVfV897Q8gJ2oE00',
+  caretaker_professional: import.meta.env.VITE_STRIPE_PAYMENT_LINK_CARETAKER_PROFESSIONAL || 'https://buy.stripe.com/test_9B66oIbT7dN03NwgNf2oE01'
 } as const;
 
 // Cache für die erstellten Price IDs
@@ -34,6 +35,15 @@ export class StripeService {
   static createPaymentLinkUrl(data: CheckoutSessionData): string {
     console.log('🔗 Creating Payment Link URL for:', data);
 
+    // Debug Payment Link Configuration
+    console.log('🔍 Payment Link Configuration:', {
+      owner_premium: PAYMENT_LINKS.owner_premium,
+      caretaker_professional: PAYMENT_LINKS.caretaker_professional,
+      isOwnerTest: PAYMENT_LINKS.owner_premium.includes('test_'),
+      isCaretakerTest: PAYMENT_LINKS.caretaker_professional.includes('test_'),
+      environment: config.app.environment
+    });
+
     // Bestimme den richtigen Payment Link
     let baseUrl = '';
     if (data.userType === 'owner' && data.plan === 'premium') {
@@ -41,10 +51,18 @@ export class StripeService {
     } else if (data.userType === 'caretaker' && data.plan === 'professional') {
       baseUrl = PAYMENT_LINKS.caretaker_professional;
       if (!baseUrl) {
-        throw new Error('Payment Link für Caretaker Professional noch nicht erstellt');
+        throw new Error('Payment Link für Caretaker Professional noch nicht konfiguriert. Bitte VITE_STRIPE_PAYMENT_LINK_CARETAKER_PROFESSIONAL setzen.');
       }
     } else {
-      throw new Error('Ungültige Kombination von userType und plan');
+      throw new Error(`Ungültige Kombination: userType=${data.userType}, plan=${data.plan}`);
+    }
+
+    // Prüfe ob Payment Link verfügbar ist
+    if (!baseUrl || baseUrl === 'undefined') {
+      const missingEnvVar = data.userType === 'owner' 
+        ? 'VITE_STRIPE_PAYMENT_LINK_OWNER_PREMIUM'
+        : 'VITE_STRIPE_PAYMENT_LINK_CARETAKER_PROFESSIONAL';
+      throw new Error(`Payment Link nicht konfiguriert. Bitte Environment Variable ${missingEnvVar} setzen.`);
     }
 
     // URL-Parameter hinzufügen - KORREKTE STRIPE PARAMETER
@@ -74,14 +92,57 @@ export class StripeService {
   }
 
   /**
+   * Prüfe Stripe Konfiguration für Live-Umgebung
+   */
+  static validateStripeConfiguration(): { isValid: boolean; errors: string[] } {
+    const errors: string[] = [];
+
+    // Prüfe Publishable Key
+    if (!config.stripe.publishableKey) {
+      errors.push('VITE_STRIPE_PUBLISHABLE_KEY nicht gesetzt');
+    }
+
+    // Prüfe Payment Links
+    if (!PAYMENT_LINKS.owner_premium || PAYMENT_LINKS.owner_premium === 'undefined') {
+      errors.push('VITE_STRIPE_PAYMENT_LINK_OWNER_PREMIUM nicht gesetzt');
+    }
+
+    if (!PAYMENT_LINKS.caretaker_professional || PAYMENT_LINKS.caretaker_professional === 'undefined') {
+      errors.push('VITE_STRIPE_PAYMENT_LINK_CARETAKER_PROFESSIONAL nicht gesetzt');
+    }
+
+    // Warnung für Test-Links in Production
+    if (config.app.environment === 'production') {
+      if (PAYMENT_LINKS.owner_premium.includes('test_')) {
+        errors.push('⚠️ WARNUNG: Owner Payment Link ist noch im Test-Modus (production sollte live_ verwenden)');
+      }
+      if (PAYMENT_LINKS.caretaker_professional.includes('test_')) {
+        errors.push('⚠️ WARNUNG: Caretaker Payment Link ist noch im Test-Modus (production sollte live_ verwenden)');
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  }
+
+  /**
    * NEUE HAUPTMETHODE: Starte Checkout mit Payment Link
    */
   static async startCheckoutWithPaymentLink(data: CheckoutSessionData): Promise<void> {
     try {
       console.log('🔄 Starting checkout with Payment Link:', data);
       
+      // Validate Stripe configuration first
+      const configCheck = this.validateStripeConfiguration();
+      if (!configCheck.isValid) {
+        console.error('❌ Stripe configuration errors:', configCheck.errors);
+        throw new Error(`Stripe Konfigurationsfehler:\n${configCheck.errors.join('\n')}`);
+      }
+
       if (!config.stripe.isEnabled) {
-        throw new Error('Stripe ist nicht konfiguriert');
+        throw new Error('Stripe ist nicht konfiguriert - VITE_STRIPE_PUBLISHABLE_KEY fehlt');
       }
 
       // Payment Link URL erstellen
