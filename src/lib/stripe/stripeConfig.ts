@@ -105,6 +105,9 @@ export const getPlanPrice = (userType: 'owner' | 'caretaker', plan: 'basic' | 'p
 export const isDevelopment = config.app.environment === 'development';
 export const isProduction = config.app.environment === 'production';
 
+// Check if we're using Stripe test keys (works in both dev and production)
+export const isStripeTestMode = stripePublishableKey?.includes('pk_test_') || false;
+
 // Log final configuration with pricing details
 console.log('[Stripe Config] Final configuration:', {
   isEnabled: config.stripe.isEnabled,

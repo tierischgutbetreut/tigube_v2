@@ -24,112 +24,115 @@ export function usePaymentSuccess() {
 
   useEffect(() => {
     const checkPaymentSuccess = async () => {
-      // Check for payment success indicators in URL
+      // Check for payment success parameters in URL
       const sessionId = searchParams.get('session_id');
-      const paymentSuccess = searchParams.get('payment_success');
-      const planType = searchParams.get('plan') as 'premium' | 'professional' | null;
-      const userType = searchParams.get('user_type') as 'owner' | 'caretaker' | null;
+      const paymentSuccessFlag = searchParams.get('payment_success');
+      const planFromUrl = searchParams.get('plan') as 'premium' | 'professional';
+      const userTypeFromUrl = searchParams.get('user_type') as 'owner' | 'caretaker';
 
-      if (!sessionId && !paymentSuccess) {
-        return;
-      }
-
-      console.log('🎉 Payment success detected:', {
-        sessionId,
-        paymentSuccess,
-        planType,
-        userType,
-        allParams: Object.fromEntries(searchParams.entries())
-      });
-
-      setIsValidating(true);
-
-      try {
-        if (sessionId) {
-          // Real payment with session ID
-          const result = await StripeService.validateCheckoutSession(sessionId);
+      if (sessionId || paymentSuccessFlag === 'true') {
+        setIsValidating(true);
+        
+        try {
+          let sessionData = null;
           
-          if (result.success && result.session) {
-            // Determine plan and user type from amount
-            let determinedPlanType: 'premium' | 'professional' = 'premium';
-            let determinedUserType: 'owner' | 'caretaker' = 'owner';
+          if (sessionId) {
+            console.log('🔍 Validating Stripe session:', sessionId);
             
-            if (result.session.amount_total === 1290) { // €12.90
-              determinedPlanType = 'professional';
-              determinedUserType = 'caretaker';
-            } else if (result.session.amount_total === 490) { // €4.90
-              determinedPlanType = 'premium';
-              determinedUserType = 'owner';
+            // First, trigger synchronization of the checkout session
+            try {
+              const syncResponse = await fetch('/functions/v1/sync-checkout-session', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  checkout_session_id: sessionId
+                })
+              });
+
+              if (syncResponse.ok) {
+                const syncResult = await syncResponse.json();
+                console.log('✅ Checkout session synced:', syncResult);
+              } else {
+                console.warn('⚠️ Failed to sync checkout session:', await syncResponse.text());
+              }
+            } catch (syncError) {
+              console.warn('⚠️ Sync error (continuing anyway):', syncError);
             }
 
-            // Use URL params if provided, otherwise use determined values
-            const finalPlanType = planType || determinedPlanType;
-            const finalUserType = userType || determinedUserType;
+                         // Then validate the session data
+             const result = await StripeService.validateCheckoutSession(sessionId);
+             if (result.success && result.session) {
+               sessionData = {
+                 amount_total: result.session.amount_total,
+                 customer_email: result.session.customer_details?.email,
+                 session_id: sessionId
+               };
+               console.log('✅ Session validation successful:', sessionData);
+             } else {
+               console.warn('⚠️ Session validation failed:', result.error);
+             }
+          }
 
+          // Determine plan and user type
+          let planType: 'premium' | 'professional' = 'premium';
+          let userType: 'owner' | 'caretaker' = 'owner';
+
+          if (planFromUrl && userTypeFromUrl) {
+            planType = planFromUrl;
+            userType = userTypeFromUrl;
+          } else if (sessionData?.amount_total) {
+            // Determine from amount
+            if (sessionData.amount_total === 490) {
+              planType = 'premium';
+              userType = 'owner';
+            } else if (sessionData.amount_total === 1290) {
+              planType = 'professional';
+              userType = 'caretaker';
+            }
+          }
+
+          console.log('🎯 Opening payment success modal:', { planType, userType, sessionData });
+          
+                     setPaymentSuccess({
+             isOpen: true,
+             planType,
+             userType,
+             sessionData: sessionData || undefined
+           });
+
+        } catch (error) {
+          console.error('❌ Payment success validation error:', error);
+          // Still show modal with basic info from URL params
+          if (planFromUrl && userTypeFromUrl) {
             setPaymentSuccess({
               isOpen: true,
-              planType: finalPlanType,
-              userType: finalUserType,
-              sessionData: {
-                amount_total: result.session.amount_total,
-                customer_email: result.session.customer_details?.email || result.session.customer_email,
-                session_id: sessionId
-              }
+              planType: planFromUrl,
+              userType: userTypeFromUrl
             });
-
-            console.log('✅ Payment session validated:', {
-              planType: finalPlanType,
-              userType: finalUserType,
-              amount: result.session.amount_total,
-              email: result.session.customer_details?.email
-            });
-          } else {
-            console.error('❌ Payment session validation failed:', result.error);
           }
-        } else if (paymentSuccess === 'true') {
-          // URL-based success (backup method)
-          setPaymentSuccess({
-            isOpen: true,
-            planType: planType || 'premium',
-            userType: userType || 'owner',
-            sessionData: {
-              amount_total: planType === 'professional' ? 1290 : 490
-            }
-          });
-
-          console.log('✅ Payment success from URL params:', {
-            planType: planType || 'premium',
-            userType: userType || 'owner'
-          });
+        } finally {
+          setIsValidating(false);
         }
-
-        // Clean up URL parameters after processing
-        const newSearchParams = new URLSearchParams(searchParams);
-        newSearchParams.delete('session_id');
-        newSearchParams.delete('payment_success');
-        newSearchParams.delete('plan');
-        newSearchParams.delete('user_type');
-        
-        // Only update if parameters were actually removed
-        if (newSearchParams.toString() !== searchParams.toString()) {
-          setSearchParams(newSearchParams, { replace: true });
-        }
-
-      } catch (error) {
-        console.error('❌ Payment success validation error:', error);
-      } finally {
-        setIsValidating(false);
       }
     };
 
     checkPaymentSuccess();
-  }, [searchParams, setSearchParams]);
+  }, [searchParams]);
 
   const closeModal = () => {
-    setPaymentSuccess(prev => ({
-      ...prev,
-      isOpen: false
-    }));
+    console.log('🔐 Closing payment success modal and cleaning URL');
+    setPaymentSuccess(prev => ({ ...prev, isOpen: false }));
+    
+    // Clean up URL parameters
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.delete('session_id');
+    newSearchParams.delete('payment_success');
+    newSearchParams.delete('plan');
+    newSearchParams.delete('user_type');
+    
+    setSearchParams(newSearchParams, { replace: true });
   };
 
   return {
