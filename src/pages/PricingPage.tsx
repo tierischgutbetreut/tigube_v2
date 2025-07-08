@@ -13,6 +13,15 @@ export default function PricingPage() {
   const { user, userProfile } = useAuth();
   const { subscription } = useSubscription();
   
+  // Debug Stripe configuration on component mount
+  React.useEffect(() => {
+    console.log('[PricingPage] Stripe configuration check:', {
+      stripeEnabled: StripeService.isStripeReady(),
+      environment: config.app.environment,
+      appUrl: config.app.url
+    });
+  }, []);
+  
   // Separate Usage Hooks für verschiedene Features
   const { currentUsage: contactUsage, isLoading: contactLoading } = useCurrentUsage('contact_request');
   const { currentUsage: bookingUsage, isLoading: bookingLoading } = useCurrentUsage('booking_request');
@@ -55,17 +64,31 @@ export default function PricingPage() {
       return;
     }
 
-    // Beta users get everything for free
+    // Beta users can still upgrade to test payment processing
     if (subscription?.status === 'trial') {
-      alert('Als Beta-User hast du bereits Zugriff auf alle Premium-Features bis zum 31. Oktober 2025!');
-      return;
+      const confirmed = confirm(
+        'Als Beta-User hast du bereits Zugriff auf alle Premium-Features bis zum 31. Oktober 2025!\n\n' +
+        'Möchtest du trotzdem ein Premium-Upgrade durchführen, um die Zahlungsabwicklung zu testen? ' +
+        '(Du wirst nicht doppelt belastet - dies ist nur für Test-Zwecke)'
+      );
+      if (!confirmed) {
+        return;
+      }
     }
 
     try {
+      console.log('🚀 Starting checkout process...');
+      console.log('User:', { id: user.id, email: user.email, type: displayUserType });
+      
       // Map plan to actual plan type
       const planType = displayUserType === 'owner' ? 'premium' : 'professional';
+      console.log('Plan type:', planType);
+      
+      // Check Stripe readiness
+      console.log('Stripe ready:', StripeService.isStripeReady());
       
       // Start Stripe checkout
+      console.log('Calling StripeService.startCheckout...');
       await StripeService.startCheckout({
         userType: displayUserType,
         plan: planType,
@@ -73,9 +96,16 @@ export default function PricingPage() {
         userEmail: user.email!
       });
       
+      console.log('✅ Checkout completed successfully');
+      
     } catch (error) {
-      console.error('Checkout error:', error);
-      alert('Fehler beim Starten des Zahlungsvorgangs. Bitte versuche es erneut.');
+      console.error('❌ Checkout error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unbekannter Fehler';
+      console.error('Error details:', {
+        message: errorMessage,
+        error: error
+      });
+      alert(`Fehler beim Starten des Zahlungsvorgangs: ${errorMessage}\n\nBitte versuche es erneut oder öffne die Browser-Konsole für Details.`);
     }
   };
 

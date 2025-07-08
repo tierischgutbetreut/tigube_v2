@@ -13,6 +13,8 @@ import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, S
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
 import useFeatureAccess from '../hooks/useFeatureAccess';
+import PaymentSuccessModal from '../components/ui/PaymentSuccessModal';
+import { usePaymentSuccess } from '../hooks/usePaymentSuccess';
 
 function CaretakerDashboardPage() {
   const { user, userProfile, loading: authLoading } = useAuth();
@@ -23,6 +25,9 @@ function CaretakerDashboardPage() {
   const [profileLoadAttempts, setProfileLoadAttempts] = useState(0);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Payment Success Modal
+  const { paymentSuccess, isValidating: paymentValidating, closeModal } = usePaymentSuccess();
   const [editData, setEditData] = useState(false);
   const [caretakerData, setCaretakerData] = useState({
     phoneNumber: userProfile?.phone_number || '',
@@ -2177,6 +2182,15 @@ function CaretakerDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Payment Success Modal */}
+      <PaymentSuccessModal
+        isOpen={paymentSuccess.isOpen}
+        onClose={closeModal}
+        planType={paymentSuccess.planType}
+        userType={paymentSuccess.userType}
+        sessionData={paymentSuccess.sessionData}
+      />
     </div>
   );
 }

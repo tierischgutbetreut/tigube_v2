@@ -1,10 +1,30 @@
 import { loadStripe } from '@stripe/stripe-js';
 
-// Stripe Publishable Key (Frontend)
+// Stripe Configuration with Environment Variables
 const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+const stripeSecretKey = import.meta.env.VITE_STRIPE_SECRET_KEY; // Used for Stripe FDW integration
+const stripeWebhookSecret = import.meta.env.VITE_STRIPE_WEBHOOK_SECRET; // Not used in frontend, but for reference
+
+// Pricing from Environment Variables with fallbacks
+const ownerPremiumPrice = import.meta.env.VITE_STRIPE_PRICE_OWNER_PREMIUM;
+const caretakerProfessionalPrice = import.meta.env.VITE_STRIPE_PRICE_CARETAKER_PROFESSIONAL;
+
+// Debug logging for Stripe configuration
+console.log('[Stripe Config] Environment check:', {
+  hasPublishableKey: !!stripePublishableKey,
+  publishableKeyPreview: stripePublishableKey ? `${stripePublishableKey.substring(0, 12)}...` : 'missing',
+  hasOwnerPremiumPrice: !!ownerPremiumPrice,
+  hasCaretakerProfessionalPrice: !!caretakerProfessionalPrice,
+  ownerPremiumPrice: ownerPremiumPrice,
+  caretakerProfessionalPrice: caretakerProfessionalPrice
+});
 
 if (!stripePublishableKey) {
-  console.warn('VITE_STRIPE_PUBLISHABLE_KEY is not set. Stripe functionality will be disabled.');
+  console.warn('[Stripe Config] VITE_STRIPE_PUBLISHABLE_KEY is not set. Stripe functionality will be disabled.');
+}
+
+if (!ownerPremiumPrice || !caretakerProfessionalPrice) {
+  console.warn('[Stripe Config] Pricing environment variables are missing. Using default prices.');
 }
 
 // Initialize Stripe
@@ -19,13 +39,25 @@ export const config = {
     isEnabled: !!stripePublishableKey,
   },
   app: {
-    url: import.meta.env.VITE_APP_URL || 'http://localhost:5174',
+    url: import.meta.env.VITE_APP_URL || window.location.origin,
     environment: import.meta.env.VITE_ENVIRONMENT || 'development',
   },
   pricing: {
-    // Preise in Cents (Stripe Standard)
-    ownerPremium: parseInt(import.meta.env.VITE_STRIPE_PRICE_OWNER_PREMIUM || '490'),
-    caretakerProfessional: parseInt(import.meta.env.VITE_STRIPE_PRICE_CARETAKER_PROFESSIONAL || '1290'),
+    // Preise in Cents (Stripe Standard) - mit Fallback-Werten
+    ownerPremium: (() => {
+      if (ownerPremiumPrice && ownerPremiumPrice.startsWith('price_')) {
+        // Ist eine echte Price ID - verwende 490 Cents als Fallback für Display
+        return 490; // €4.90
+      }
+      return parseInt(ownerPremiumPrice || '490'); // €4.90 default
+    })(),
+    caretakerProfessional: (() => {
+      if (caretakerProfessionalPrice && caretakerProfessionalPrice.startsWith('price_')) {
+        // Ist eine echte Price ID - verwende 1290 Cents als Fallback für Display
+        return 1290; // €12.90
+      }
+      return parseInt(caretakerProfessionalPrice || '1290'); // €12.90 default
+    })()
   }
 };
 
@@ -56,6 +88,32 @@ export const getPlanDisplayName = (userType: 'owner' | 'caretaker', plan: 'basic
   return userType === 'owner' ? 'Premium' : 'Professional';
 };
 
+// Get plan price for display - VERBESSERT
+export const getPlanPrice = (userType: 'owner' | 'caretaker', plan: 'basic' | 'premium'): string => {
+  if (plan === 'basic') return 'Kostenlos';
+  
+  const cents = userType === 'owner' ? config.pricing.ownerPremium : config.pricing.caretakerProfessional;
+  const formattedPrice = formatPrice(cents);
+  
+  // Debug logging
+  console.log(`[getPlanPrice] ${userType} ${plan}: ${cents} cents = ${formattedPrice}`);
+  
+  return formattedPrice;
+};
+
 // Environment checks
 export const isDevelopment = config.app.environment === 'development';
-export const isProduction = config.app.environment === 'production'; 
+export const isProduction = config.app.environment === 'production';
+
+// Log final configuration with pricing details
+console.log('[Stripe Config] Final configuration:', {
+  isEnabled: config.stripe.isEnabled,
+  environment: config.app.environment,
+  ownerPremiumPrice: formatPrice(config.pricing.ownerPremium),
+  caretakerProfessionalPrice: formatPrice(config.pricing.caretakerProfessional),
+  appUrl: config.app.url,
+  pricing: {
+    ownerPremiumCents: config.pricing.ownerPremium,
+    caretakerProfessionalCents: config.pricing.caretakerProfessional
+  }
+}); 

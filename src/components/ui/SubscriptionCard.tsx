@@ -1,7 +1,8 @@
 import React from 'react';
-import { Check, Crown, Star, Zap, Users, Calendar, Camera, TrendingUp } from 'lucide-react';
+import { Check, Crown, Star, Zap, Users, Calendar, Camera, TrendingUp, ExternalLink } from 'lucide-react';
 import Button from './Button';
 import { useSubscription } from '../../lib/auth/useSubscription';
+import { getPlanPrice } from '../../lib/stripe/stripeConfig';
 
 interface SubscriptionCardProps {
   plan: 'basic' | 'premium';
@@ -18,44 +19,48 @@ export function SubscriptionCard({
   className = '',
   highlighted = false 
 }: SubscriptionCardProps) {
-  const { subscription, isBetaUser } = useSubscription();
-  const isCurrentPlan = subscription?.plan_type === plan;
-
+  const { subscription, features } = useSubscription();
   const planConfig = getPlanConfig(plan, userType);
-  const cardClasses = `
-    relative bg-white rounded-xl border transition-all duration-300 hover:shadow-lg
-    ${highlighted ? 'border-2 border-blue-500 shadow-lg transform scale-105' : 'border-gray-200'}
-    ${isCurrentPlan ? 'ring-2 ring-green-500' : ''}
-    ${className}
-  `;
+  
+  // Check if this is the user's current plan
+  const currentPlan = subscription?.plan_type || 'basic';
+  const isCurrentPlan = currentPlan === plan;
+  
+  // Check if user is in beta
+  const isBetaUser = subscription?.status === 'trial';
+
+  // Demo-Link für erfolgreiche Zahlung
+  const demoPaymentSuccessUrl = `${window.location.origin}/payment/success?session_id=demo_session_123&user_id=demo_user&plan=${plan === 'premium' ? (userType === 'owner' ? 'premium' : 'professional') : 'basic'}&user_type=${userType}`;
 
   return (
-    <div className={cardClasses}>
-      {/* Popular Badge */}
-      {highlighted && (
-        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-          <span className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-1 rounded-full text-sm font-medium">
-            Beliebteste Wahl
-          </span>
-        </div>
-      )}
+    <div className={`
+      subscription-card 
+      ${highlighted ? 'transform scale-105 ring-4 ring-blue-500/20 shadow-2xl' : 'shadow-lg'} 
+      ${className}
+    `}>
+      <div className={`
+        relative bg-white rounded-xl border-2 p-6 h-full flex flex-col
+        ${highlighted ? 'border-blue-500' : 'border-gray-200'}
+        transition-all duration-300 hover:shadow-xl
+      `}>
+        {/* Popular Badge */}
+        {highlighted && (
+          <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+            <span className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-1 rounded-full text-sm font-medium">
+              Am beliebtesten
+            </span>
+          </div>
+        )}
 
-      {/* Current Plan Badge */}
-      {isCurrentPlan && (
-        <div className="absolute -top-3 right-4">
-          <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-            Aktueller Plan
-          </span>
-        </div>
-      )}
-
-      <div className="p-6">
         {/* Header */}
         <div className="text-center mb-6">
           <div className="flex items-center justify-center mb-3">
             {planConfig.icon}
-            <h3 className="text-2xl font-bold text-gray-900 ml-2">{planConfig.name}</h3>
           </div>
+          
+          <h3 className="text-xl font-bold text-gray-900 mb-2">
+            {planConfig.name}
+          </h3>
           
           <div className="mb-2">
             <span className="text-4xl font-bold text-gray-900">{planConfig.price}</span>
@@ -95,8 +100,46 @@ export function SubscriptionCard({
           ))}
         </div>
 
+        {/* Demo Link für Payment Success */}
+        {plan === 'premium' && import.meta.env.DEV && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="text-xs text-green-800 text-center mb-2">
+              <strong>🧪 Demo-Links für {userType === 'owner' ? 'Owner' : 'Caretaker'}:</strong>
+            </div>
+            <div className="flex flex-col gap-2">
+              <a 
+                href={demoPaymentSuccessUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-1 text-xs text-green-700 hover:text-green-900 underline"
+              >
+                <ExternalLink className="w-3 h-3" />
+                Demo: Erfolgreiche Zahlung
+              </a>
+              <a 
+                href={`/${userType === 'owner' ? 'dashboard-owner' : 'dashboard-caretaker'}?payment_success=true&plan=${userType === 'owner' ? 'premium' : 'professional'}&user_type=${userType}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-1 text-xs text-blue-700 hover:text-blue-900 underline"
+              >
+                <ExternalLink className="w-3 h-3" />
+                Demo: Modal im Dashboard
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* Beta Notice */}
-        {isBetaUser && (
+        {isBetaUser && plan === 'premium' && (
+          <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg">
+            <p className="text-xs text-blue-800 text-center">
+              <strong>Beta-Test:</strong> Alle Features bereits kostenlos verfügbar.<br/>
+              Upgrade nur zum Testen der Zahlungsabwicklung.
+            </p>
+          </div>
+        )}
+        
+        {isBetaUser && plan === 'basic' && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-xs text-blue-800 text-center">
               <strong>Beta-Phase:</strong> Alle Features bis 31. Oktober 2025 kostenlos verfügbar
@@ -105,11 +148,21 @@ export function SubscriptionCard({
         )}
 
         {/* Development Test Notice */}
-        {!isBetaUser && import.meta.env.DEV && (
+        {import.meta.env.DEV && plan === 'premium' && (
           <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-xs text-yellow-800 text-center">
               <strong>Test-Modus:</strong> Nutze Karte 4242 4242 4242 4242 für Test-Zahlungen
             </p>
+          </div>
+        )}
+
+        {/* Stripe Test Mode Notice */}
+        {plan === 'premium' && import.meta.env.DEV && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="text-xs text-blue-800 text-center">
+              <strong>🔒 Stripe Test-Modus aktiv</strong><br/>
+              Sichere Test-Umgebung - keine echten Zahlungen
+            </div>
           </div>
         )}
 
@@ -118,6 +171,14 @@ export function SubscriptionCard({
           {isCurrentPlan ? (
             <Button variant="outline" disabled className="w-full">
               Aktueller Plan
+            </Button>
+          ) : isBetaUser && plan === 'premium' ? (
+            <Button
+              variant={highlighted ? 'primary' : 'outline'}
+              className="w-full"
+              onClick={() => onSelectPlan?.(plan)}
+            >
+              Premium testen (Beta)
             </Button>
           ) : isBetaUser ? (
             <Button variant="outline" disabled className="w-full">
@@ -134,7 +195,6 @@ export function SubscriptionCard({
           )}
         </div>
 
-
       </div>
     </div>
   );
@@ -148,6 +208,8 @@ interface FeatureItem {
 }
 
 function getPlanConfig(plan: 'basic' | 'premium', userType: 'owner' | 'caretaker') {
+  const planPrice = getPlanPrice(userType, plan);
+  
   if (userType === 'owner') {
     // Owner-spezifische Pläne
     const ownerFeatures: Record<string, {
@@ -159,7 +221,7 @@ function getPlanConfig(plan: 'basic' | 'premium', userType: 'owner' | 'caretaker
     }> = {
       basic: {
         name: 'Starter',
-        price: 'Kostenlos',
+        price: planPrice,
         description: 'Perfekt zum Starten',
         icon: <Users className="w-8 h-8 text-gray-600" />,
         features: [
@@ -175,7 +237,7 @@ function getPlanConfig(plan: 'basic' | 'premium', userType: 'owner' | 'caretaker
       },
       premium: {
         name: 'Premium',
-        price: '€4,90',
+        price: planPrice,
         description: 'Für aktive Tierbesitzer',
         icon: <Star className="w-8 h-8 text-blue-600" />,
         features: [
@@ -202,37 +264,33 @@ function getPlanConfig(plan: 'basic' | 'premium', userType: 'owner' | 'caretaker
     }> = {
       basic: {
         name: 'Starter',
-        price: 'Kostenlos',
-        description: 'Erste Schritte als Betreuer',
+        price: planPrice,
+        description: 'Grundausstattung für Betreuer',
         icon: <Users className="w-8 h-8 text-gray-600" />,
         features: [
-          { name: 'Basis-Profil erstellen', available: true },
-          { name: 'Buchungsanfragen empfangen', available: true, limit: '3 pro Monat' },
-          { name: 'Bewertungen lesen', available: true },
-          { name: 'Chat mit Kunden', available: true, limit: 'Basis' },
+          { name: 'Buchungsanfragen', available: true, limit: '5 pro Monat' },
+          { name: 'Basis-Profil', available: true },
+          { name: 'Bis zu 3 Umgebungsbilder', available: true },
+          { name: 'Verfügbarkeitskalender', available: true },
           { name: 'Premium Badge', available: false },
-          { name: 'Erweiterte Profilfeatures', available: false },
-          { name: 'Umgebungsbilder', available: false },
-
           { name: 'Priorität in Suche', available: false },
-          { name: 'Werbefrei', available: false }
+          { name: 'Bis zu 6 Umgebungsbilder', available: false },
+          { name: 'Premium Support', available: false }
         ]
       },
       premium: {
         name: 'Professional',
-        price: '€12,90',
+        price: planPrice,
         description: 'Für professionelle Betreuer',
-        icon: <Crown className="w-8 h-8 text-yellow-600" />,
+        icon: <Crown className="w-8 h-8 text-purple-600" />,
         features: [
-          { name: 'Erweiterte Profilgestaltung', available: true },
-          { name: 'Buchungsanfragen empfangen', available: true, highlight: 'Unlimited' },
-          { name: 'Bewertungen lesen & antworten', available: true },
-          { name: 'Premium Chat-Features', available: true },
-          { name: 'Premium Badge', available: true, highlight: 'Vertrauensbonus' },
-          { name: 'Umgebungsbilder', available: true, limit: 'Bis zu 6 Bilder' },
-
-          { name: 'Höchste Priorität in Suche', available: true, highlight: 'Top-Ranking' },
-          { name: 'Werbefrei', available: true },
+          { name: 'Buchungsanfragen', available: true, highlight: 'Unlimited' },
+          { name: 'Basis-Profil', available: true },
+          { name: 'Bis zu 3 Umgebungsbilder', available: true },
+          { name: 'Verfügbarkeitskalender', available: true },
+          { name: 'Premium Badge', available: true },
+          { name: 'Priorität in Suche', available: true },
+          { name: 'Bis zu 6 Umgebungsbilder', available: true },
           { name: 'Premium Support', available: true }
         ]
       }

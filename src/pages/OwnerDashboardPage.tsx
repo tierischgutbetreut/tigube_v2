@@ -16,6 +16,8 @@ import { getOrCreateConversation } from '../lib/supabase/chatService';
 import { supabase } from '../lib/supabase/client';
 import Badge from '../components/ui/Badge';
 import { calculateAge } from '../lib/utils';
+import PaymentSuccessModal from '../components/ui/PaymentSuccessModal';
+import { usePaymentSuccess } from '../hooks/usePaymentSuccess';
 
 const ALL_SERVICES = [
   'Gassi-Service',
@@ -81,6 +83,9 @@ function OwnerDashboardPage() {
   const { user, userProfile, loading: authLoading, updateProfileState, signOut } = useAuth();
   const navigate = useNavigate();
   const [profileLoadAttempts, setProfileLoadAttempts] = useState(0);
+  
+  // Payment Success Modal
+  const { paymentSuccess, isValidating: paymentValidating, closeModal } = usePaymentSuccess();
   
   // Refs to track if data has been loaded to prevent unnecessary reloads
   const vetDataLoadedRef = useRef(false);
@@ -925,7 +930,6 @@ function OwnerDashboardPage() {
 
       // Only include fields that have changed
       if (ownerData.phoneNumber !== (userProfile?.phone_number || '')) dataToUpdate.phoneNumber = ownerData.phoneNumber;
-      if (ownerData.email !== (userProfile?.email || '')) dataToUpdate.email = ownerData.email;
       if (ownerData.street !== (userProfile?.street || '')) dataToUpdate.street = ownerData.street;
 
       // Handle PLZ and City logic
@@ -1484,27 +1488,10 @@ function OwnerDashboardPage() {
                             placeholder="+49 123 456789"
                           />
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            E-Mail <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="email"
-                            className={`input w-full ${emailError ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
-                            value={ownerData.email}
-                            onChange={e => handleEmailChange(e.target.value)}
-                            placeholder="ihre@email.de"
-                            required
-                          />
-                          {emailError && (
-                            <p className="text-red-500 text-xs mt-1">{emailError}</p>
-                          )}
-                        </div>
                         <div className="flex gap-2 pt-2">
                           <button
                             className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm"
                             onClick={handleSaveOwnerData}
-                            disabled={!!emailError || !ownerData.email.trim()}
                           >
                             Speichern
                           </button>
@@ -2976,6 +2963,15 @@ function OwnerDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Payment Success Modal */}
+      <PaymentSuccessModal
+        isOpen={paymentSuccess.isOpen}
+        onClose={closeModal}
+        planType={paymentSuccess.planType}
+        userType={paymentSuccess.userType}
+        sessionData={paymentSuccess.sessionData}
+      />
     </div>
   );
 }

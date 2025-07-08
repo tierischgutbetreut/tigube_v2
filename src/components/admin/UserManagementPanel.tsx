@@ -17,7 +17,7 @@ import {
   Download,
   RefreshCw
 } from 'lucide-react';
-import { AdminService } from '../../lib/admin/adminService';
+import { UserManagementService } from '../../lib/admin/userManagementService';
 import LoadingSpinner from '../ui/LoadingSpinner';
 
 interface UserSearchFilters {
@@ -30,10 +30,10 @@ interface UserSearchFilters {
 }
 
 interface UserManagementPanelProps {
-  adminService: AdminService;
+  currentAdminId: string;
 }
 
-const UserManagementPanel: React.FC<UserManagementPanelProps> = ({ adminService }) => {
+const UserManagementPanel: React.FC<UserManagementPanelProps> = ({ currentAdminId }) => {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
