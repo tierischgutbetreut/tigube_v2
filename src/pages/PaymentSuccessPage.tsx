@@ -8,7 +8,7 @@ import { useAuth } from '../lib/auth/AuthContext';
 export default function PaymentSuccessPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, refreshSubscription } = useAuth();
+  const { user, userProfile, refreshSubscription } = useAuth();
   const [isValidating, setIsValidating] = useState(true);
   const [validationResult, setValidationResult] = useState<{
     success: boolean;
@@ -17,6 +17,28 @@ export default function PaymentSuccessPage() {
   } | null>(null);
 
   const sessionId = searchParams.get('session_id');
+  const isBetaTest = searchParams.get('beta') === 'true';
+
+  // Debug: Alle URL-Parameter loggen
+  useEffect(() => {
+    const allParams: Record<string, string> = {};
+    searchParams.forEach((value, key) => {
+      allParams[key] = value;
+    });
+    console.log('🔍 PaymentSuccessPage URL Parameters:', allParams);
+    console.log('🔍 Current URL:', window.location.href);
+  }, [searchParams]);
+
+  // Smart Dashboard Navigation
+  const navigateToDashboard = () => {
+    console.log('🧭 Navigating to dashboard, userProfile:', userProfile);
+    if (userProfile?.user_type === 'caretaker') {
+      navigate('/dashboard-caretaker');
+    } else {
+      // Default to owner dashboard for owners or when user_type is unclear
+      navigate('/dashboard-owner');
+    }
+  };
 
   useEffect(() => {
     const validatePayment = async () => {
@@ -30,11 +52,64 @@ export default function PaymentSuccessPage() {
       }
 
       try {
-        const result = await StripeService.validateCheckoutSession(sessionId);
-        setValidationResult(result);
+        if (isBetaTest) {
+          // Beta-Test: Simuliere erfolgreiche Zahlung
+          setValidationResult({
+            success: true,
+            session: {
+              amount_total: 490, // €4.90 in Cent
+              customer_email: user?.email,
+              metadata: {
+                planType: 'premium',
+                userType: 'owner'
+              }
+            }
+          });
+        } else {
+          // Payment Link oder normaler Checkout: Session von Stripe abrufen
+          console.log('🔍 Retrieving Stripe session:', sessionId);
+          const result = await StripeService.validateCheckoutSession(sessionId);
+          
+          if (result.success && result.session) {
+            // Für Payment Links: client_reference_id enthält die User-ID
+            const clientReferenceId = result.session.client_reference_id;
+            console.log('📋 Session details:', {
+              sessionId,
+              clientReferenceId,
+              customerEmail: result.session.customer_email,
+              amount: result.session.amount_total
+            });
+            
+            // Plan-Type aus dem Betrag ableiten
+            let planType = 'premium';
+            let userType = 'owner';
+            
+            if (result.session.amount_total === 1290) { // €12.90 in Cent
+              planType = 'professional';
+              userType = 'caretaker';
+            } else if (result.session.amount_total === 490) { // €4.90 in Cent
+              planType = 'premium';
+              userType = 'owner';
+            }
+            
+            setValidationResult({
+              success: true,
+              session: {
+                ...result.session,
+                metadata: {
+                  planType,
+                  userType,
+                  userId: clientReferenceId // User-ID aus client_reference_id
+                }
+              }
+            });
+          } else {
+            setValidationResult(result);
+          }
+        }
         
         // Refresh user's subscription data if payment was successful
-        if (result.success && refreshSubscription) {
+        if (refreshSubscription) {
           await refreshSubscription();
         }
       } catch (error) {
@@ -49,7 +124,7 @@ export default function PaymentSuccessPage() {
     };
 
     validatePayment();
-  }, [sessionId, refreshSubscription]);
+  }, [sessionId, isBetaTest, user?.email, refreshSubscription]);
 
   const getPlanInfo = () => {
     if (!validationResult?.session?.metadata) return null;
@@ -127,7 +202,7 @@ export default function PaymentSuccessPage() {
               </Button>
               <Button 
                 variant="outline"
-                onClick={() => navigate('/dashboard')}
+                onClick={navigateToDashboard}
                 className="w-full"
               >
                 Zum Dashboard
@@ -151,12 +226,39 @@ export default function PaymentSuccessPage() {
           <div className="text-center mb-8">
             <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Zahlung erfolgreich!
+              {isBetaTest ? 'Test erfolgreich!' : 'Zahlung erfolgreich!'}
             </h1>
             <p className="text-lg text-gray-600">
-              Willkommen in deinem neuen {planInfo?.name || 'Premium'} Plan
+              {isBetaTest 
+                ? 'Zahlungsabwicklung erfolgreich getestet - alle Features bereits in Beta verfügbar'
+                : `Willkommen in deinem neuen ${planInfo?.name || 'Premium'} Plan`
+              }
             </p>
           </div>
+
+          {/* Payment Link Success Notice */}
+          {!isBetaTest && validationResult.session?.id && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-8">
+              <h4 className="font-semibold text-green-900 mb-2">🎉 Zahlungslink erfolgreich!</h4>
+              <p className="text-sm text-green-800">
+                Deine Zahlung über den Stripe Payment Link war erfolgreich. 
+                <span className="block mt-1 font-mono text-xs">
+                  Session ID: {validationResult.session.id}
+                </span>
+              </p>
+            </div>
+          )}
+
+          {/* Beta Test Notice */}
+          {isBetaTest && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
+              <h4 className="font-semibold text-blue-900 mb-2">🧪 Beta-Test erfolgreich</h4>
+              <p className="text-sm text-blue-800">
+                Du hast die Zahlungsabwicklung erfolgreich getestet! In der Beta-Phase sind alle Premium-Features 
+                bereits kostenlos für dich verfügbar bis zum 31. Oktober 2025.
+              </p>
+            </div>
+          )}
 
           {/* Plan Details */}
           {planInfo && (
@@ -217,7 +319,7 @@ export default function PaymentSuccessPage() {
             
             <div className="space-y-3">
               <Button 
-                onClick={() => navigate('/dashboard')}
+                onClick={navigateToDashboard}
                 className="w-full sm:w-auto px-8"
               >
                 Zum Dashboard

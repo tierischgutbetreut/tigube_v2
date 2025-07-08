@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 
 interface BadgeProps {
   children: React.ReactNode;
-  variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'error';
+  variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'danger' | 'outline';
   removable?: boolean;
   onRemove?: () => void;
   className?: string;
@@ -24,6 +24,8 @@ function Badge({
     success: 'bg-green-100 text-green-800 border border-green-200',
     warning: 'bg-yellow-100 text-yellow-800 border border-yellow-200',
     error: 'bg-red-100 text-red-800 border border-red-200',
+    danger: 'bg-red-100 text-red-800 border border-red-200',
+    outline: 'bg-transparent text-gray-700 border border-gray-300',
   };
 
   return (

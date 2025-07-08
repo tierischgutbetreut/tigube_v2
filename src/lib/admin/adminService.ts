@@ -1,4 +1,5 @@
 import { supabase } from '../supabase/client';
+import { adminSupabase } from '../supabase/adminClient';
 
 export type AdminRole = 'super_admin' | 'admin' | 'moderator' | 'support';
 
@@ -116,7 +117,7 @@ export class AdminService {
   static hasPermission(adminRole: AdminRole | null, permission: string): boolean {
     if (!adminRole) return false;
     
-    const permissions = ROLE_PERMISSIONS[adminRole];
+    const permissions = ROLE_PERMISSIONS[adminRole] as readonly string[];
     return permissions.includes('*') || permissions.includes(permission);
   }
 

@@ -10,6 +10,7 @@ import AboutMeEditor from '../components/ui/AboutMeEditor';
 import Badge from '../components/ui/Badge';
 import LanguageSelector from '../components/ui/LanguageSelector';
 import CommercialInfoInput from '../components/ui/CommercialInfoInput';
+import ProfileImageCropper from '../components/ui/ProfileImageCropper';
 import { auth, supabase } from '../lib/supabase/client';
 import { userService, petService, ownerPreferencesService, caretakerProfileService } from '../lib/supabase/db';
 import { useDropzone } from 'react-dropzone';
@@ -1373,21 +1374,30 @@ function RegisterPage() {
                         </div>
                         <div className="mt-4">
                           <label className="block text-sm font-medium text-gray-700 mb-1">Profilbild</label>
-                          <PhotoDropzone
-                            index={-1}
+                          <ProfileImageCropper
                             photoUrl={formStep2Owner.profilePhotoUrl}
-                            onUpload={async (file) => {
+                            onImageSave={async (croppedImageUrl) => {
                               setProfilePhotoUploading(true);
                               setProfilePhotoError(null);
                               try {
-                                const fileExt = file.name.split('.').pop();
+                                // Convert blob URL to File
+                                const response = await fetch(croppedImageUrl);
+                                const blob = await response.blob();
+                                const file = new File([blob], 'profile-photo.jpg', { type: 'image/jpeg' });
+                                
+                                // Upload to Supabase
+                                const fileExt = 'jpg';
                                 const fileName = `${userId}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
                                 const { data, error } = await supabase.storage.from('profile-photos').upload(fileName, file, { upsert: true });
                                 if (error) throw error;
                                 const { data: urlData } = supabase.storage.from('profile-photos').getPublicUrl(fileName);
                                 setFormStep2Owner((prev) => ({ ...prev, profilePhotoUrl: urlData.publicUrl }));
+                                
+                                // Clean up blob URL
+                                URL.revokeObjectURL(croppedImageUrl);
                               } catch (err: any) {
                                 setProfilePhotoError(err.message || 'Upload fehlgeschlagen');
+                                throw err;
                               } finally {
                                 setProfilePhotoUploading(false);
                               }

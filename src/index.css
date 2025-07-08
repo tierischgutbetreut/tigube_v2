@@ -2,6 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+/* React Easy Crop Styles */
+@import 'react-easy-crop/react-easy-crop.css';
+
+/* Custom styles for ProfileImageCropper rounded crop area */
+.reactEasyCrop_CropArea {
+  border-radius: 12px !important;
+  border: 2px solid #3b82f6 !important;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2) !important;
+}
+
+/* Custom slider styles for ProfileImageCropper */
+.slider::-webkit-slider-thumb {
+  appearance: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.slider::-moz-range-thumb {
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
 @layer base {
   html {
     @apply text-gray-900;
