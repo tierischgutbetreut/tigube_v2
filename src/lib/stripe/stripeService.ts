@@ -94,36 +94,57 @@ export class StripeService {
   /**
    * Prüfe Stripe Konfiguration für Live-Umgebung
    */
-  static validateStripeConfiguration(): { isValid: boolean; errors: string[] } {
+  static validateStripeConfiguration(): { isValid: boolean; errors: string[]; warnings: string[] } {
     const errors: string[] = [];
+    const warnings: string[] = [];
 
     // Prüfe Publishable Key
     if (!config.stripe.publishableKey) {
       errors.push('VITE_STRIPE_PUBLISHABLE_KEY nicht gesetzt');
+    } else {
+      // Check for Live vs Test mode mismatch
+      const isTestKey = config.stripe.publishableKey.includes('pk_test_');
+      const isLiveKey = config.stripe.publishableKey.includes('pk_live_');
+      
+      if (config.app.environment === 'production' && isTestKey) {
+        warnings.push('🚨 Production-Environment verwendet Test-Keys - echte Zahlungen nicht möglich');
+      }
+      
+      if (config.app.environment === 'development' && isLiveKey) {
+        warnings.push('⚠️ Development-Environment verwendet Live-Keys - VORSICHT bei Tests!');
+      }
     }
 
     // Prüfe Payment Links
     if (!PAYMENT_LINKS.owner_premium || PAYMENT_LINKS.owner_premium === 'undefined') {
       errors.push('VITE_STRIPE_PAYMENT_LINK_OWNER_PREMIUM nicht gesetzt');
+    } else if (PAYMENT_LINKS.owner_premium.includes('test_') && config.app.environment === 'production') {
+      warnings.push('⚠️ Owner Payment Link ist im Test-Modus (Production sollte live_ verwenden)');
     }
 
     if (!PAYMENT_LINKS.caretaker_professional || PAYMENT_LINKS.caretaker_professional === 'undefined') {
       errors.push('VITE_STRIPE_PAYMENT_LINK_CARETAKER_PROFESSIONAL nicht gesetzt');
+    } else if (PAYMENT_LINKS.caretaker_professional.includes('test_') && config.app.environment === 'production') {
+      warnings.push('⚠️ Caretaker Payment Link ist im Test-Modus (Production sollte live_ verwenden)');
     }
 
-    // Warnung für Test-Links in Production
-    if (config.app.environment === 'production') {
-      if (PAYMENT_LINKS.owner_premium.includes('test_')) {
-        errors.push('⚠️ WARNUNG: Owner Payment Link ist noch im Test-Modus (production sollte live_ verwenden)');
-      }
-      if (PAYMENT_LINKS.caretaker_professional.includes('test_')) {
-        errors.push('⚠️ WARNUNG: Caretaker Payment Link ist noch im Test-Modus (production sollte live_ verwenden)');
-      }
+    // App URL Check
+    if (config.app.url.includes('localhost') && config.app.environment === 'production') {
+      warnings.push('⚠️ App URL ist localhost in Production-Environment');
+    }
+
+    // Cross-check: Payment Links und Keys sollten gleichen Modus haben
+    const paymentLinksTestMode = PAYMENT_LINKS.owner_premium.includes('test_') || PAYMENT_LINKS.caretaker_professional.includes('test_');
+    const stripeKeysTestMode = config.stripe.publishableKey?.includes('pk_test_') || false;
+    
+    if (paymentLinksTestMode !== stripeKeysTestMode) {
+      warnings.push('⚠️ Mismatch: Stripe Keys und Payment Links sind in verschiedenen Modi (test/live)');
     }
 
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
+      warnings
     };
   }
 
