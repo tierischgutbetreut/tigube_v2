@@ -12,7 +12,7 @@ import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase/client';
 import { useAuth } from '../lib/auth/AuthContext';
 import { getOrCreateConversation } from '../lib/supabase/chatService';
-import useFeatureAccess from '../hooks/useFeatureAccess';
+import { useFeatureAccess } from '../hooks/useFeatureAccess';
 import HomePhotosSection from '../components/ui/HomePhotosSection';
 
 interface Caretaker {
@@ -55,7 +55,7 @@ function BetreuerProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  const { checkFeature, trackUsage, isBetaActive, subscription } = useFeatureAccess();
+  const { checkFeature, trackUsage, subscription } = useFeatureAccess();
   const [isFavorite, setIsFavorite] = useState(false);
   const [isFavoriteLoading, setIsFavoriteLoading] = useState(false);
   const [caretaker, setCaretaker] = useState<Caretaker | null>(null);
@@ -183,22 +183,19 @@ function BetreuerProfilePage() {
 
     try {
       // Feature Gate Check: Contact Request Limit
-      // Beta users get unlimited access during beta phase
-      if (!isBetaActive) {
-        const accessCheck = await checkFeature('contact_request', caretaker.id);
-        
-        if (!accessCheck.allowed) {
-          // Show upgrade prompt
-          console.log('Feature blocked:', accessCheck.reason);
-          setIsContactLoading(false);
-          // TODO: Implement modal for upgrade prompt
-          navigate('/mitgliedschaften?feature=contact_request');
-          return;
-        }
-        
-        // Track feature usage
-        await trackUsage('contact_request', caretaker.id);
+      const canContact = checkFeature('contact_request');
+      
+      if (!canContact) {
+        // Show upgrade prompt
+        console.log('Feature blocked: Contact request limit reached');
+        setIsContactLoading(false);
+        // TODO: Implement modal for upgrade prompt
+        navigate('/mitgliedschaften?feature=contact_request');
+        return;
       }
+      
+      // Track feature usage
+      await trackUsage('contact_request');
 
       // Erstelle oder finde bestehende Konversation
       const { data: conversation, error } = await getOrCreateConversation({

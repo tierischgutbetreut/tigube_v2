@@ -1,6 +1,6 @@
 import React from 'react';
 import { Lock, Crown, Filter, Clock, Star, MapPin, ChevronDown } from 'lucide-react';
-import useFeatureAccess from '../../hooks/useFeatureAccess';
+import { useFeatureAccess } from '../../hooks/useFeatureAccess';
 import { Link } from 'react-router-dom';
 
 interface AdvancedFiltersProps {
@@ -30,7 +30,7 @@ export function AdvancedFilters({
   onRadiusChange,
   className = ''
 }: AdvancedFiltersProps) {
-  const { hasAdvancedFilters, isBetaActive, subscription } = useFeatureAccess();
+  const { hasAdvancedFilters, subscription } = useFeatureAccess();
 
   const canUseAdvanced = hasAdvancedFilters();
 
@@ -55,7 +55,7 @@ export function AdvancedFilters({
   ];
 
   // Feature Gate für Non-Premium Users
-  if (!canUseAdvanced && !isBetaActive) {
+  if (!canUseAdvanced) {
     return (
       <div className={`bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-6 ${className}`}>
         <div className="flex items-start gap-3">
@@ -131,11 +131,7 @@ export function AdvancedFilters({
             Premium
           </span>
         )}
-        {isBetaActive && (
-          <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
-            Beta
-          </span>
-        )}
+
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

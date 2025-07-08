@@ -215,21 +215,50 @@ async function getSubscriptionByUserId(supabase: any, userId: string) {
 
 // Helper function to update user profile based on plan
 async function updateUserProfileForPlan(supabase: any, userId: string, planType: string) {
-  const limits = getPlanLimits(planType);
+  console.log(`🔄 [Stripe Webhook] Updating user profile for plan: ${planType}`);
+  
+  // Use the same logic as the database function to avoid conflicts
+  let updateData: any;
+  
+  if (planType === 'premium') {
+    // Owner Premium features - MATCH database function values
+    updateData = {
+      max_contact_requests: -1, // unlimited
+      show_ads: false,
+      premium_badge: true,      // FIXED: Premium users get badge
+      search_priority: 5        // FIXED: Use same value as database function
+    };
+    
+  } else if (planType === 'professional') {
+    // Caretaker Professional features - MATCH database function values
+    updateData = {
+      max_contact_requests: -1, // unlimited contacts for professional too
+      max_bookings: -1,         // unlimited bookings
+      premium_badge: true,
+      search_priority: 10,      // highest priority
+      show_ads: false
+    };
+    
+  } else {
+    // Basic/Free plan - MATCH database function values
+    updateData = {
+      max_contact_requests: 3,
+      max_bookings: 3,
+      premium_badge: false,
+      search_priority: 0,
+      show_ads: true
+    };
+  }
   
   const { error } = await supabase
     .from('users')
-    .update({
-      max_contact_requests: limits.maxContactRequests,
-      max_bookings: limits.maxBookings,
-      show_ads: !limits.adFree,
-      premium_badge: limits.premiumBadge,
-      search_priority: limits.searchPriority
-    })
+    .update(updateData)
     .eq('id', userId);
 
   if (error) {
-    console.error('Error updating user profile:', error);
+    console.error('❌ [Stripe Webhook] Error updating user profile:', error);
+  } else {
+    console.log(`✅ [Stripe Webhook] Updated user ${userId} with ${planType} features`);
   }
 }
 

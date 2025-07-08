@@ -28,12 +28,8 @@ const PricingPage = lazy(() => import('./pages/PricingPage'));
 const PaymentSuccessPage = lazy(() => import('./pages/PaymentSuccessPage'));
 
 // Debug components (only in development)
-const SubscriptionDebug = lazy(() => 
-  import('./debug/subscriptionDebug').then(module => ({ default: module.SubscriptionDebug }))
-);
-const SubscriptionStatus = lazy(() => 
-  import('./debug/subscriptionStatus').then(module => ({ default: module.SubscriptionStatus }))
-);
+
+
 
 function App() {
   return (
@@ -61,8 +57,7 @@ function App() {
           {/* Debug Routes (only in development) */}
           {import.meta.env.DEV && (
             <>
-              <Route path="/debug/subscriptions" element={<SubscriptionDebug />} />
-              <Route path="/debug/subscription-status" element={<SubscriptionStatus />} />
+
             </>
           )}
           

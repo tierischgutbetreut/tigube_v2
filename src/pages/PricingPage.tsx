@@ -61,35 +61,21 @@ export default function PricingPage() {
       return;
     }
 
-    // Check if Stripe is configured
-    if (!StripeService.isStripeReady()) {
-      alert('Zahlungssystem ist momentan nicht verfügbar. Bitte versuche es später erneut.');
-      return;
-    }
-
-    // Beta users can still upgrade to test payment processing
-    if (subscription?.status === 'trial') {
-      const confirmed = confirm(
-        'Als Beta-User hast du bereits Zugriff auf alle Premium-Features bis zum 31. Oktober 2025!\n\n' +
-        'Möchtest du trotzdem ein Premium-Upgrade durchführen, um die Zahlungsabwicklung zu testen? ' +
-        '(Du wirst nicht doppelt belastet - dies ist nur für Test-Zwecke)'
-      );
-      if (!confirmed) {
-        return;
-      }
-    }
-
     try {
       console.log('🚀 Starting checkout process...');
       console.log('User:', { id: user.id, email: user.email, type: displayUserType });
       
+      // Check Stripe configuration first
+      if (!StripeService.isStripeReady()) {
+        console.error('❌ Stripe configuration issue');
+        alert('Zahlungssystem ist momentan nicht verfügbar.\n\nBitte kontaktiere den Support oder versuche es später erneut.');
+        return;
+      }
+
       // Map plan to actual plan type
       const planType = effectiveUserType === 'owner' ? 'premium' : 'professional';
       console.log('Plan type:', planType);
-      
-      // Check Stripe readiness
-      console.log('Stripe ready:', StripeService.isStripeReady());
-      
+
       // Start Stripe checkout
       console.log('Calling StripeService.startCheckout...');
       await StripeService.startCheckout({
@@ -104,11 +90,31 @@ export default function PricingPage() {
     } catch (error) {
       console.error('❌ Checkout error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unbekannter Fehler';
-      console.error('Error details:', {
+      
+      // Verbesserte Fehlermeldungen für Benutzer
+      let userMessage = 'Fehler beim Starten des Zahlungsvorgangs:\n\n';
+      
+      if (errorMessage.includes('Payment Link nicht konfiguriert')) {
+        userMessage += '🔧 Das Zahlungssystem wird gerade konfiguriert.\n\nBitte versuche es in wenigen Minuten erneut oder kontaktiere den Support.';
+      } else if (errorMessage.includes('Environment Variable')) {
+        userMessage += '⚙️ Konfigurationsproblem beim Zahlungsanbieter.\n\nBitte kontaktiere den Support mit dem Hinweis "Stripe Environment Variables".';
+      } else if (errorMessage.includes('Stripe ist nicht konfiguriert')) {
+        userMessage += '🔌 Zahlungssystem ist momentan nicht verfügbar.\n\nBitte versuche es später erneut oder kontaktiere den Support.';
+      } else {
+        userMessage += errorMessage;
+        userMessage += '\n\nFalls das Problem weiterhin besteht, kontaktiere bitte den Support.';
+      }
+      
+      alert(userMessage);
+      
+      // Log details for debugging
+      console.error('Error details for debugging:', {
         message: errorMessage,
-        error: error
+        error: error,
+                 userType: effectiveUserType,
+         planType: effectiveUserType === 'owner' ? 'premium' : 'professional',
+         userId: user.id
       });
-      alert(`Fehler beim Starten des Zahlungsvorgangs: ${errorMessage}\n\nBitte versuche es erneut oder öffne die Browser-Konsole für Details.`);
     }
   };
 
@@ -160,14 +166,6 @@ export default function PricingPage() {
               <p className="text-gray-600 mb-4">
                 Übersicht über deine Limits und Nutzung in diesem Monat
               </p>
-              
-              {/* Global Beta Notice */}
-              {subscription?.status === 'trial' && (
-                <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-full text-sm font-medium">
-                  <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
-                  Beta-Phase: Alle Features unlimited bis 31. Oktober 2025
-                </div>
-              )}
             </div>
 
             {/* Loading State */}

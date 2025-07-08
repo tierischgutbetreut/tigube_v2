@@ -7,7 +7,7 @@ import { UsageLimitIndicator } from '../components/ui/UsageLimitIndicator';
 import { AdvancedFilters } from '../components/ui/AdvancedFilters';
 import { cn } from '../lib/utils';
 import { searchCaretakers as searchCaretakersService, type CaretakerDisplayData, type SearchFilters } from '../lib/supabase/caretaker-search';
-import useFeatureAccess from '../hooks/useFeatureAccess';
+import { useFeatureAccess } from '../hooks/useFeatureAccess';
 import useCurrentUsage from '../hooks/useCurrentUsage';
 
 // Using the type from the service
@@ -20,7 +20,7 @@ interface CaretakerCardProps {
 function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { contactLimit, isBetaActive, subscription } = useFeatureAccess();
+  const { contactLimit, subscription } = useFeatureAccess();
   const { currentUsage: contactUsage } = useCurrentUsage('contact_request');
   const isFirstRender = useRef(true);
   
@@ -496,18 +496,9 @@ function SearchPage() {
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                 <span className="font-medium text-gray-700">Kontaktanfragen:</span>
-                {isBetaActive ? (
-                  <span className="text-green-600 font-semibold">Unlimited</span>
-                ) : (
-                  <span className="text-gray-900 font-semibold">
-                    {contactUsage}/{contactLimit}
-                  </span>
-                )}
-                {isBetaActive && (
-                  <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full font-medium">
-                    Beta
-                  </span>
-                )}
+                <span className="text-gray-900 font-semibold">
+                  {contactUsage}/{contactLimit}
+                </span>
               </div>
             </div>
           </div>

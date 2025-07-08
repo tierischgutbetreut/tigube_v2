@@ -12,13 +12,13 @@ import { caretakerProfileService, ownerCaretakerService } from '../lib/supabase/
 import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info, Lock, Briefcase, Verified, Eye, EyeOff, KeyRound, Trash2, AlertTriangle, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
-import useFeatureAccess from '../hooks/useFeatureAccess';
+import { useFeatureAccess } from '../hooks/useFeatureAccess';
 import PaymentSuccessModal from '../components/ui/PaymentSuccessModal';
 import { usePaymentSuccess } from '../hooks/usePaymentSuccess';
 
 function CaretakerDashboardPage() {
   const { user, userProfile, loading: authLoading } = useAuth();
-  const { maxEnvironmentImages, isBetaActive } = useFeatureAccess();
+  const { maxEnvironmentImages, subscription } = useFeatureAccess();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1537,20 +1537,14 @@ function CaretakerDashboardPage() {
               Umgebungsbilder
             </h2>
             <div className="flex items-center gap-2 text-sm text-gray-600">
-              {isBetaActive ? (
-                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
-                  Beta: Unlimited
-                </span>
-              ) : (
-                <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs">
-                  {photos.length}/{maxEnvironmentImages()} Bilder
-                </span>
-              )}
+              <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs">
+                {photos.length}/{maxEnvironmentImages()} Bilder
+              </span>
             </div>
           </div>
           
           {/* Subscription Gate for Non-Professional Users */}
-          {!isBetaActive && maxEnvironmentImages() === 0 && (
+          {maxEnvironmentImages() === 0 && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
               <div className="flex items-start gap-3">
                 <Lock className="w-5 h-5 text-yellow-600 mt-0.5" />
@@ -1576,17 +1570,17 @@ function CaretakerDashboardPage() {
           <div className="bg-white rounded-xl shadow p-6">
             <div
               className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors mb-4 ${
-                (!isBetaActive && maxEnvironmentImages() === 0) || (!isBetaActive && photos.length >= maxEnvironmentImages())
+                maxEnvironmentImages() === 0 || photos.length >= maxEnvironmentImages()
                   ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
                   : 'border-gray-300 cursor-pointer hover:bg-gray-50'
               }`}
               onClick={() => {
-                if ((!isBetaActive && maxEnvironmentImages() === 0) || (!isBetaActive && photos.length >= maxEnvironmentImages())) return;
+                if (maxEnvironmentImages() === 0 || photos.length >= maxEnvironmentImages()) return;
                 fileInputRefFotos.current?.click();
               }}
               onDrop={async e => { 
                 e.preventDefault(); 
-                if ((!isBetaActive && maxEnvironmentImages() === 0) || (!isBetaActive && photos.length >= maxEnvironmentImages())) return;
+                if (maxEnvironmentImages() === 0 || photos.length >= maxEnvironmentImages()) return;
                 await handleAddPhotos(e.dataTransfer.files); 
               }}
               onDragOver={handleDragOverFotos}
@@ -1600,28 +1594,28 @@ function CaretakerDashboardPage() {
                 onChange={async e => { if (e.target.files) await handleAddPhotos(e.target.files); }}
               />
               <div className="flex flex-col items-center justify-center gap-2">
-                {(!isBetaActive && maxEnvironmentImages() === 0) ? (
+                {maxEnvironmentImages() === 0 ? (
                   <Lock className="w-8 h-8 text-gray-400 mb-1" />
-                ) : (!isBetaActive && photos.length >= maxEnvironmentImages()) ? (
+                ) : photos.length >= maxEnvironmentImages() ? (
                   <Lock className="w-8 h-8 text-gray-400 mb-1" />
                 ) : (
                   <Upload className="w-8 h-8 text-primary-400 mb-1" />
                 )}
                 
                 <span className={`font-medium ${
-                  (!isBetaActive && maxEnvironmentImages() === 0) || (!isBetaActive && photos.length >= maxEnvironmentImages())
+                  maxEnvironmentImages() === 0 || photos.length >= maxEnvironmentImages()
                     ? 'text-gray-500'
                     : 'text-gray-700'
                 }`}>
-                  {(!isBetaActive && maxEnvironmentImages() === 0)
+                  {maxEnvironmentImages() === 0
                     ? 'Professional-Mitgliedschaft erforderlich'
-                    : (!isBetaActive && photos.length >= maxEnvironmentImages())
+                    : photos.length >= maxEnvironmentImages()
                     ? `Limit erreicht (${maxEnvironmentImages()} Bilder)`
                     : 'Bilder hierher ziehen oder klicken, um hochzuladen'
                   }
                 </span>
                 
-                {(!isBetaActive && maxEnvironmentImages() === 0) || (!isBetaActive && photos.length >= maxEnvironmentImages()) ? (
+                {maxEnvironmentImages() === 0 || photos.length >= maxEnvironmentImages() ? (
                   <span className="text-xs text-gray-400">
                     {maxEnvironmentImages() === 0 
                       ? 'Upgrade auf Professional für Umgebungsbilder'
