@@ -18,7 +18,7 @@ interface AuthContextType {
   updateProfileState: (newProfile: any | null) => void;
   subscription: any | null;
   subscriptionLoading: boolean;
-  refreshSubscription: () => Promise<void>;
+  refreshSubscription: (forceSync?: boolean) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -391,11 +391,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('✅ Profile state update completed');
   };
 
-  const refreshSubscription = useCallback(async () => {
+  // Enhanced subscription refresh with manual sync option
+  const refreshSubscription = useCallback(async (forceSync = false) => {
     if (!user?.id) return;
     
     setSubscriptionLoading(true);
     try {
+      console.log('🔄 Refreshing subscription...', { forceSync });
+
+      // If forceSync is true, run manual Stripe sync first
+      if (forceSync) {
+        const syncResult = await SubscriptionService.manualStripeSync(user.id);
+        console.log('📋 Manual sync result:', syncResult);
+      }
+
       const subscription = await SubscriptionService.getActiveSubscription(user.id);
       setSubscription(subscription);
       console.log('✅ Subscription refreshed:', subscription);
@@ -406,6 +415,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSubscriptionLoading(false);
     }
   }, [user?.id]);
+
+  // Real-time subscription listener
+  useEffect(() => {
+    if (!user?.id) return;
+
+    console.log('🎯 Setting up real-time subscription listener for user:', user.id);
+
+    // Subscribe to subscription changes for the current user
+    const subscriptionChannel = supabase
+      .channel(`subscription_changes_${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'subscriptions',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('📡 Subscription table change:', payload);
+          // Refresh subscription data immediately
+          refreshSubscription();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'users',
+          filter: `id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('📡 User table change (subscription related):', payload);
+          // Check if subscription-related fields changed
+          const { new: newUser, old: oldUser } = payload;
+          const subscriptionFields = ['premium_badge', 'show_ads', 'search_priority', 'max_contact_requests', 'max_bookings'];
+          
+          const hasSubscriptionChange = subscriptionFields.some(field => 
+            newUser[field] !== oldUser[field]
+          );
+          
+          if (hasSubscriptionChange) {
+            console.log('🔄 Subscription-related user fields changed, refreshing...');
+            refreshSubscription();
+            
+            // Also refresh user profile to get updated fields
+            if (userProfile) {
+              loadUserProfile(user.id);
+            }
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Real-time subscription status:', status);
+      });
+
+    return () => {
+      console.log('🧹 Cleaning up real-time subscription listener');
+      subscriptionChannel.unsubscribe();
+    };
+  }, [user?.id, refreshSubscription, userProfile]);
 
   const value: AuthContextType = {
     user,

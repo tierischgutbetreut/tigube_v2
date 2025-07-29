@@ -64,19 +64,85 @@ export class SubscriptionService {
    * Holt die aktuelle aktive Subscription eines Users
    */
   static async getActiveSubscription(userId: string): Promise<Subscription | null> {
-    const { data, error } = await supabase
-      .from('subscriptions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .maybeSingle();
+    try {
+      console.log('🔍 Fetching active subscription for user:', userId);
 
-    if (error) {
-      console.error('Error fetching subscription:', error);
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (error) {
+        console.error('❌ Error fetching subscription:', error);
+        return null;
+      }
+
+      if (data) {
+        console.log('✅ Found active subscription:', data);
+        return data as Subscription;
+      } else {
+        console.log('ℹ️ No active subscription found for user:', userId);
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Exception in getActiveSubscription:', error);
       return null;
     }
+  }
 
-    return data as Subscription;
+  /**
+   * Holt alle Subscriptions eines Users (auch inaktive)
+   */
+  static async getAllUserSubscriptions(userId: string): Promise<Subscription[]> {
+    try {
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Error fetching user subscriptions:', error);
+        return [];
+      }
+
+      return data as Subscription[];
+    } catch (error) {
+      console.error('❌ Exception in getAllUserSubscriptions:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Synchronisiert Subscription-Status mit der Datenbank
+   * Wird von Stripe-Webhooks und Manual-Sync verwendet
+   */
+  static async syncSubscriptionStatus(userId: string): Promise<{ success: boolean; subscription?: Subscription | null; error?: any }> {
+    try {
+      console.log('🔄 Syncing subscription status for user:', userId);
+
+      // Hol die aktuelle Subscription
+      const subscription = await this.getActiveSubscription(userId);
+      
+      if (subscription) {
+        // Trigger eine Update-User-Profile-Funktion
+        await this.updateUserProfileForPlan(userId, subscription.plan_type);
+        
+        console.log('✅ Subscription sync completed successfully');
+        return { success: true, subscription };
+      } else {
+        // Kein aktives Abo - setze User auf Basic zurück
+        console.log('ℹ️ No active subscription - resetting to basic');
+        await this.updateUserProfileForPlan(userId, 'basic');
+        
+        return { success: true, subscription: null };
+      }
+    } catch (error) {
+      console.error('❌ Error syncing subscription status:', error);
+      return { success: false, error };
+    }
   }
 
   /**
@@ -165,38 +231,53 @@ export class SubscriptionService {
     console.log(`🔄 Updating user profile for plan: ${planType}`);
     
     // Use the same logic as the database function to avoid conflicts
+    let updateData: any;
+    
     if (planType === 'premium') {
       // Owner Premium features - MATCH database function values
-      await supabase
-        .from('users')
-        .update({
-          show_ads: false,
-          premium_badge: true,
-          search_priority: 5
-        } as any)
-        .eq('id', userId);
+      updateData = {
+        show_ads: false,
+        premium_badge: true,
+        search_priority: 5,
+        max_contact_requests: -1 // unlimited
+      };
         
     } else if (planType === 'professional') {
       // Caretaker Professional features - MATCH database function values
-      await supabase
-        .from('users')
-        .update({
-          show_ads: false,
-          premium_badge: true,
-          search_priority: 10
-        } as any)
-        .eq('id', userId);
+      updateData = {
+        show_ads: false,
+        premium_badge: true,
+        search_priority: 10,
+        max_contact_requests: -1, // unlimited
+        max_bookings: -1 // unlimited
+      };
         
     } else {
       // Basic/Free plan - MATCH database function values
-      await supabase
+      updateData = {
+        show_ads: true,
+        premium_badge: false,
+        search_priority: 0,
+        max_contact_requests: 3,
+        max_bookings: 3
+      };
+    }
+
+    try {
+      const { error } = await supabase
         .from('users')
-        .update({
-          show_ads: true,
-          premium_badge: false,
-          search_priority: 0
-        } as any)
+        .update(updateData)
         .eq('id', userId);
+
+      if (error) {
+        console.error('❌ Error updating user profile:', error);
+        throw error;
+      }
+
+      console.log(`✅ Updated user ${userId} with ${planType} features`);
+    } catch (error) {
+      console.error('❌ Failed to update user profile for plan:', error);
+      throw error;
     }
   }
 
@@ -233,6 +314,46 @@ export class SubscriptionService {
       return { success: true };
     } catch (error) {
       return { success: false, error };
+    }
+  }
+
+  /**
+   * Manuelle Synchronisation von Stripe-Daten
+   * Kann von Admin oder User ausgelöst werden
+   */
+  static async manualStripeSync(userId: string): Promise<{ success: boolean; message: string; error?: any }> {
+    try {
+      console.log('🔄 Starting manual Stripe sync for user:', userId);
+
+      // Sync subscription status
+      const syncResult = await this.syncSubscriptionStatus(userId);
+      
+      if (!syncResult.success) {
+        return {
+          success: false,
+          message: 'Fehler beim Synchronisieren der Subscription-Daten',
+          error: syncResult.error
+        };
+      }
+
+      if (syncResult.subscription) {
+        return {
+          success: true,
+          message: `Premium-Status erfolgreich synchronisiert. Plan: ${syncResult.subscription.plan_type}`
+        };
+      } else {
+        return {
+          success: true,
+          message: 'Kein aktives Premium-Abo gefunden. Basic-Plan aktiviert.'
+        };
+      }
+    } catch (error) {
+      console.error('❌ Manual Stripe sync failed:', error);
+      return {
+        success: false,
+        message: 'Synchronisation fehlgeschlagen',
+        error
+      };
     }
   }
 } 

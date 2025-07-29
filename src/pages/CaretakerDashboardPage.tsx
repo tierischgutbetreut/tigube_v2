@@ -15,10 +15,13 @@ import { supabase } from '../lib/supabase/client';
 import { useFeatureAccess } from '../hooks/useFeatureAccess';
 import PaymentSuccessModal from '../components/ui/PaymentSuccessModal';
 import { usePaymentSuccess } from '../hooks/usePaymentSuccess';
+import { PremiumBadge } from '../components/ui/PremiumBadge';
+import { useSubscription } from '../lib/auth/useSubscription';
 
 function CaretakerDashboardPage() {
-  const { user, userProfile, loading: authLoading } = useAuth();
-  const { maxEnvironmentImages, subscription } = useFeatureAccess();
+  const { user, userProfile, loading: authLoading, subscription } = useAuth();
+  const { isPremiumUser } = useSubscription();
+  const { maxEnvironmentImages } = useFeatureAccess();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -713,7 +716,7 @@ function CaretakerDashboardPage() {
   const avatarUrl = getAvatarUrl();
 
   // Tab-Navigation für Übersicht/Fotos
-  const [activeTab, setActiveTab] = useState<'uebersicht' | 'fotos' | 'texte' | 'kunden' | 'bewertungen' | 'sicherheit'>('uebersicht');
+  const [activeTab, setActiveTab] = useState<'uebersicht' | 'fotos' | 'texte' | 'kunden' | 'bewertungen' | 'sicherheit' | 'mitgliedschaften'>('uebersicht');
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
 
@@ -1081,6 +1084,12 @@ function CaretakerDashboardPage() {
                         <Briefcase className="h-2.5 w-2.5 mr-1" /> Pro
                       </span>
                     )}
+                    {userProfile?.premium_badge && (
+                      <PremiumBadge 
+                        planType="premium" 
+                        size="sm"
+                      />
+                    )}
                   </div>
                   <div className="mt-3">
                     <Link
@@ -1260,6 +1269,16 @@ function CaretakerDashboardPage() {
               }`}
             >
               Sicherheit
+            </button>
+            <button
+              onClick={() => setActiveTab('mitgliedschaften')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'mitgliedschaften'
+                  ? 'border-primary-500 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Mitgliedschaften
             </button>
           </nav>
         </div>
@@ -1556,12 +1575,12 @@ function CaretakerDashboardPage() {
                     Umgebungsbilder sind nur für Professional-Mitglieder verfügbar. 
                     Zeige deine Betreuungsumgebung und gewinne das Vertrauen von Tierbesitzern.
                   </p>
-                  <Link
-                    to="/mitgliedschaften"
+                  <button
+                    onClick={() => setActiveTab('mitgliedschaften')}
                     className="inline-flex items-center px-3 py-1 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700 transition-colors"
                   >
                     Jetzt upgraden
-                  </Link>
+                  </button>
                 </div>
               </div>
             </div>
@@ -2173,6 +2192,140 @@ function CaretakerDashboardPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mitgliedschaften Tab */}
+      {activeTab === 'mitgliedschaften' && (
+        <div className="space-y-8">
+          {/* Aktueller Mitgliedschaftsstatus */}
+          <div className="bg-white rounded-xl shadow p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Deine Mitgliedschaft</h2>
+            
+            {isPremiumUser ? (
+              <div className="bg-gradient-to-r from-amber-50 to-yellow-100 border border-amber-200 rounded-lg p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
+                      <Star className="w-6 h-6 text-white" />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-amber-900 mb-1">
+                      Premium-Mitglied
+                    </h3>
+                    <p className="text-amber-700 mb-4">
+                      Du bist Premium-Mitglied und genießt alle Vorteile der Plattform.
+                    </p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-amber-900">Deine Vorteile:</h4>
+                        <ul className="space-y-1 text-sm text-amber-700">
+                          <li className="flex items-center gap-2">
+                            <Check className="w-4 h-4 text-amber-600" />
+                            Unbegrenzte Kontaktanfragen
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <Check className="w-4 h-4 text-amber-600" />
+                            Werbefreie Nutzung
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <Check className="w-4 h-4 text-amber-600" />
+                            Premium-Badge in deinem Profil
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <Check className="w-4 h-4 text-amber-600" />
+                            Priorität in Suchergebnissen
+                          </li>
+                        </ul>
+                      </div>
+                      
+                      {subscription && (
+                        <div className="space-y-2">
+                          <h4 className="font-medium text-amber-900">Abo-Details:</h4>
+                          <div className="space-y-1 text-sm text-amber-700">
+                            <div>Plan: {subscription.plan_type === 'premium' ? 'Premium' : 'Professional'}</div>
+                            <div>Status: {subscription.status === 'active' ? 'Aktiv' : subscription.status}</div>
+                            {subscription.ends_at && (
+                              <div>Verlängert sich am: {new Date(subscription.ends_at).toLocaleDateString()}</div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 bg-gray-400 rounded-full flex items-center justify-center">
+                      <Star className="w-6 h-6 text-white" />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      Basic-Mitglied
+                    </h3>
+                    <p className="text-gray-600 mb-4">
+                      Du nutzt derzeit die kostenlose Basic-Version.
+                    </p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-gray-900">Aktuelle Limits:</h4>
+                        <ul className="space-y-1 text-sm text-gray-600">
+                          <li className="flex items-center gap-2">
+                            <Info className="w-4 h-4 text-gray-500" />
+                            3 Kontaktanfragen pro Monat
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <Info className="w-4 h-4 text-gray-500" />
+                            Werbung wird angezeigt
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <Info className="w-4 h-4 text-gray-500" />
+                            Grundlegende Sichtbarkeit
+                          </li>
+                        </ul>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-gray-900">Mit Premium erhältst du:</h4>
+                        <ul className="space-y-1 text-sm text-green-600">
+                          <li className="flex items-center gap-2">
+                            <Check className="w-4 h-4 text-green-500" />
+                            Unbegrenzte Kontaktanfragen
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <Check className="w-4 h-4 text-green-500" />
+                            Werbefreie Nutzung
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <Check className="w-4 h-4 text-green-500" />
+                            Premium-Badge
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <Check className="w-4 h-4 text-green-500" />
+                            Höhere Priorität in Suche
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                    
+                    <Link
+                      to="/pricing"
+                      className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                    >
+                      Jetzt Premium werden
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

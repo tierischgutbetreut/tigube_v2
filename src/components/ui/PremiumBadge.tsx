@@ -1,58 +1,62 @@
 import React from 'react';
-import { Crown, Shield, Star } from 'lucide-react';
+import { Crown, Star, Shield } from 'lucide-react';
 
 interface PremiumBadgeProps {
-  variant?: 'crown' | 'shield' | 'star';
+  planType?: 'premium' | 'professional' | null;
   size?: 'sm' | 'md' | 'lg';
-  showText?: boolean;
   className?: string;
 }
 
 export function PremiumBadge({ 
-  variant = 'crown', 
-  size = 'md', 
-  showText = true,
-  className = '' 
+  planType, 
+  size = 'md',
+  className = ''
 }: PremiumBadgeProps) {
-  const getIcon = () => {
-    switch (variant) {
-      case 'crown':
-        return <Crown className={`${size === 'sm' ? 'w-3 h-3' : size === 'md' ? 'w-4 h-4' : 'w-5 h-5'}`} />;
-      case 'shield':
-        return <Shield className={`${size === 'sm' ? 'w-3 h-3' : size === 'md' ? 'w-4 h-4' : 'w-5 h-5'}`} />;
-      case 'star':
-        return <Star className={`${size === 'sm' ? 'w-3 h-3' : size === 'md' ? 'w-4 h-4' : 'w-5 h-5'} fill-current`} />;
-      default:
-        return <Crown className={`${size === 'sm' ? 'w-3 h-3' : size === 'md' ? 'w-4 h-4' : 'w-5 h-5'}`} />;
+  if (!planType) return null;
+
+  const sizeClasses = {
+    sm: 'px-2 py-1 text-xs',
+    md: 'px-3 py-1 text-sm',
+    lg: 'px-4 py-2 text-base'
+  };
+
+  const iconSizes = {
+    sm: 'w-3 h-3',
+    md: 'w-4 h-4', 
+    lg: 'w-5 h-5'
+  };
+
+  const getBadgeContent = () => {
+    if (planType === 'professional') {
+      return {
+        icon: <Crown className={`${iconSizes[size]} text-purple-600`} />,
+        text: 'Professional',
+        bgColor: 'bg-gradient-to-r from-purple-50 to-purple-100',
+        textColor: 'text-purple-700',
+        borderColor: 'border-purple-200'
+      };
+    } else {
+      return {
+        icon: <Star className={`${iconSizes[size]} text-amber-600`} />,
+        text: 'Premium',
+        bgColor: 'bg-gradient-to-r from-amber-50 to-yellow-100',
+        textColor: 'text-amber-700',
+        borderColor: 'border-amber-200'
+      };
     }
   };
 
-  const getSizeClasses = () => {
-    switch (size) {
-      case 'sm':
-        return 'px-2 py-1 text-xs';
-      case 'md':
-        return 'px-3 py-1 text-sm';
-      case 'lg':
-        return 'px-4 py-2 text-base';
-      default:
-        return 'px-3 py-1 text-sm';
-    }
-  };
+  const { icon, text, bgColor, textColor, borderColor } = getBadgeContent();
 
   return (
     <div className={`
-      inline-flex items-center gap-1 
-      bg-gradient-to-r from-yellow-500 to-orange-500 
-      text-white font-medium rounded-full 
-      shadow-sm
-      ${getSizeClasses()}
+      inline-flex items-center gap-1.5 rounded-full border
+      ${sizeClasses[size]} ${bgColor} ${textColor} ${borderColor}
+      font-medium shadow-sm
       ${className}
     `}>
-      {getIcon()}
-      {showText && (
-        <span>Professional</span>
-      )}
+      {icon}
+      <span>{text}</span>
     </div>
   );
 }
