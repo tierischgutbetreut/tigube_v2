@@ -18,6 +18,9 @@ import Badge from '../components/ui/Badge';
 import { calculateAge } from '../lib/utils';
 import PaymentSuccessModal from '../components/ui/PaymentSuccessModal';
 import { usePaymentSuccess } from '../hooks/usePaymentSuccess';
+import { PremiumBadge } from '../components/ui/PremiumBadge';
+import { useSubscription } from '../lib/auth/useSubscription';
+
 
 const ALL_SERVICES = [
   'Gassi-Service',
@@ -80,7 +83,8 @@ function PhotoDropzone({ photoUrl, onUpload }: {
 }
 
 function OwnerDashboardPage() {
-  const { user, userProfile, loading: authLoading, updateProfileState, signOut } = useAuth();
+  const { user, userProfile, loading: authLoading, updateProfileState, signOut, subscription } = useAuth();
+  const { isPremiumUser } = useSubscription();
   const navigate = useNavigate();
   const [profileLoadAttempts, setProfileLoadAttempts] = useState(0);
   
@@ -1402,6 +1406,16 @@ function OwnerDashboardPage() {
                       </span>
                     ))}
                   </div>
+                  
+                  {/* Premium Badge */}
+                  {userProfile?.premium_badge && (
+                    <div className="mt-3">
+                      <PremiumBadge 
+                        planType="premium" 
+                        size="md"
+                      />
+                    </div>
+                  )}
                 </div>
                 
                 {/* Zweite Spalte: Kontaktdaten */}

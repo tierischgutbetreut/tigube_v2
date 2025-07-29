@@ -1,9 +1,9 @@
+/* React Easy Crop Styles */
+@import 'react-easy-crop/react-easy-crop.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* React Easy Crop Styles */
-@import 'react-easy-crop/react-easy-crop.css';
 
 /* Custom styles for ProfileImageCropper rounded crop area */
 .reactEasyCrop_CropArea {
