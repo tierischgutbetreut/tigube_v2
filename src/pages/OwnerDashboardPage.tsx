@@ -1,6 +1,6 @@
 import Layout from '../components/layout/Layout';
 import Button from '../components/ui/Button';
-import { MapPin, Phone, PawPrint, Edit, Shield, Heart, Trash, Check, X, Plus, Upload, LogOut, Settings, Camera, AlertTriangle, Trash2, Briefcase, User, MessageCircle, KeyRound, Eye, EyeOff, Mail, Star, Verified } from 'lucide-react';
+import { MapPin, Phone, PawPrint, Edit, Shield, Heart, Trash, Check, X, Plus, Upload, LogOut, Settings, Camera, AlertTriangle, Trash2, Briefcase, User, MessageCircle, KeyRound, Eye, EyeOff, Mail, Star, Verified, Crown } from 'lucide-react';
 import { mockPetOwners, mockBookings, mockCaregivers } from '../data/mockData';
 import { formatCurrency } from '../lib/utils';
 import { Link } from 'react-router-dom';
@@ -110,7 +110,7 @@ function OwnerDashboardPage() {
   const [petError, setPetError] = useState<string | null>(null);
   const [showAddPet, setShowAddPet] = useState(false);
   const [newPet, setNewPet] = useState<PetFormData>({ name: '', type: '', typeOther: '', breed: '', birthDate: '', weight: '', image: '', description: '', gender: '', neutered: false });
-  const [activeTab, setActiveTab] = useState<'uebersicht' | 'tiere' | 'einstellungen'>('uebersicht');
+  const [activeTab, setActiveTab] = useState<'uebersicht' | 'tiere' | 'einstellungen' | 'mitgliedschaft'>('uebersicht');
   const [editData, setEditData] = useState(false);
   const [ownerData, setOwnerData] = useState({
     phoneNumber: '',
@@ -1562,6 +1562,19 @@ function OwnerDashboardPage() {
                 <Settings className="h-4 w-4 inline mr-2" />
                 Einstellungen
               </button>
+              {isPremiumUser && (
+                <button
+                  onClick={() => setActiveTab('mitgliedschaft')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === 'mitgliedschaft'
+                      ? 'border-primary-500 text-primary-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <Crown className="h-4 w-4 inline mr-2" />
+                  Mitgliedschaft
+                </button>
+              )}
             </nav>
           </div>
         </div>
@@ -2907,6 +2920,130 @@ function OwnerDashboardPage() {
                       </div>
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'mitgliedschaft' && (
+          <>
+            {/* Mitgliedschaft Management */}
+            <div className="space-y-6">
+              {/* Premium Status Card */}
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                      <Crown className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">Premium Mitgliedschaft</h2>
+                      <p className="text-sm text-gray-600">Aktiv seit {subscription?.created_at ? new Date(subscription.created_at).toLocaleDateString('de-DE') : 'Unbekannt'}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                      <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                      Aktiv
+                    </div>
+                    {subscription?.plan_expires_at && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Verlängert sich am {new Date(subscription.plan_expires_at).toLocaleDateString('de-DE')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="text-center p-4 bg-white rounded-lg border">
+                    <div className="text-2xl font-bold text-blue-600">Unlimited</div>
+                    <div className="text-sm text-gray-600">Kontaktanfragen</div>
+                  </div>
+                  <div className="text-center p-4 bg-white rounded-lg border">
+                    <div className="text-2xl font-bold text-purple-600">Unlimited</div>
+                    <div className="text-sm text-gray-600">Buchungen</div>
+                  </div>
+                  <div className="text-center p-4 bg-white rounded-lg border">
+                    <div className="text-2xl font-bold text-green-600">Werbefrei</div>
+                    <div className="text-sm text-gray-600">Erfahrung</div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      // Öffne Stripe Customer Portal
+                      const customerPortalUrl = 'https://billing.stripe.com/p/login/test_00w9AU8GVfV897Q8gJ2oE00';
+                      window.open(customerPortalUrl, '_blank');
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <Settings className="w-4 h-4" />
+                    Mitgliedschaft verwalten
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate('/mitgliedschaften')}
+                    className="flex items-center gap-2"
+                  >
+                    <Star className="w-4 h-4" />
+                    Plan-Details ansehen
+                  </Button>
+                </div>
+              </div>
+
+              {/* Premium Features Overview */}
+              <div className="bg-white rounded-xl border p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Ihre Premium Features</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                    <Check className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-gray-700">Unlimited Kontaktanfragen an Betreuer</span>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                    <Check className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-gray-700">Erweiterte Suchfilter verwenden</span>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                    <Check className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-gray-700">Bewertungen für Betreuer schreiben</span>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                    <Check className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-gray-700">Werbefreie Nutzung der Plattform</span>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                    <Check className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-gray-700">Premium Badge im Profil</span>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                    <Check className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-gray-700">Prioritärer Kundenservice</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Billing History Preview */}
+              <div className="bg-white rounded-xl border p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Rechnungshistorie</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const customerPortalUrl = 'https://billing.stripe.com/p/login/test_00w9AU8GVfV897Q8gJ2oE00';
+                      window.open(customerPortalUrl, '_blank');
+                    }}
+                  >
+                    Alle Rechnungen anzeigen
+                  </Button>
+                </div>
+                <div className="text-center py-8 text-gray-500">
+                  <Briefcase className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p>Detaillierte Rechnungshistorie verfügbar im</p>
+                  <p className="font-medium">Stripe Kundenportal</p>
                 </div>
               </div>
             </div>
