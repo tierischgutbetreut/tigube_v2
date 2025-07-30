@@ -1,359 +1,198 @@
 import { supabase } from '../supabase/client';
 
-// TypeScript-Types für Subscriptions
-export interface Subscription {
-  id: string;
-  user_id: string;
-  user_type: 'owner' | 'caretaker';
-  plan_type: 'premium' | 'professional';
-  status: 'active' | 'cancelled' | 'past_due' | 'unpaid';
-  stripe_customer_id?: string;
-  stripe_subscription_id?: string;
-  stripe_checkout_session_id?: string;
-  amount_paid_cents?: number;
-  billing_interval?: 'month' | 'year';
-  started_at?: string;
-  ends_at?: string;
-  created_at: string;
-  updated_at: string;
-  metadata?: any;
-}
-
-// Feature Matrix für verschiedene Subscription-Typen
+// Feature-Matrix basierend auf Plan-Type in der users Tabelle
 export const FEATURE_MATRIX = {
-  basic: {
+  free: {
     max_contact_requests: 3,
     max_bookings: 3,
-    max_environment_images: 0,
+    max_environment_images: 3,
     advanced_filters: false,
     priority_ranking: false,
-    environment_images: false,
-    premium_badge: false,
-    ads_free: false,
-    unlimited_contacts: false,
-    unlimited_bookings: false
+    unlimited_messages: false,
+    customer_support: false,
+    featured_listing: false
   },
   premium: {
-    max_contact_requests: -1, // unlimited
-    max_bookings: 3,
-    max_environment_images: 0,
+    max_contact_requests: 999,
+    max_bookings: 999,
+    max_environment_images: 10,
     advanced_filters: true,
     priority_ranking: true,
-    environment_images: false,
-    premium_badge: true,
-    ads_free: true,
-    unlimited_contacts: true,
-    unlimited_bookings: false
-  },
-  professional: {
-    max_contact_requests: -1, // unlimited
-    max_bookings: -1, // unlimited
-    max_environment_images: 6,
-    advanced_filters: true,
-    priority_ranking: true,
-    environment_images: true,
-    premium_badge: true,
-    ads_free: true,
-    unlimited_contacts: true,
-    unlimited_bookings: true
+    unlimited_messages: true,
+    customer_support: true,
+    featured_listing: true
   }
-} as const;
+};
+
+// Vereinfachte Subscription-Struktur (basiert auf users-Tabelle)
+export interface UserSubscription {
+  plan_type: 'free' | 'premium';
+  plan_expires_at: string | null;
+  show_ads: boolean;
+  premium_badge: boolean;
+}
 
 export class SubscriptionService {
   /**
-   * Holt die aktuelle aktive Subscription eines Users
+   * NEUE METHODE: Holt Subscription-Daten direkt aus der users-Tabelle
    */
-  static async getActiveSubscription(userId: string): Promise<Subscription | null> {
+  static async getUserSubscription(userId: string): Promise<UserSubscription | null> {
     try {
-      console.log('🔍 Fetching active subscription for user:', userId);
+      console.log('🔍 Getting user subscription from users table:', userId);
 
-      const { data, error } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('status', 'active')
-        .maybeSingle();
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('plan_type, plan_expires_at, show_ads, premium_badge')
+        .eq('id', userId)
+        .single();
 
       if (error) {
-        console.error('❌ Error fetching subscription:', error);
+        console.error('❌ Error fetching user subscription:', error);
         return null;
       }
 
-      if (data) {
-        console.log('✅ Found active subscription:', data);
-        return data as Subscription;
-      } else {
-        console.log('ℹ️ No active subscription found for user:', userId);
-        return null;
-      }
+      // Prüfe ob Premium-Plan abgelaufen ist
+      const isExpired = user.plan_expires_at && new Date(user.plan_expires_at) <= new Date();
+      
+      return {
+        plan_type: isExpired ? 'free' : (user.plan_type || 'free'),
+        plan_expires_at: user.plan_expires_at,
+        show_ads: user.show_ads ?? true,
+        premium_badge: user.premium_badge ?? false
+      };
     } catch (error) {
-      console.error('❌ Exception in getActiveSubscription:', error);
+      console.error('❌ Error in getUserSubscription:', error);
       return null;
     }
   }
 
   /**
-   * Holt alle Subscriptions eines Users (auch inaktive)
+   * LEGACY METHODE (für Rückwärtskompatibilität)
+   * Wrapper um getUserSubscription für alte Aufrufe
    */
-  static async getAllUserSubscriptions(userId: string): Promise<Subscription[]> {
-    try {
-      const { data, error } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('❌ Error fetching user subscriptions:', error);
-        return [];
-      }
-
-      return data as Subscription[];
-    } catch (error) {
-      console.error('❌ Exception in getAllUserSubscriptions:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Synchronisiert Subscription-Status mit der Datenbank
-   * Wird von Stripe-Webhooks und Manual-Sync verwendet
-   */
-  static async syncSubscriptionStatus(userId: string): Promise<{ success: boolean; subscription?: Subscription | null; error?: any }> {
-    try {
-      console.log('🔄 Syncing subscription status for user:', userId);
-
-      // Hol die aktuelle Subscription
-      const subscription = await this.getActiveSubscription(userId);
-      
-      if (subscription) {
-        // Trigger eine Update-User-Profile-Funktion
-        await this.updateUserProfileForPlan(userId, subscription.plan_type);
-        
-        console.log('✅ Subscription sync completed successfully');
-        return { success: true, subscription };
-      } else {
-        // Kein aktives Abo - setze User auf Basic zurück
-        console.log('ℹ️ No active subscription - resetting to basic');
-        await this.updateUserProfileForPlan(userId, 'basic');
-        
-        return { success: true, subscription: null };
-      }
-    } catch (error) {
-      console.error('❌ Error syncing subscription status:', error);
-      return { success: false, error };
-    }
+  static async getActiveSubscription(userId: string): Promise<UserSubscription | null> {
+    return this.getUserSubscription(userId);
   }
 
   /**
    * Feature-Matrix für Plan-Type abrufen
    */
   static getFeatures(planType: string) {
-    return FEATURE_MATRIX[planType as keyof typeof FEATURE_MATRIX] || FEATURE_MATRIX.basic;
+    return FEATURE_MATRIX[planType as keyof typeof FEATURE_MATRIX] || FEATURE_MATRIX.free;
   }
 
   /**
-   * Prüft ob ein User Zugriff auf ein bestimmtes Feature hat
+   * NEUE METHODE: Prüfe Feature-Zugriff basierend auf User-Spalten
    */
   static async checkFeatureAccess(userId: string, featureName: string): Promise<boolean> {
-    const subscription = await this.getActiveSubscription(userId);
-    
-    if (!subscription) {
-      // Benutzer ohne Subscription haben nur Basic-Features
-      const basicFeatures = FEATURE_MATRIX.basic;
-      return basicFeatures[featureName as keyof typeof basicFeatures] as boolean || false;
-    }
+    try {
+      const subscription = await this.getUserSubscription(userId);
+      if (!subscription) return false;
 
-    const planFeatures = FEATURE_MATRIX[subscription.plan_type];
-    return planFeatures ? planFeatures[featureName as keyof typeof planFeatures] as boolean || false : false;
+      const features = this.getFeatures(subscription.plan_type);
+      return Boolean(features[featureName as keyof typeof features]);
+    } catch (error) {
+      console.error('❌ Error checking feature access:', error);
+      return false;
+    }
   }
 
   /**
-   * Holt die Feature-Matrix für einen User
+   * NEUE METHODE: Update User-Plan via n8n (direkte User-Update)
+   * Diese Methode wird von n8n nach erfolgreicher Zahlung aufgerufen
    */
-  static async getUserFeatures(userId: string) {
-    const subscription = await this.getActiveSubscription(userId);
-    
-    if (!subscription) {
-      return FEATURE_MATRIX.basic;
-    }
-
-    return FEATURE_MATRIX[subscription.plan_type] || FEATURE_MATRIX.basic;
-  }
-
-  /**
-   * Upgrade einer Subscription zu einem neuen Plan
-   */
-  static async upgradeSubscription(
+  static async updateUserPlan(
     userId: string, 
-    newPlan: 'premium' | 'professional',
-    paymentMethodId?: string
+    planType: 'free' | 'premium', 
+    expiresAt?: string | null,
+    stripeCustomerId?: string,
+    stripeSubscriptionId?: string
   ): Promise<{ success: boolean; error?: any }> {
     try {
-      const subscription = await this.getActiveSubscription(userId);
+      console.log('🔄 Updating user plan:', { userId, planType, expiresAt, stripeCustomerId, stripeSubscriptionId });
 
-      if (!subscription) {
-        return { 
-          success: false, 
-          error: 'No active subscription found for user' 
-        };
+      const updateData: any = {
+        plan_type: planType,
+        plan_expires_at: expiresAt,
+        updated_at: new Date().toISOString()
+      };
+
+      // Setze Stripe Customer ID wenn verfügbar
+      if (stripeCustomerId) {
+        updateData.stripe_customer_id = stripeCustomerId;
       }
 
-      // Update subscription plan
-      const { data, error } = await supabase
-        .from('subscriptions')
-        .update({ 
-          plan_type: newPlan,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', subscription.id)
-        .select()
-        .single();
-
-      if (error) {
-        return { success: false, error };
+      // Setze Stripe Subscription ID wenn verfügbar
+      if (stripeSubscriptionId) {
+        updateData.stripe_subscription_id = stripeSubscriptionId;
       }
 
-      // Update user features
-      await this.updateUserProfileForPlan(userId, newPlan);
+      // Setze Feature-Flags und Limits basierend auf Plan
+      if (planType === 'premium') {
+        updateData.show_ads = false;
+        updateData.premium_badge = true;
+        updateData.max_contact_requests = -1; // -1 = unlimited
+        updateData.max_bookings = -1; // -1 = unlimited
+        updateData.search_priority = 5;
+      } else {
+        updateData.show_ads = true;
+        updateData.premium_badge = false;
+        updateData.max_contact_requests = 3;
+        updateData.max_bookings = 3;
+        updateData.search_priority = 0;
+      }
 
-      return { success: true };
-    } catch (error) {
-      return { success: false, error };
-    }
-  }
-
-  /**
-   * Update User-Profile basierend auf Plan
-   * SYNCHRONIZED with database function update_user_premium_features
-   */
-  private static async updateUserProfileForPlan(userId: string, planType: string) {
-    console.log(`🔄 Updating user profile for plan: ${planType}`);
-    
-    // Use the same logic as the database function to avoid conflicts
-    let updateData: any;
-    
-    if (planType === 'premium') {
-      // Owner Premium features - MATCH database function values
-      updateData = {
-        show_ads: false,
-        premium_badge: true,
-        search_priority: 5,
-        max_contact_requests: -1 // unlimited
-      };
-        
-    } else if (planType === 'professional') {
-      // Caretaker Professional features - MATCH database function values
-      updateData = {
-        show_ads: false,
-        premium_badge: true,
-        search_priority: 10,
-        max_contact_requests: -1, // unlimited
-        max_bookings: -1 // unlimited
-      };
-        
-    } else {
-      // Basic/Free plan - MATCH database function values
-      updateData = {
-        show_ads: true,
-        premium_badge: false,
-        search_priority: 0,
-        max_contact_requests: 3,
-        max_bookings: 3
-      };
-    }
-
-    try {
       const { error } = await supabase
         .from('users')
         .update(updateData)
         .eq('id', userId);
 
       if (error) {
-        console.error('❌ Error updating user profile:', error);
-        throw error;
-      }
-
-      console.log(`✅ Updated user ${userId} with ${planType} features`);
-    } catch (error) {
-      console.error('❌ Failed to update user profile for plan:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Kündigt eine Subscription
-   */
-  static async cancelSubscription(userId: string): Promise<{ success: boolean; error?: any }> {
-    try {
-      const subscription = await this.getActiveSubscription(userId);
-
-      if (!subscription) {
-        return { 
-          success: false, 
-          error: 'No active subscription found for user' 
-        };
-      }
-
-      // Set subscription to cancelled
-      const { error } = await supabase
-        .from('subscriptions')
-        .update({ 
-          status: 'cancelled',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', subscription.id);
-
-      if (error) {
+        console.error('❌ Error updating user plan:', error);
         return { success: false, error };
       }
 
-      // Reset user to basic features
-      await this.updateUserProfileForPlan(userId, 'basic');
-
+      console.log('✅ User plan updated successfully');
       return { success: true };
     } catch (error) {
+      console.error('❌ Error in updateUserPlan:', error);
       return { success: false, error };
     }
   }
 
   /**
-   * Manuelle Synchronisation von Stripe-Daten
-   * Kann von Admin oder User ausgelöst werden
+   * LEGACY METHODS - Entfernt für Vereinfachung
+   * Diese Methoden existieren nicht mehr im neuen System:
+   * - getAllUserSubscriptions()
+   * - syncSubscriptionStatus()
+   * - updateUserProfileForPlan()
+   * - manualStripeSync()
    */
-  static async manualStripeSync(userId: string): Promise<{ success: boolean; message: string; error?: any }> {
-    try {
-      console.log('🔄 Starting manual Stripe sync for user:', userId);
 
-      // Sync subscription status
-      const syncResult = await this.syncSubscriptionStatus(userId);
-      
-      if (!syncResult.success) {
-        return {
-          success: false,
-          message: 'Fehler beim Synchronisieren der Subscription-Daten',
-          error: syncResult.error
-        };
-      }
+  /**
+   * HELPER: Prüfe ob User Premium-Zugriff hat
+   */
+  static async isPremiumUser(userId: string): Promise<boolean> {
+    const subscription = await this.getUserSubscription(userId);
+    return subscription?.plan_type === 'premium' && 
+           (!subscription.plan_expires_at || new Date(subscription.plan_expires_at) > new Date());
+  }
 
-      if (syncResult.subscription) {
-        return {
-          success: true,
-          message: `Premium-Status erfolgreich synchronisiert. Plan: ${syncResult.subscription.plan_type}`
-        };
-      } else {
-        return {
-          success: true,
-          message: 'Kein aktives Premium-Abo gefunden. Basic-Plan aktiviert.'
-        };
-      }
-    } catch (error) {
-      console.error('❌ Manual Stripe sync failed:', error);
-      return {
-        success: false,
-        message: 'Synchronisation fehlgeschlagen',
-        error
-      };
+  /**
+   * HELPER: Hole verbleibende Tage für Premium
+   */
+  static async getRemainingPremiumDays(userId: string): Promise<number | null> {
+    const subscription = await this.getUserSubscription(userId);
+    
+    if (!subscription?.plan_expires_at || subscription.plan_type !== 'premium') {
+      return null;
     }
+
+    const expiryDate = new Date(subscription.plan_expires_at);
+    const today = new Date();
+    const diffTime = expiryDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return Math.max(0, diffDays);
   }
 } 
