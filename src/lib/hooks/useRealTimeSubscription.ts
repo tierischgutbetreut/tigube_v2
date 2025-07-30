@@ -5,8 +5,8 @@ import { useAuth } from '../auth/AuthContext';
 export function useRealTimeSubscription() {
   const { user, refreshSubscription } = useAuth();
 
-  const handleSubscriptionChange = useCallback((payload: any) => {
-    console.log('🔄 Real-time subscription change detected:', payload);
+  const handleUserPlanChange = useCallback((payload: any) => {
+    console.log('🔄 Real-time user plan change detected:', payload);
     
     // Refresh subscription data immediately
     if (refreshSubscription) {
@@ -17,24 +17,11 @@ export function useRealTimeSubscription() {
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log('🎯 Setting up real-time subscription listener for user:', user.id);
+    console.log('🎯 Setting up real-time user plan listener for user:', user.id);
 
-    // Subscribe to subscription changes for the current user
+    // Subscribe nur zu user plan changes (subscription-Daten sind jetzt in users-Tabelle)
     const subscription = supabase
-      .channel(`subscription_changes_${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
-          schema: 'public',
-          table: 'subscriptions',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          console.log('📡 Subscription table change:', payload);
-          handleSubscriptionChange(payload);
-        }
-      )
+      .channel(`user_plan_realtime_${user.id}`)
       .on(
         'postgres_changes',
         {
@@ -44,28 +31,34 @@ export function useRealTimeSubscription() {
           filter: `id=eq.${user.id}`
         },
         (payload) => {
-          console.log('📡 User table change (subscription related):', payload);
-          // Check if subscription-related fields changed
-          const { new: newUser, old: oldUser } = payload;
-          const subscriptionFields = ['premium_badge', 'show_ads', 'search_priority', 'max_contact_requests', 'max_bookings'];
+          console.log('📡 User plan change (real-time hook):', payload);
           
-          const hasSubscriptionChange = subscriptionFields.some(field => 
+          // Check if plan-related fields changed
+          const { new: newUser, old: oldUser } = payload;
+          const planFields = ['plan_type', 'plan_expires_at', 'premium_badge', 'show_ads', 'max_contact_requests', 'max_bookings', 'search_priority'];
+          
+          const hasPlanChange = planFields.some(field => 
             newUser[field] !== oldUser[field]
           );
           
-          if (hasSubscriptionChange) {
-            console.log('🔄 Subscription-related user fields changed, refreshing...');
-            handleSubscriptionChange(payload);
+          if (hasPlanChange) {
+            console.log('🔄 Plan fields changed, triggering refresh...');
+            handleUserPlanChange(payload);
           }
         }
       )
       .subscribe((status) => {
-        console.log('📡 Real-time subscription status:', status);
+        console.log('📡 Real-time user plan subscription status:', status);
       });
 
     return () => {
-      console.log('🧹 Cleaning up real-time subscription listener');
+      console.log('🧹 Cleaning up real-time user plan subscription');
       subscription.unsubscribe();
     };
-  }, [user?.id, handleSubscriptionChange]);
+  }, [user?.id, handleUserPlanChange]);
+
+  return { 
+    // Return useful status if needed
+    isListening: !!user?.id 
+  };
 } 

@@ -391,25 +391,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('✅ Profile state update completed');
   };
 
-  // Enhanced subscription refresh with manual sync option
-  const refreshSubscription = useCallback(async (forceSync = false) => {
+  // Subscription refresh function
+  const refreshSubscription = useCallback(async (forceSync?: boolean) => {
     if (!user?.id) return;
-    
+
     setSubscriptionLoading(true);
     try {
-      console.log('🔄 Refreshing subscription...', { forceSync });
+      console.log('🔄 Refreshing user subscription from users table...');
 
-      // If forceSync is true, run manual Stripe sync first
-      if (forceSync) {
-        const syncResult = await SubscriptionService.manualStripeSync(user.id);
-        console.log('📋 Manual sync result:', syncResult);
-      }
-
-      const subscription = await SubscriptionService.getActiveSubscription(user.id);
+      // Neue vereinfachte Methode - holt Daten direkt aus users-Tabelle
+      const subscription = await SubscriptionService.getUserSubscription(user.id);
       setSubscription(subscription);
-      console.log('✅ Subscription refreshed:', subscription);
+      console.log('✅ User subscription refreshed:', subscription);
     } catch (error) {
-      console.error('❌ Failed to refresh subscription:', error);
+      console.error('❌ Failed to refresh user subscription:', error);
       setSubscription(null);
     } finally {
       setSubscriptionLoading(false);
@@ -420,25 +415,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log('🎯 Setting up real-time subscription listener for user:', user.id);
+    console.log('🎯 Setting up real-time user plan listener for user:', user.id);
 
-    // Subscribe to subscription changes for the current user
+    // Subscribe nur zu user changes (da subscription-Daten jetzt in users-Tabelle)
     const subscriptionChannel = supabase
-      .channel(`subscription_changes_${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
-          schema: 'public',
-          table: 'subscriptions',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          console.log('📡 Subscription table change:', payload);
-          // Refresh subscription data immediately
-          refreshSubscription();
-        }
-      )
+      .channel(`user_plan_changes_${user.id}`)
       .on(
         'postgres_changes',
         {
@@ -448,17 +429,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           filter: `id=eq.${user.id}`
         },
         (payload) => {
-          console.log('📡 User table change (subscription related):', payload);
-          // Check if subscription-related fields changed
+          console.log('📡 User table change (plan related):', payload);
+          // Check if plan-related fields changed
           const { new: newUser, old: oldUser } = payload;
-          const subscriptionFields = ['premium_badge', 'show_ads', 'search_priority', 'max_contact_requests', 'max_bookings'];
+          const planFields = ['plan_type', 'plan_expires_at', 'premium_badge', 'show_ads', 'max_contact_requests', 'max_bookings', 'search_priority'];
           
-          const hasSubscriptionChange = subscriptionFields.some(field => 
+          const hasPlanChange = planFields.some(field => 
             newUser[field] !== oldUser[field]
           );
           
-          if (hasSubscriptionChange) {
-            console.log('🔄 Subscription-related user fields changed, refreshing...');
+          if (hasPlanChange) {
+            console.log('🔄 Plan-related user fields changed, refreshing...');
             refreshSubscription();
             
             // Also refresh user profile to get updated fields
@@ -469,11 +450,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       )
       .subscribe((status) => {
-        console.log('📡 Real-time subscription status:', status);
+        console.log('📡 Real-time user plan status:', status);
       });
 
     return () => {
-      console.log('🧹 Cleaning up real-time subscription listener');
+      console.log('🧹 Cleaning up real-time user plan listener');
       subscriptionChannel.unsubscribe();
     };
   }, [user?.id, refreshSubscription, userProfile]);

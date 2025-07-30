@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../lib/auth/AuthContext';
-import { SubscriptionService } from '../lib/services/subscriptionService';
+import { FEATURE_MATRIX } from '../lib/services/subscriptionService';
 
 export const useFeatureAccess = () => {
   const { user, subscription } = useAuth();
   
-  // Verwende die bereits geladene Subscription aus dem AuthContext
+  // Verwende die bereits geladene Subscription aus dem AuthContext (jetzt aus users-Tabelle)
   const effectiveSubscription = subscription;
 
   // Berechne Feature-Zugriff basierend auf der Subscription
@@ -13,12 +13,18 @@ export const useFeatureAccess = () => {
     if (!user) return false;
     
     if (!effectiveSubscription) {
-      // Benutzer ohne Subscription haben nur Basic-Features
-      const basicFeatures = SubscriptionService.getFeatures('basic');
-      return basicFeatures[featureName as keyof typeof basicFeatures] as boolean || false;
+      // Benutzer ohne Subscription haben nur Free-Features
+      const freeFeatures = FEATURE_MATRIX.free;
+      return freeFeatures[featureName as keyof typeof freeFeatures] as boolean || false;
     }
 
-    const planFeatures = SubscriptionService.getFeatures(effectiveSubscription.plan_type);
+    // Prüfe ob Premium abgelaufen ist
+    const isPremiumExpired = effectiveSubscription.plan_type === 'premium' && 
+                            effectiveSubscription.plan_expires_at && 
+                            new Date(effectiveSubscription.plan_expires_at) <= new Date();
+
+    const planType = isPremiumExpired ? 'free' : effectiveSubscription.plan_type;
+    const planFeatures = FEATURE_MATRIX[planType as keyof typeof FEATURE_MATRIX];
     return planFeatures[featureName as keyof typeof planFeatures] as boolean || false;
   }, [user, effectiveSubscription]);
 
@@ -32,45 +38,37 @@ export const useFeatureAccess = () => {
 
   const maxEnvironmentImages = useCallback(() => {
     if (!effectiveSubscription) {
-      return SubscriptionService.getFeatures('basic').max_environment_images;
+      return FEATURE_MATRIX.free.max_environment_images;
     }
-    return SubscriptionService.getFeatures(effectiveSubscription.plan_type).max_environment_images;
+    
+    // Prüfe ob Premium abgelaufen ist
+    const isPremiumExpired = effectiveSubscription.plan_type === 'premium' && 
+                            effectiveSubscription.plan_expires_at && 
+                            new Date(effectiveSubscription.plan_expires_at) <= new Date();
+
+    const planType = isPremiumExpired ? 'free' : effectiveSubscription.plan_type;
+    return FEATURE_MATRIX[planType as keyof typeof FEATURE_MATRIX].max_environment_images;
   }, [effectiveSubscription]);
 
   const contactLimit = effectiveSubscription ? 
-    SubscriptionService.getFeatures(effectiveSubscription.plan_type).max_contact_requests : 
-    SubscriptionService.getFeatures('basic').max_contact_requests;
+    FEATURE_MATRIX[effectiveSubscription.plan_type as keyof typeof FEATURE_MATRIX].max_contact_requests : 
+    FEATURE_MATRIX.free.max_contact_requests;
 
   const bookingLimit = effectiveSubscription ? 
-    SubscriptionService.getFeatures(effectiveSubscription.plan_type).max_bookings :
-    SubscriptionService.getFeatures('basic').max_bookings;
+    FEATURE_MATRIX[effectiveSubscription.plan_type as keyof typeof FEATURE_MATRIX].max_bookings :
+    FEATURE_MATRIX.free.max_bookings;
 
-  const isEffectivelyPremium = effectiveSubscription?.plan_type === 'premium' || effectiveSubscription?.plan_type === 'professional';
-
-  const trackUsage = useCallback(async (featureName: string, amount: number = 1) => {
-    if (!user) return false;
-    
-    // Implementiere Usage-Tracking falls benötigt
-    console.log(`Feature ${featureName} verwendet (${amount}x) von User ${user.id}`);
-    return true;
-  }, [user]);
+  const isEffectivelyPremium = effectiveSubscription?.plan_type === 'premium' && 
+                              (!effectiveSubscription.plan_expires_at || new Date(effectiveSubscription.plan_expires_at) > new Date());
 
   return {
-    // Feature-Checks
     checkFeature,
     hasAdvancedFilters,
     hasPriorityRanking,
     maxEnvironmentImages,
-    
-    // Limits
     contactLimit,
     bookingLimit,
-    
-    // Status
     isEffectivelyPremium,
-    subscription: effectiveSubscription,
-    
-    // Actions
-    trackUsage
+    subscription: effectiveSubscription
   };
 }; 

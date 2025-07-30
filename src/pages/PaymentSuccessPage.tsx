@@ -10,6 +10,7 @@ export default function PaymentSuccessPage() {
   const navigate = useNavigate();
   const { user, userProfile, refreshSubscription } = useAuth();
   const [isValidating, setIsValidating] = useState(true);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [validationResult, setValidationResult] = useState<{
     success: boolean;
     session?: any;
@@ -40,6 +41,40 @@ export default function PaymentSuccessPage() {
     }
   };
 
+  // Warte auf n8n Profile Update
+  const waitForProfileUpdate = async () => {
+    const maxAttempts = 10; // 10 Versuche
+    const delay = 2000; // 2 Sekunden zwischen Versuchen
+    
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      console.log(`🔄 Checking profile update attempt ${attempt}/${maxAttempts}`);
+      
+      try {
+        // Refresh subscription data
+        if (refreshSubscription) {
+          await refreshSubscription();
+        }
+        
+        // Prüfe ob der User bereits Premium ist
+        if (userProfile?.plan_type === 'premium') {
+          console.log('✅ Profile successfully updated to premium!');
+          setIsUpdatingProfile(false);
+          return;
+        }
+        
+        // Warte vor dem nächsten Versuch
+        if (attempt < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      } catch (error) {
+        console.error(`❌ Profile update check failed (attempt ${attempt}):`, error);
+      }
+    }
+    
+    console.log('⚠️ Profile update timeout - continuing anyway');
+    setIsUpdatingProfile(false);
+  };
+
   useEffect(() => {
     const validatePayment = async () => {
       if (!sessionId) {
@@ -54,17 +89,18 @@ export default function PaymentSuccessPage() {
       try {
         if (isBetaTest) {
           // Beta-Test: Simuliere erfolgreiche Zahlung
-          setValidationResult({
-            success: true,
-            session: {
-              amount_total: 490, // €4.90 in Cent
-              customer_email: user?.email,
-              metadata: {
-                planType: 'premium',
-                userType: 'owner'
-              }
+                  const mockResult = {
+          success: true,
+          session: {
+            amount_total: 490, // €4.90 in Cent
+            customer_email: user?.email,
+            metadata: {
+              planType: 'premium',
+              userType: 'owner'
             }
-          });
+          }
+        };
+        setValidationResult(mockResult);
         } else {
           // Payment Link oder normaler Checkout: Session von Stripe abrufen
           console.log('🔍 Retrieving Stripe session:', sessionId);
@@ -106,6 +142,12 @@ export default function PaymentSuccessPage() {
           } else {
             setValidationResult(result);
           }
+        }
+        
+        // Nach erfolgreicher Validierung: Warte auf n8n Update
+        if (validationResult?.success) {
+          setIsUpdatingProfile(true);
+          await waitForProfileUpdate();
         }
         
         // Refresh user's subscription data if payment was successful
@@ -163,18 +205,27 @@ export default function PaymentSuccessPage() {
     return null;
   };
 
-  if (isValidating) {
+  if (isValidating || isUpdatingProfile) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="max-w-md w-full mx-auto px-4">
           <div className="bg-white rounded-lg shadow-lg p-8 text-center">
             <Loader className="w-12 h-12 text-blue-500 animate-spin mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              Zahlung wird überprüft...
+              {isValidating ? 'Zahlung wird überprüft...' : 'Account wird aktualisiert...'}
             </h2>
             <p className="text-gray-600">
-              Bitte warte einen Moment, während wir deine Zahlung bestätigen.
+              {isValidating 
+                ? 'Bitte warte einen Moment, während wir deine Zahlung bestätigen.'
+                : 'Dein Premium-Account wird gerade aktiviert. Das dauert nur wenige Sekunden.'
+              }
             </p>
+            {isUpdatingProfile && (
+              <div className="mt-4 text-sm text-gray-500">
+                <p>⚡ Webhook wird verarbeitet...</p>
+                <p>🔄 Profile wird aktualisiert...</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

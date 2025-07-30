@@ -29,6 +29,28 @@ export function SubscriptionCard({
   // Check if user is in beta
   const isBetaUser = subscription?.status === 'trial';
 
+  // Handle subscription management
+  const handleManageSubscription = () => {
+    // Stripe Customer Portal URL für Owner
+    if (userType === 'owner') {
+      // Stripe Customer Portal URLs - konfiguriert im Stripe Dashboard
+      const customerPortalUrl = isStripeTestMode() 
+        ? 'https://billing.stripe.com/p/login/test_00w9AU8GVfV897Q8gJ2oE00'  // Test Mode Login
+        : 'https://billing.stripe.com/p/login/live_00000000000000000000000000'; // Live Mode Login (TODO: Mit echter URL ersetzen)
+      
+      console.log('🔗 Opening Stripe Customer Portal:', customerPortalUrl);
+      window.open(customerPortalUrl, '_blank');
+    } else {
+      // Caretaker Customer Portal (später mit separater URL)
+      const caretakerPortalUrl = isStripeTestMode()
+        ? 'https://billing.stripe.com/p/login/test_CARETAKER_URL'  // TODO: Caretaker Test URL
+        : 'https://billing.stripe.com/p/login/live_CARETAKER_URL'; // TODO: Caretaker Live URL
+      
+      console.log('🔗 Opening Caretaker Customer Portal:', caretakerPortalUrl);
+      alert('Mitgliedschaftsverwaltung für Betreuer wird in Kürze verfügbar sein.\n\nURL: ' + caretakerPortalUrl);
+    }
+  };
+
   return (
     <div className={`
       subscription-card 
@@ -146,7 +168,7 @@ export function SubscriptionCard({
                 <Button
                   variant="primary"
                   className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 border-green-600 hover:border-green-700"
-                  onClick={() => window.open('https://billing.stripe.com/p/login/test_00w9AU8GVfV897Q8gJ2oE00', '_blank')}
+                  onClick={() => handleManageSubscription()}
                 >
                   <ExternalLink className="w-4 h-4" />
                   Mitgliedschaft verwalten

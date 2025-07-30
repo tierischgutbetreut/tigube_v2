@@ -1,17 +1,17 @@
 import { useAuth } from './AuthContext';
-import { SubscriptionService, FEATURE_MATRIX } from '../services/subscriptionService';
+import { FEATURE_MATRIX } from '../services/subscriptionService';
 import { useMemo } from 'react';
 
 export function useSubscription() {
   const { subscription, subscriptionLoading, refreshSubscription, user } = useAuth();
 
-  // Feature-Zugriff basierend auf aktueller Subscription
+  // Feature-Zugriff basierend auf aktueller Subscription (jetzt aus users-Tabelle)
   const features = useMemo(() => {
     if (!subscription) {
-      return FEATURE_MATRIX.basic;
+      return FEATURE_MATRIX.free;
     }
 
-    return FEATURE_MATRIX[subscription.plan_type as keyof typeof FEATURE_MATRIX] || FEATURE_MATRIX.basic;
+    return FEATURE_MATRIX[subscription.plan_type as keyof typeof FEATURE_MATRIX] || FEATURE_MATRIX.free;
   }, [subscription]);
 
   // Helper-Funktionen für Feature-Checks
@@ -19,13 +19,19 @@ export function useSubscription() {
     return Boolean(features[featureName]);
   };
 
-  const canUseFeature = async (featureName: string): Promise<boolean> => {
-    if (!user?.id) return false;
-    return await SubscriptionService.checkFeatureAccess(user.id, featureName);
+  // Vereinfachte Feature-Check ohne async Database-Call
+  const canUseFeature = (featureName: string): boolean => {
+    return Boolean(features[featureName as keyof typeof features]);
   };
 
   // Subscription-Status checks
-  const isPremiumUser = subscription?.plan_type === 'premium' || subscription?.plan_type === 'professional';
+  const isPremiumUser = subscription?.plan_type === 'premium' && 
+                       (!subscription.plan_expires_at || new Date(subscription.plan_expires_at) > new Date());
+
+  // Helper: Check if premium is expired
+  const isPremiumExpired = subscription?.plan_type === 'premium' && 
+                          subscription.plan_expires_at && 
+                          new Date(subscription.plan_expires_at) <= new Date();
 
   return {
     subscription,
@@ -34,6 +40,7 @@ export function useSubscription() {
     features,
     hasFeature,
     canUseFeature,
-    isPremiumUser
+    isPremiumUser,
+    isPremiumExpired
   };
 } 
