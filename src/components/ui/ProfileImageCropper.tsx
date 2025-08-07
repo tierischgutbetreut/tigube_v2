@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import Cropper from 'react-easy-crop';
 import { Upload, X, Check, RotateCcw, ZoomIn, ZoomOut, Move } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
@@ -39,6 +39,11 @@ function ProfileImageCropper({
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Update selectedImage when photoUrl changes
+  useEffect(() => {
+    setSelectedImage(photoUrl || null);
+  }, [photoUrl]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles && acceptedFiles[0]) {

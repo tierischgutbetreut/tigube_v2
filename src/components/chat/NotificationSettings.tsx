@@ -70,7 +70,7 @@ function NotificationSettings({ isOpen, onClose }: NotificationSettingsProps) {
           {!settings.browserSupport && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
               <p className="text-sm text-yellow-800">
-                Ihr Browser unterstützt keine Push-Benachrichtigungen.
+                Dein Browser unterstützt keine Push-Benachrichtigungen.
               </p>
             </div>
           )}

@@ -70,10 +70,10 @@ export default function HomePage() {
             {/* Linke Seite: Text */}
             <div className="space-y-6 animate-fade-in">
               <h1 className="text-4xl md:text-5xl font-bold leading-tight text-gray-900">
-                Liebevolle Betreuung für <span className="text-primary-600">Ihr Haustier</span>
+                Liebevolle Betreuung für <span className="text-primary-600">dein Haustier</span>
               </h1>
               <p className="text-lg md:text-xl text-gray-700 max-w-xl">
-                Finden Sie vertrauensvolle und erfahrene Tierbetreuer in Ihrer Nähe. Ihr Liebling verdient die beste Pflege, wenn Sie nicht da sind.
+                Finde vertrauensvolle und erfahrene Tierbetreuer in deiner Nähe. Dein Liebling verdient die beste Pflege, wenn du nicht da bist.
               </p>
               <form onSubmit={handleSearch} className="bg-white rounded-xl p-4 shadow-md grid grid-cols-1 md:grid-cols-4 gap-4 max-w-xl">
 

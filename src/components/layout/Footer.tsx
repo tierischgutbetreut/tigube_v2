@@ -14,7 +14,7 @@ function Footer() {
               <img src="/Image/Logos/tigube_logo.png" alt="tigube Logo" className="h-10 w-auto" />
             </Link>
             <p className="text-sm text-gray-300 leading-relaxed">
-              Deutschlands vertrauensvolle Plattform für professionelle Tierbetreuung. Finden Sie den perfekten Betreuer für Ihren Liebling oder werden Sie selbst Teil unserer Gemeinschaft.
+              Deutschlands vertrauensvolle Plattform für professionelle Tierbetreuung. Finde den perfekten Betreuer für deinen Liebling oder werde selbst Teil unserer Gemeinschaft.
             </p>
             <div className="flex space-x-3 mt-4">
               <a href="#" className="text-gray-300 hover:text-white transition-colors">

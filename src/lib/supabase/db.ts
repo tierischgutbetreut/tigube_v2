@@ -461,13 +461,13 @@ export const ownerPreferencesService = {
     }
 
     const defaultSettings: ShareSettings = {
-      phoneNumber: true,
+      phoneNumber: false,
       email: false,
-      address: true,
-      vetInfo: true,
+      address: false,
+      vetInfo: false,
       emergencyContact: false,
-      petDetails: true,
-      carePreferences: true
+      petDetails: false,
+      carePreferences: false
     };
 
     if (!data?.share_settings) {

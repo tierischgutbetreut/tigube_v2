@@ -182,7 +182,7 @@ function CaretakerDashboardPage() {
     
     // Validierung für gewerbliche Betreuer
     if (skillsDraft.isCommercial && !skillsDraft.taxNumber.trim()) {
-      setError('Bitte geben Sie Ihre Steuernummer an, wenn Sie als gewerblicher Betreuer tätig sind.');
+      setError('Bitte gib deine Steuernummer an, wenn du als gewerblicher Betreuer tätig bist.');
       return;
     }
     
@@ -619,7 +619,7 @@ function CaretakerDashboardPage() {
     if (value.trim() === '') {
       setEmailError('E-Mail-Adresse ist ein Pflichtfeld');
     } else if (!/^\S+@\S+\.\S+$/.test(value)) {
-      setEmailError('Bitte geben Sie eine gültige E-Mail-Adresse ein');
+      setEmailError('Bitte gib eine gültige E-Mail-Adresse ein');
     } else {
       setEmailError(null);
     }
@@ -798,7 +798,7 @@ function CaretakerDashboardPage() {
       const { error } = await ownerCaretakerService.removeCaretaker(clientId, user.id);
       if (error) {
         console.error('Fehler beim Entfernen des Kunden:', error);
-        alert('Fehler beim Entfernen des Kunden. Bitte versuchen Sie es erneut.');
+        alert('Fehler beim Entfernen des Kunden. Bitte versuche es erneut.');
         return;
       }
 
@@ -806,10 +806,10 @@ function CaretakerDashboardPage() {
       setClients(prev => prev.filter(client => client.id !== clientId));
 
       // Erfolgsbenachrichtigung
-      alert(`${clientName} wurde erfolgreich entfernt und hat keinen Zugriff mehr auf Ihre Kontaktdaten.`);
+      alert(`${clientName} wurde erfolgreich entfernt und hat keinen Zugriff mehr auf deine Kontaktdaten.`);
     } catch (error) {
       console.error('Fehler beim Entfernen des Kunden:', error);
-      alert('Fehler beim Entfernen des Kunden. Bitte versuchen Sie es erneut.');
+      alert('Fehler beim Entfernen des Kunden. Bitte versuche es erneut.');
     }
   };
 
@@ -1819,12 +1819,12 @@ function CaretakerDashboardPage() {
                 setEmailChangeLoading(true);
                 // Validierung
                 if (!newEmail.trim() || !currentPasswordForEmail.trim()) {
-                  setEmailChangeError('Bitte füllen Sie alle Felder aus.');
+                  setEmailChangeError('Bitte fülle alle Felder aus.');
                   setEmailChangeLoading(false);
                   return;
                 }
                 if (!validateEmail(newEmail)) {
-                  setEmailChangeError('Bitte geben Sie eine gültige E-Mail-Adresse ein.');
+                  setEmailChangeError('Bitte gib eine gültige E-Mail-Adresse ein.');
                   setEmailChangeLoading(false);
                   return;
                 }
@@ -1854,7 +1854,7 @@ function CaretakerDashboardPage() {
                     setEmailChangeLoading(false);
                     return;
                   }
-                  setEmailChangeSuccess('E-Mail-Änderung eingeleitet! Bitte bestätigen Sie die Änderung über den Link, der an Ihre alte E-Mail-Adresse gesendet wurde.');
+                  setEmailChangeSuccess('E-Mail-Änderung eingeleitet! Bitte bestätige die Änderung über den Link, der an deine alte E-Mail-Adresse gesendet wurde.');
                   setNewEmail('');
                   setCurrentPasswordForEmail('');
                 } catch (err: any) {
@@ -1872,7 +1872,7 @@ function CaretakerDashboardPage() {
                   <div className="text-sm text-yellow-800">
                     <p className="font-medium mb-1">Wichtiger Hinweis</p>
                     <p>
-                      Die Bestätigung der Änderung wird an Ihre <strong>alte E-Mail-Adresse</strong> gesendet 
+                      Die Bestätigung der Änderung wird an deine <strong>alte E-Mail-Adresse</strong> gesendet 
                       und muss dort bestätigt werden, bevor die neue E-Mail-Adresse aktiv wird.
                     </p>
                   </div>
@@ -1925,7 +1925,7 @@ function CaretakerDashboardPage() {
                         className="input w-full"
                         value={currentPasswordForEmail}
                         onChange={e => setCurrentPasswordForEmail(e.target.value)}
-                        placeholder="Ihr aktuelles Passwort"
+                        placeholder="Dein aktuelles Passwort"
                         required
                       />
                     </div>
