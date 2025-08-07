@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, ExternalLink, AlertCircle } from 'lucide-react';
 import Button from '../components/ui/Button';
-import RegistrationSuccessModal from '../components/ui/RegistrationSuccessModal';
+
 import { auth, supabase } from '../lib/supabase/client';
 import { userService } from '../lib/supabase/db';
 import { useAuth } from '../lib/auth/AuthContext';
@@ -30,7 +30,7 @@ function RegisterPage() {
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
   
   // Formular-Daten für Schritt 1 (Grundlegende Kontoinformationen)
   const [formStep1, setFormStep1] = useState({
@@ -142,9 +142,16 @@ function RegisterPage() {
           }
         }
         
-        // Zeige Success-Modal mit professioneller Animation
-        setShowSuccessModal(true);
-        console.log('✅ Registration completed successfully, showing success modal...');
+        // Setze Flag für Onboarding
+        localStorage.setItem('justRegistered', 'true');
+        
+        // Direkt zum Dashboard navigieren - Onboarding startet dort
+        const dashboardPath = userType === 'owner' ? '/dashboard-owner' : '/dashboard-caretaker';
+        console.log('🔄 Redirecting to dashboard for onboarding:', dashboardPath);
+        
+        // Nutze window.location.href für komplette Seiten-Neuladung
+        // Das verhindert Auth-State-Inkonsistenzen
+        window.location.href = dashboardPath;
       }
     } catch (err: any) {
       console.error('Fehler bei der Registrierung:', err);
@@ -154,15 +161,7 @@ function RegisterPage() {
     }
   };
 
-  // Handler für Modal-Completion
-  const handleModalComplete = () => {
-    const dashboardPath = userType === 'owner' ? '/dashboard-owner' : '/dashboard-caretaker';
-    console.log('🔄 Redirecting to dashboard:', dashboardPath);
-    
-    // Nutze window.location.href für komplette Seiten-Neuladung
-    // Das verhindert Auth-State-Inkonsistenzen
-    window.location.href = dashboardPath;
-  };
+
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -323,7 +322,7 @@ function RegisterPage() {
                 variant="primary"
                 onClick={completeRegistration}
                 isLoading={loading}
-                disabled={loading || showSuccessModal}
+                disabled={loading}
               >
                 Jetzt Registrieren
               </Button>
@@ -341,13 +340,7 @@ function RegisterPage() {
           </p>
         </div>
         
-        {/* Registration Success Modal */}
-        <RegistrationSuccessModal
-          isOpen={showSuccessModal}
-          userType={userType}
-          userName={formStep1.firstName}
-          onComplete={handleModalComplete}
-        />
+
       </div>
     </div>
   );

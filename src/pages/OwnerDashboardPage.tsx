@@ -17,6 +17,7 @@ import { usePaymentSuccess } from '../hooks/usePaymentSuccess';
 import { PremiumBadge } from '../components/ui/PremiumBadge';
 import { useSubscription } from '../lib/auth/useSubscription';
 import ProfileImageCropper from '../components/ui/ProfileImageCropper';
+import RegistrationSuccessModal from '../components/ui/RegistrationSuccessModal';
 
 
 const ALL_SERVICES = [
@@ -109,6 +110,26 @@ function OwnerDashboardPage() {
   
   // Payment Success Modal
   const { paymentSuccess, isValidating: paymentValidating, closeModal } = usePaymentSuccess();
+  
+  // Onboarding Modal für neue Nutzer
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  
+  // Check für neu registrierte Nutzer
+  useEffect(() => {
+    const checkForNewUser = () => {
+      // Prüfe localStorage für frische Registrierung
+      const justRegistered = localStorage.getItem('justRegistered');
+      if (justRegistered === 'true' && user && userProfile) {
+        setShowOnboarding(true);
+        // Clean up flag
+        localStorage.removeItem('justRegistered');
+      }
+    };
+
+    if (user && userProfile && !authLoading) {
+      checkForNewUser();
+    }
+  }, [user, userProfile, authLoading]);
   
   // Refs to track if data has been loaded to prevent unnecessary reloads
   const vetDataLoadedRef = useRef(false);
@@ -3210,6 +3231,14 @@ function OwnerDashboardPage() {
         planType={paymentSuccess.planType}
         userType={paymentSuccess.userType}
         sessionData={paymentSuccess.sessionData}
+      />
+
+      {/* Onboarding Modal für neue Nutzer */}
+      <RegistrationSuccessModal
+        isOpen={showOnboarding}
+        userType="owner"
+        userName={userProfile?.first_name || 'Nutzer'}
+        onComplete={() => setShowOnboarding(false)}
       />
 
       {/* Profilbild Editor Modal */}

@@ -17,6 +17,7 @@ import PaymentSuccessModal from '../components/ui/PaymentSuccessModal';
 import { usePaymentSuccess } from '../hooks/usePaymentSuccess';
 import { PremiumBadge } from '../components/ui/PremiumBadge';
 import { useSubscription } from '../lib/auth/useSubscription';
+import RegistrationSuccessModal from '../components/ui/RegistrationSuccessModal';
 
 function CaretakerDashboardPage() {
   const { user, userProfile, loading: authLoading, subscription } = useAuth();
@@ -31,6 +32,27 @@ function CaretakerDashboardPage() {
   
   // Payment Success Modal
   const { paymentSuccess, isValidating: paymentValidating, closeModal } = usePaymentSuccess();
+  
+  // Onboarding Modal für neue Nutzer
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  
+  // Check für neu registrierte Nutzer
+  useEffect(() => {
+    const checkForNewUser = () => {
+      // Prüfe localStorage für frische Registrierung
+      const justRegistered = localStorage.getItem('justRegistered');
+      if (justRegistered === 'true' && user && userProfile) {
+        setShowOnboarding(true);
+        // Clean up flag
+        localStorage.removeItem('justRegistered');
+      }
+    };
+
+    if (user && userProfile && !authLoading) {
+      checkForNewUser();
+    }
+  }, [user, userProfile, authLoading]);
+  
   const [editData, setEditData] = useState(false);
   const [caretakerData, setCaretakerData] = useState({
     phoneNumber: userProfile?.phone_number || '',
@@ -2337,6 +2359,14 @@ function CaretakerDashboardPage() {
         planType={paymentSuccess.planType}
         userType={paymentSuccess.userType}
         sessionData={paymentSuccess.sessionData}
+      />
+
+      {/* Onboarding Modal für neue Nutzer */}
+      <RegistrationSuccessModal
+        isOpen={showOnboarding}
+        userType="caretaker"
+        userName={userProfile?.first_name || 'Nutzer'}
+        onComplete={() => setShowOnboarding(false)}
       />
     </div>
   );
