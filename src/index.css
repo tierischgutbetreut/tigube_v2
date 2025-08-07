@@ -5,6 +5,48 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom animations for Registration Success Modal */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pulseSuccess {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slideInUp {
+  animation: slideInUp 0.5s ease-out;
+}
+
+.animate-pulseSuccess {
+  animation: pulseSuccess 2s ease-in-out infinite;
+}
+
 /* Custom styles for ProfileImageCropper rounded crop area */
 .reactEasyCrop_CropArea {
   border-radius: 12px !important;

@@ -465,7 +465,7 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
                 Chat mit {getDisplayName()}
               </h3>
               <p className="text-gray-500 text-sm">
-                Schreiben Sie die erste Nachricht, um die Unterhaltung zu beginnen.
+                Schreibe die erste Nachricht, um die Unterhaltung zu beginnen.
               </p>
             </div>
           </div>
@@ -537,7 +537,7 @@ function ChatWindow({ conversation, currentUserId, onBack, onConversationDeleted
              </div>
              
              <p className="text-gray-700 mb-6 leading-relaxed">
-               Möchten Sie den Chat mit <span className="font-medium">{getDisplayName()}</span> wirklich löschen? 
+               Möchtest du den Chat mit <span className="font-medium">{getDisplayName()}</span> wirklich löschen? 
                Diese Aktion kann nicht rückgängig gemacht werden und alle Nachrichten werden permanent entfernt.
              </p>
              

@@ -1,25 +1,22 @@
 import Layout from '../components/layout/Layout';
 import Button from '../components/ui/Button';
-import { MapPin, Phone, PawPrint, Edit, Shield, Heart, Trash, Check, X, Plus, Upload, LogOut, Settings, Camera, AlertTriangle, Trash2, Briefcase, User, MessageCircle, KeyRound, Eye, EyeOff, Mail, Star, Verified, Crown } from 'lucide-react';
-import { mockPetOwners, mockBookings, mockCaregivers } from '../data/mockData';
-import { formatCurrency } from '../lib/utils';
+import { MapPin, Phone, PawPrint, Edit, Shield, Heart, Trash, Check, X, Plus, Upload, Settings, AlertTriangle, Trash2, Briefcase, User, MessageCircle, KeyRound, Eye, EyeOff, Mail, Star, Crown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { ownerPreferencesService, petService, userService, ownerCaretakerService } from '../lib/supabase/db';
 import type { ShareSettings } from '../lib/supabase/db';
-import { useDropzone } from 'react-dropzone';
 import { useAuth } from '../lib/auth/AuthContext';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { plzService } from '../lib/supabase/db';
 import { useNavigate } from 'react-router-dom';
 import { getOrCreateConversation } from '../lib/supabase/chatService';
 import { supabase } from '../lib/supabase/client';
-import Badge from '../components/ui/Badge';
 import { calculateAge } from '../lib/utils';
 import PaymentSuccessModal from '../components/ui/PaymentSuccessModal';
 import { usePaymentSuccess } from '../hooks/usePaymentSuccess';
 import { PremiumBadge } from '../components/ui/PremiumBadge';
 import { useSubscription } from '../lib/auth/useSubscription';
+import ProfileImageCropper from '../components/ui/ProfileImageCropper';
 
 
 const ALL_SERVICES = [
@@ -45,9 +42,10 @@ interface PetFormData {
   neutered?: boolean;
 }
 
-function PhotoDropzone({ photoUrl, onUpload }: {
+function PetPhotoUploader({ photoUrl, onEditClick, uploading }: {
   photoUrl?: string | File;
-  onUpload: (file: File) => void;
+  onEditClick: () => void;
+  uploading?: boolean;
 }) {
   let previewUrl: string | undefined = undefined;
   if (photoUrl) {
@@ -57,27 +55,48 @@ function PhotoDropzone({ photoUrl, onUpload }: {
       previewUrl = URL.createObjectURL(photoUrl);
     }
   }
-  const onDrop = (acceptedFiles: File[]) => {
-    if (acceptedFiles && acceptedFiles[0]) {
-      onUpload(acceptedFiles[0]);
-    }
-  };
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { 'image/*': [] },
-    maxFiles: 1,
-    maxSize: 10 * 1024 * 1024,
-  });
+
+  if (previewUrl) {
+    return (
+      <div className="relative mt-1">
+        <div className="relative group h-24 w-24">
+          <img 
+            src={previewUrl} 
+            alt="Tierfoto" 
+            className="h-24 w-24 object-cover rounded-xl border-2 border-gray-200"
+          />
+          <div 
+            className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 rounded-xl flex items-center justify-center cursor-pointer"
+            onClick={onEditClick}
+          >
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white rounded-full p-2 shadow-lg">
+              <Edit className="h-4 w-4 text-primary-600" />
+            </div>
+          </div>
+          {uploading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-xl">
+              <LoadingSpinner />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div {...getRootProps()} className={`mt-1 border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors ${isDragActive ? 'border-primary-500 bg-primary-50' : 'border-gray-300 bg-white'}`}>
-      <input {...getInputProps()} />
-      {previewUrl ? (
-                      <img src={previewUrl} alt="Tierfoto" className="h-24 w-24 object-cover rounded-xl mb-2" />
+    <div 
+      onClick={onEditClick}
+      className="mt-1 border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:border-primary-400 transition-colors"
+    >
+      {uploading ? (
+        <LoadingSpinner />
       ) : (
-        <Upload className="mx-auto h-12 w-12 text-gray-400" />
+        <>
+          <Upload className="mx-auto h-12 w-12 text-gray-400 mb-2" />
+          <p className="text-sm text-gray-600 mb-1">Tierfoto bearbeiten</p>
+          <p className="text-xs text-gray-500">Klicken zum Öffnen des Editors</p>
+        </>
       )}
-      <p className="text-sm text-gray-600 mb-1">{isDragActive ? 'Bild hier ablegen ...' : 'Bild hierher ziehen oder klicken, um hochzuladen'}</p>
-      <p className="text-xs text-gray-500">PNG, JPG, GIF bis 10MB</p>
     </div>
   );
 }
@@ -143,13 +162,13 @@ function OwnerDashboardPage() {
   const [favoritesLoading, setFavoritesLoading] = useState(true);
   const [favoritesError, setFavoritesError] = useState<string | null>(null);
   const [shareSettings, setShareSettings] = useState<ShareSettings>({
-    phoneNumber: true,
+    phoneNumber: false,
     email: false,
-    address: true,
-    vetInfo: true,
+    address: false,
+    vetInfo: false,
     emergencyContact: false,
-    petDetails: true,
-    carePreferences: true
+    petDetails: false,
+    carePreferences: false
   });
   const [shareSettingsLoading, setShareSettingsLoading] = useState(false);
   const [shareSettingsError, setShareSettingsError] = useState<string | null>(null);
@@ -165,6 +184,13 @@ function OwnerDashboardPage() {
   const [editOtherWishError, setEditOtherWishError] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [showImageCropper, setShowImageCropper] = useState(false);
+  
+  // Pet Image Cropper States
+  const [showPetImageCropper, setShowPetImageCropper] = useState(false);
+  const [petCropperMode, setPetCropperMode] = useState<'new' | 'edit'>('new');
+  const [petImageUploading, setPetImageUploading] = useState(false);
+  const [petImageError, setPetImageError] = useState<string | null>(null);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -484,7 +510,7 @@ function OwnerDashboardPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Nicht angemeldet</h2>
-          <p className="text-gray-600">Bitte melden Sie sich an, um Ihr Dashboard zu sehen.</p>
+          <p className="text-gray-600">Bitte melde dich an, um dein Dashboard zu sehen.</p>
         </div>
       </div>
     );
@@ -499,7 +525,7 @@ function OwnerDashboardPage() {
         <div className="text-center">
           <LoadingSpinner />
           <h2 className="text-xl font-semibold text-gray-900 mb-2 mt-4">Profil wird geladen ...</h2>
-          <p className="text-gray-600">Bitte warten Sie einen Moment. Ihr Profil wird geladen.</p>
+          <p className="text-gray-600">Bitte warte einen Moment. Dein Profil wird geladen.</p>
         </div>
       </div>
     );
@@ -735,14 +761,50 @@ function OwnerDashboardPage() {
     }
   };
 
-  // Haustier-Foto-Upload für neues Tier
-  const handlePetPhotoUpload = (file: File) => {
-    setNewPet(p => ({ ...p, image: file }));
+  // Öffne Pet Image Cropper für neues Tier
+  const handleNewPetPhotoClick = () => {
+    setPetCropperMode('new');
+    setShowPetImageCropper(true);
   };
 
-  // Haustier-Foto-Upload für Edit
-  const handleEditPetPhotoUpload = (file: File) => {
-    setEditPetData(p => ({ ...p, image: file }));
+  // Öffne Pet Image Cropper für Edit
+  const handleEditPetPhotoClick = () => {
+    setPetCropperMode('edit');
+    setShowPetImageCropper(true);
+  };
+
+  // Hilfsfunktion um Pet Image URL zu bekommen
+  const getPetImageUrl = (image: string | File | undefined): string | undefined => {
+    if (!image) return undefined;
+    if (typeof image === 'string') return image;
+    if (image instanceof File) return URL.createObjectURL(image);
+    return undefined;
+  };
+
+  // Pet Image Cropper Save Handler
+  const handlePetCroppedImageSave = async (croppedImageUrl: string) => {
+    setPetImageUploading(true);
+    setPetImageError(null);
+    try {
+      // Konvertiere Data URL zu Blob
+      const response = await fetch(croppedImageUrl);
+      const blob = await response.blob();
+      const file = new File([blob], `pet-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      
+      // Je nach Modus das entsprechende Pet-Objekt aktualisieren
+      if (petCropperMode === 'new') {
+        setNewPet(p => ({ ...p, image: file }));
+      } else {
+        setEditPetData(p => ({ ...p, image: file }));
+      }
+      
+      setShowPetImageCropper(false); // Modal schließen
+    } catch (e: any) {
+      setPetImageError('Fehler beim Bearbeiten des Tierfotos!');
+      throw e;
+    } finally {
+      setPetImageUploading(false);
+    }
   };
 
   const handleEditPet = (pet: any) => {
@@ -774,7 +836,7 @@ function OwnerDashboardPage() {
         const { error } = await ownerCaretakerService.removeCaretaker(user.id, caretakerToDelete.id);
         if (error) {
           console.error('Fehler beim Entfernen des Betreuers:', error);
-          alert('Fehler beim Entfernen des Betreuers. Bitte versuchen Sie es erneut.');
+          alert('Fehler beim Entfernen des Betreuers. Bitte versuche es erneut.');
           return;
         }
         
@@ -787,10 +849,10 @@ function OwnerDashboardPage() {
         setDeleteCaretakerConfirmationText('');
         
         // Erfolgsbenachrichtigung
-        alert(`${caretakerToDelete.name} wurde erfolgreich entfernt und hat keinen Zugriff mehr auf Ihr Profil.`);
+        alert(`${caretakerToDelete.name} wurde erfolgreich entfernt und hat keinen Zugriff mehr auf dein Profil.`);
       } catch (error) {
         console.error('Fehler beim Entfernen des Betreuers:', error);
-        alert('Fehler beim Entfernen des Betreuers. Bitte versuchen Sie es erneut.');
+        alert('Fehler beim Entfernen des Betreuers. Bitte versuche es erneut.');
       }
     }
   };
@@ -815,7 +877,7 @@ function OwnerDashboardPage() {
       
       if (error) {
         console.error('Fehler beim Entfernen des Favoriten:', error);
-        alert('Fehler beim Entfernen des Favoriten. Bitte versuchen Sie es erneut.');
+        alert('Fehler beim Entfernen des Favoriten. Bitte versuche es erneut.');
         return;
       }
       
@@ -824,7 +886,7 @@ function OwnerDashboardPage() {
       
     } catch (error) {
       console.error('Unerwarteter Fehler beim Entfernen des Favoriten:', error);
-      alert('Fehler beim Entfernen des Favoriten. Bitte versuchen Sie es erneut.');
+      alert('Fehler beim Entfernen des Favoriten. Bitte versuche es erneut.');
     } finally {
       setRemovingFavoriteId(null);
     }
@@ -919,7 +981,7 @@ function OwnerDashboardPage() {
     if (value.trim() === '') {
       setEmailError('E-Mail-Adresse ist ein Pflichtfeld');
     } else if (!validateEmail(value)) {
-      setEmailError('Bitte geben Sie eine gültige E-Mail-Adresse ein');
+      setEmailError('Bitte gib eine gültige E-Mail-Adresse ein');
     } else {
       setEmailError(null);
     }
@@ -1180,17 +1242,25 @@ function OwnerDashboardPage() {
     return urlData.publicUrl;
   }
 
-  const handleProfilePhotoUpload = async (file: File) => {
+  // Funktion für ProfileImageCropper
+  const handleCroppedImageSave = async (croppedImageUrl: string) => {
     if (!user) return;
     setAvatarUploading(true);
     setAvatarError(null);
     try {
+      // Konvertiere Data URL zu Blob
+      const response = await fetch(croppedImageUrl);
+      const blob = await response.blob();
+      const file = new File([blob], `profile-${user.id}-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      
       const url = await uploadProfilePhoto(file);
       const { data, error } = await userService.updateUserProfile(user.id, { profilePhotoUrl: url });
       if (error) throw error;
       if (data && data[0]) updateProfileState(data[0]);
+      setShowImageCropper(false); // Modal schließen nach erfolgreichem Upload
     } catch (e: any) {
       setAvatarError('Fehler beim Hochladen des Profilbilds!');
+      throw e; // Damit ProfileImageCropper den Fehler mitbekommt
     } finally {
       setAvatarUploading(false);
     }
@@ -1202,7 +1272,7 @@ function OwnerDashboardPage() {
       const { error } = await userService.deleteUser(user.id);
       if (error) {
         console.error('Fehler beim Löschen des Kontos:', error);
-        alert('Fehler beim Löschen des Kontos. Bitte versuchen Sie es erneut.');
+        alert('Fehler beim Löschen des Kontos. Bitte versuche es erneut.');
         setIsDeleting(false);
         return;
       }
@@ -1212,12 +1282,12 @@ function OwnerDashboardPage() {
       navigate('/', { 
         replace: true,
         state: { 
-          message: 'Ihr Konto wurde erfolgreich gelöscht. Alle Ihre Daten wurden aus der Datenbank entfernt.' 
+          message: 'Dein Konto wurde erfolgreich gelöscht. Alle deine Daten wurden aus der Datenbank entfernt.' 
         }
       });
     } catch (error) {
       console.error('Fehler beim Löschen des Kontos:', error);
-      alert('Fehler beim Löschen des Kontos. Bitte versuchen Sie es erneut.');
+      alert('Fehler beim Löschen des Kontos. Bitte versuche es erneut.');
       setIsDeleting(false);
     }
   };
@@ -1369,27 +1439,32 @@ function OwnerDashboardPage() {
         {/* Profil-Header */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
           <div className="flex flex-col lg:flex-row items-start gap-6">
-            <div className="relative w-32 h-32 mx-auto lg:mx-0">
+            <div className="relative w-32 h-32 mx-auto lg:mx-0 group">
               <img
                 src={avatarUrl}
                 alt={fullName}
                 className="w-32 h-32 rounded-xl object-cover border-4 border-primary-100 shadow"
               />
-              {/* Overlay-Button für Upload */}
-              <label className="absolute bottom-2 right-2 bg-white rounded-full p-2 shadow cursor-pointer hover:bg-primary-50 transition-colors border border-gray-200">
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={e => {
-                    if (e.target.files && e.target.files[0]) handleProfilePhotoUpload(e.target.files[0]);
-                  }}
-                  disabled={avatarUploading}
-                />
-                <Camera className="h-5 w-5 text-primary-600" />
-              </label>
-              {avatarUploading && <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-xl"><LoadingSpinner /></div>}
-              {avatarError && <div className="absolute left-0 right-0 -bottom-8 text-xs text-red-500 text-center">{avatarError}</div>}
+              
+              {/* Overlay für Edit-Button */}
+              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 rounded-xl flex items-center justify-center cursor-pointer"
+                   onClick={() => setShowImageCropper(true)}>
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white rounded-full p-2 shadow-lg">
+                  <Edit className="h-5 w-5 text-primary-600" />
+                </div>
+              </div>
+              
+              {avatarUploading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-xl">
+                  <LoadingSpinner />
+                </div>
+              )}
+              
+              {avatarError && (
+                <div className="absolute left-0 right-0 -bottom-8 text-xs text-red-500 text-center">
+                  {avatarError}
+                </div>
+              )}
             </div>
             
             <div className="flex-1 w-full">
@@ -1599,7 +1674,7 @@ function OwnerDashboardPage() {
                   <div className="text-gray-500">
                     Noch keine Betreuer gespeichert. 
                     <br />
-                    <span className="text-sm">Verwenden Sie den "Als Betreuer speichern" Button in einem Chat, um Betreuer hier anzuzeigen.</span>
+                    <span className="text-sm">Verwende den "Als Betreuer speichern" Button in einem Chat, um Betreuer hier anzuzeigen.</span>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -1684,7 +1759,7 @@ function OwnerDashboardPage() {
                   <div className="text-gray-500">
                     Noch keine Favoriten markiert.
                     <br />
-                    <span className="text-sm">Verwenden Sie das Herz-Symbol auf Betreuer-Profilen, um Favoriten zu markieren.</span>
+                    <span className="text-sm">Verwende das Herz-Symbol auf Betreuer-Profilen, um Favoriten zu markieren.</span>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -1854,9 +1929,10 @@ function OwnerDashboardPage() {
                         <>
                           <div className="space-y-3">
                             <div>
-                              <PhotoDropzone
+                              <PetPhotoUploader
                                 photoUrl={editPetData.image}
-                                onUpload={handleEditPetPhotoUpload}
+                                onEditClick={handleEditPetPhotoClick}
+                                uploading={petImageUploading}
                               />
                             </div>
                             <input
@@ -2074,9 +2150,10 @@ function OwnerDashboardPage() {
                         </div>
                       </div>
                     )}
-                    <PhotoDropzone
+                    <PetPhotoUploader
                       photoUrl={newPet.image}
-                      onUpload={handlePetPhotoUpload}
+                      onEditClick={handleNewPetPhotoClick}
+                      uploading={petImageUploading}
                     />
                     <div className="flex gap-2 mt-2">
                       <button
@@ -2242,13 +2319,24 @@ function OwnerDashboardPage() {
                       <h3 className="text-lg font-medium mb-3">Gewünschte Services</h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {ALL_SERVICES.map((service) => (
-                          <label key={service} className="flex items-center space-x-3 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={services.includes(service)}
-                              disabled
-                              className="h-4 w-4 text-primary-600 border-gray-300 rounded cursor-not-allowed"
-                            />
+                          <label key={service} className="flex items-center space-x-3">
+                            <div className="relative">
+                              <input
+                                type="checkbox"
+                                checked={services.includes(service)}
+                                disabled
+                                className="sr-only"
+                              />
+                              <div className={`w-4 h-4 border-2 rounded flex items-center justify-center ${
+                                services.includes(service) 
+                                  ? 'bg-green-600 border-green-600' 
+                                  : 'bg-white border-gray-300'
+                              }`}>
+                                {services.includes(service) && (
+                                  <Check className="w-3 h-3 text-white" />
+                                )}
+                              </div>
+                            </div>
                             <span className="text-gray-700">{service}</span>
                           </label>
                         ))}
@@ -2282,7 +2370,7 @@ function OwnerDashboardPage() {
                               type="checkbox"
                               checked={editServices.includes(service)}
                               onChange={() => handleEditServiceToggle(service)}
-                              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                              className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                             />
                             <span className="text-gray-700">{service}</span>
                           </label>
@@ -2385,9 +2473,9 @@ function OwnerDashboardPage() {
                     <div className="text-sm">
                       <p className="font-medium text-blue-800">Datenschutz-Hinweis</p>
                       <p className="text-blue-700 mt-1">
-                        Wählen Sie aus, welche Informationen Sie mit Ihren Betreuern teilen möchten. 
+                        Wähle aus, welche Informationen du mit deinen Betreuern teilen möchtest. 
                         Diese Einstellungen gelten für alle aktuellen und zukünftigen Betreuer-Kontakte.
-                        Ihre Daten werden nur mit den von Ihnen ausgewählten Betreuern geteilt und sind durch unsere Datenschutzrichtlinien geschützt.
+                        Deine Daten werden nur mit den von dir ausgewählten Betreuern geteilt und sind durch unsere Datenschutzrichtlinien geschützt.
                       </p>
                     </div>
                   </div>
@@ -2541,12 +2629,12 @@ function OwnerDashboardPage() {
                     setEmailChangeLoading(true);
                     // Validierung
                     if (!newEmail.trim() || !currentPasswordForEmail.trim()) {
-                      setEmailChangeError('Bitte füllen Sie alle Felder aus.');
+                      setEmailChangeError('Bitte fülle alle Felder aus.');
                       setEmailChangeLoading(false);
                       return;
                     }
                     if (!validateEmail(newEmail)) {
-                      setEmailChangeError('Bitte geben Sie eine gültige E-Mail-Adresse ein.');
+                      setEmailChangeError('Bitte gib eine gültige E-Mail-Adresse ein.');
                       setEmailChangeLoading(false);
                       return;
                     }
@@ -2576,7 +2664,7 @@ function OwnerDashboardPage() {
                         setEmailChangeLoading(false);
                         return;
                       }
-                      setEmailChangeSuccess('E-Mail-Änderung eingeleitet! Bitte bestätigen Sie die Änderung über den Link, der an Ihre alte E-Mail-Adresse gesendet wurde.');
+                      setEmailChangeSuccess('E-Mail-Änderung eingeleitet! Bitte bestätige die Änderung über den Link, der an deine alte E-Mail-Adresse gesendet wurde.');
                       setNewEmail('');
                       setCurrentPasswordForEmail('');
                     } catch (err: any) {
@@ -2594,7 +2682,7 @@ function OwnerDashboardPage() {
                       <div className="text-sm text-yellow-800">
                         <p className="font-medium mb-1">Wichtiger Hinweis</p>
                         <p>
-                          Die Bestätigung der Änderung wird an Ihre <strong>alte E-Mail-Adresse</strong> gesendet 
+                          Die Bestätigung der Änderung wird an deine <strong>alte E-Mail-Adresse</strong> gesendet 
                           und muss dort bestätigt werden, bevor die neue E-Mail-Adresse aktiv wird.
                         </p>
                       </div>
@@ -2647,7 +2735,7 @@ function OwnerDashboardPage() {
                             className="input w-full"
                             value={currentPasswordForEmail}
                             onChange={e => setCurrentPasswordForEmail(e.target.value)}
-                            placeholder="Ihr aktuelles Passwort"
+                            placeholder="Dein aktuelles Passwort"
                             required
                           />
                         </div>
@@ -2850,8 +2938,8 @@ function OwnerDashboardPage() {
                     <div className="text-sm">
                       <p className="font-medium text-red-800">Achtung - Irreversible Aktion</p>
                       <p className="text-red-700 mt-1">
-                        Das Löschen Ihres Kontos ist endgültig und kann nicht rückgängig gemacht werden. 
-                        Alle Ihre Daten, Haustier-Profile und Betreuungsverläufe werden endgültig entfernt.
+                        Das Löschen deines Kontos ist endgültig und kann nicht rückgängig gemacht werden. 
+                        Alle deine Daten, Haustier-Profile und Betreuungsverläufe werden endgültig entfernt.
                       </p>
                     </div>
                   </div>
@@ -2860,7 +2948,7 @@ function OwnerDashboardPage() {
                 <div className="space-y-4">
                   <h4 className="font-medium text-gray-900">Was wird gelöscht:</h4>
                   <ul className="list-disc list-inside space-y-1 text-sm text-gray-700 ml-4">
-                    <li>Ihr Benutzerprofil und alle persönlichen Daten</li>
+                    <li>Dein Benutzerprofil und alle persönlichen Daten</li>
                     <li>Alle Haustier-Profile und deren Fotos</li>
                     <li>Betreuungsvorlieben und Einstellungen</li>
                     <li>Tierarzt- und Notfallkontaktinformationen</li>
@@ -2882,10 +2970,10 @@ function OwnerDashboardPage() {
                     <div className="space-y-4">
                       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                         <p className="text-yellow-800 font-medium mb-2">
-                          Sind Sie sicher, dass Sie Ihr Konto löschen möchten?
+                          Bist du sicher, dass du dein Konto löschen möchtest?
                         </p>
                         <p className="text-yellow-700 text-sm">
-                          Geben Sie zur Bestätigung "KONTO LÖSCHEN" in das Feld unten ein:
+                          Gib zur Bestätigung "KONTO LÖSCHEN" in das Feld unten ein:
                         </p>
                       </div>
                       
@@ -2996,7 +3084,7 @@ function OwnerDashboardPage() {
 
               {/* Premium Features Overview */}
               <div className="bg-white rounded-xl border p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Ihre Premium Features</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Deine Premium Features</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
                     <Check className="w-5 h-5 text-green-600" />
@@ -3063,7 +3151,7 @@ function OwnerDashboardPage() {
             </div>
             
             <p className="text-gray-700 mb-4 leading-relaxed">
-              Möchten Sie <span className="font-medium">{caretakerToDelete.name}</span> wirklich entfernen?
+              Möchtest du <span className="font-medium">{caretakerToDelete.name}</span> wirklich entfernen?
             </p>
             
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
@@ -3072,8 +3160,8 @@ function OwnerDashboardPage() {
                 <div className="text-sm text-yellow-800">
                   <p className="font-medium mb-1">Was passiert beim Entfernen:</p>
                   <ul className="list-disc list-inside space-y-0.5 text-xs">
-                    <li>Die Verbindung zwischen Ihnen wird gelöscht</li>
-                    <li>Sie sehen sich nicht mehr in den jeweiligen Listen</li>
+                    <li>Die Verbindung zwischen euch wird gelöscht</li>
+                    <li>Ihr seht euch nicht mehr in den jeweiligen Listen</li>
                     <li>Geteilte Kontaktdaten werden verborgen</li>
                     <li>Der Chat-Verlauf bleibt bestehen</li>
                   </ul>
@@ -3083,7 +3171,7 @@ function OwnerDashboardPage() {
             
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Geben Sie zur Bestätigung "BETREUER ENTFERNEN" ein:
+                Gib zur Bestätigung "BETREUER ENTFERNEN" ein:
               </label>
               <input
                 type="text"
@@ -3123,6 +3211,62 @@ function OwnerDashboardPage() {
         userType={paymentSuccess.userType}
         sessionData={paymentSuccess.sessionData}
       />
+
+      {/* Profilbild Editor Modal */}
+      {showImageCropper && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">Profilbild bearbeiten</h2>
+                <button
+                  onClick={() => setShowImageCropper(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="h-5 w-5 text-gray-500" />
+                </button>
+              </div>
+              
+              <ProfileImageCropper
+                photoUrl={avatarUrl}
+                onImageSave={handleCroppedImageSave}
+                uploading={avatarUploading}
+                error={avatarError}
+                className="w-full"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pet Image Editor Modal */}
+      {showPetImageCropper && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">
+                  {petCropperMode === 'new' ? 'Tierfoto für neues Tier' : 'Tierfoto bearbeiten'}
+                </h2>
+                <button
+                  onClick={() => setShowPetImageCropper(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="h-5 w-5 text-gray-500" />
+                </button>
+              </div>
+              
+              <ProfileImageCropper
+                photoUrl={petCropperMode === 'new' ? getPetImageUrl(newPet.image) : getPetImageUrl(editPetData.image)}
+                onImageSave={handlePetCroppedImageSave}
+                uploading={petImageUploading}
+                error={petImageError}
+                className="w-full"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

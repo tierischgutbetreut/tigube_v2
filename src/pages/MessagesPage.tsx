@@ -174,10 +174,10 @@ function MessagesPage() {
                   </svg>
                 </div>
                 <h2 className="text-lg font-semibold text-gray-600 mb-2">
-                  Wählen Sie eine Konversation
+                  Wähle eine Konversation
                 </h2>
                 <p className="text-gray-500">
-                  Klicken Sie auf eine Konversation links, um zu chatten
+                  Klicke auf eine Konversation links, um zu chatten
                 </p>
               </div>
             )}

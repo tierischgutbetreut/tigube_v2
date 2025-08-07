@@ -139,14 +139,14 @@ function ConversationList({
                 <>
                   <p className="text-gray-500 font-medium">Keine Ergebnisse gefunden</p>
                   <p className="text-gray-400 text-sm mt-1">
-                    Versuchen Sie einen anderen Suchbegriff
+                    Versuche einen anderen Suchbegriff
                   </p>
                 </>
               ) : (
                 <>
                   <p className="text-gray-500 font-medium">Noch keine Nachrichten</p>
                   <p className="text-gray-400 text-sm mt-1">
-                    Kontaktieren Sie einen Betreuer, um zu chatten
+                    Kontaktiere einen Betreuer, um zu chatten
                   </p>
                 </>
               )}
