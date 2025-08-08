@@ -26,6 +26,8 @@ const MessagesPage = lazy(() => import('./pages/MessagesPage'));
 const OwnerPublicProfilePage = lazy(() => import('./pages/OwnerPublicProfilePage'));
 const PricingPage = lazy(() => import('./pages/PricingPage'));
 const PaymentSuccessPage = lazy(() => import('./pages/PaymentSuccessPage'));
+const BlogListPage = lazy(() => import('./pages/BlogListPage'));
+const BlogPostPage = lazy(() => import('./pages/BlogPostPage'));
 
 // Debug components (only in development)
 
@@ -53,6 +55,8 @@ function App() {
           <Route path="/preise" element={<PricingPage />} />
           <Route path="/mitgliedschaften" element={<PricingPage />} />
           <Route path="/payment/success" element={<PaymentSuccessPage />} />
+          <Route path="/blog" element={<BlogListPage />} />
+          <Route path="/blog/:slug" element={<BlogPostPage />} />
           
           {/* Debug Routes (only in development) */}
           {import.meta.env.DEV && (

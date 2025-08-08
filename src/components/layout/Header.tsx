@@ -80,6 +80,9 @@ function Header() {
                 <NavLink to="/suche" isActive={isActive('/suche')}>
                   Betreuer finden
                 </NavLink>
+                <NavLink to="/blog" isActive={isActive('/blog')}>
+                  Blog
+                </NavLink>
                 {!isPremiumUser && (
                   <NavLink to="/mitgliedschaften" isActive={isActive('/mitgliedschaften') || isActive('/preise')}>
                     Mitgliedschaften
@@ -108,6 +111,9 @@ function Header() {
             </NavLink>
             <NavLink to="/suche" isActive={isActive('/suche')}>
             Betreuer finden
+            </NavLink>
+            <NavLink to="/blog" isActive={isActive('/blog')}>
+            Blog
             </NavLink>
             <NavLink to="/registrieren?type=caregiver" isActive={isActive('/registrieren?type=caregiver')}>
             Betreuer werden
@@ -158,12 +164,15 @@ function Header() {
                     </MobileNavLink>
                   )}
                   {isCaretaker && (
-                    <MobileNavLink to="/dashboard-caretaker" isActive={isActive('/dashboard-caretaker')} onClick={() => setIsMenuOpen(false)}>
+                  <MobileNavLink to="/dashboard-caretaker" isActive={isActive('/dashboard-caretaker')} onClick={() => setIsMenuOpen(false)}>
                       Dashboard
                     </MobileNavLink>
                   )}
                   <MobileNavLink to="/suche" isActive={isActive('/suche')} onClick={() => setIsMenuOpen(false)}>
                     Betreuer finden
+                  </MobileNavLink>
+                  <MobileNavLink to="/blog" isActive={isActive('/blog')} onClick={() => setIsMenuOpen(false)}>
+                    Blog
                   </MobileNavLink>
                   {!isPremiumUser && (
                     <MobileNavLink 
@@ -214,6 +223,13 @@ function Header() {
                 onClick={() => setIsMenuOpen(false)}
               >
                     Preise
+              </MobileNavLink>
+              <MobileNavLink 
+                to="/blog" 
+                isActive={isActive('/blog')} 
+                onClick={() => setIsMenuOpen(false)}
+              >
+                    Blog
               </MobileNavLink>
               <div className="pt-2 flex flex-col space-y-2">
                 <Link

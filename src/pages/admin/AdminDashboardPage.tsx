@@ -3,9 +3,10 @@ import AdminLayout from '../../components/admin/AdminLayout';
 import AdvancedUserManagementPanel from '../../components/admin/AdvancedUserManagementPanel';
 import ContentModerationPanel from '../../components/admin/ContentModerationPanel';
 import AnalyticsPanel from '../../components/admin/AnalyticsPanel';
+import BlogCmsPanel from '../../components/admin/BlogCmsPanel';
 import SubscriptionSyncPanel from '../../components/admin/SubscriptionSyncPanel';
 import { EnhancedAdminService, AdminDashboardStats } from '../../lib/admin/enhancedAdminService';
-import { Users, DollarSign, MessageCircle, CreditCard, TrendingUp, Calendar, Database, PieChart, Shield, AlertTriangle } from 'lucide-react';
+import { Users, DollarSign, MessageCircle, CreditCard, TrendingUp, Calendar, Database, PieChart, Shield, AlertTriangle, FileText } from 'lucide-react';
 import StripeStatusIndicator from '../../components/ui/StripeStatusIndicator';
 import { supabase } from '../../lib/supabase/client';
 import { useAuth } from '../../lib/auth/AuthContext';
@@ -15,7 +16,7 @@ const AdminDashboardPage: React.FC = () => {
   const [stats, setStats] = useState<AdminDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'moderation' | 'analytics' | 'subscriptions'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'moderation' | 'analytics' | 'subscriptions' | 'content'>('dashboard');
   const [currentAdminId, setCurrentAdminId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -191,6 +192,19 @@ const AdminDashboardPage: React.FC = () => {
                 Subscription Sync
               </div>
             </button>
+            <button
+              onClick={() => setActiveTab('content')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'content'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Blog & News
+              </div>
+            </button>
           </nav>
         </div>
 
@@ -354,6 +368,9 @@ const AdminDashboardPage: React.FC = () => {
 
         {activeTab === 'subscriptions' && (
           <SubscriptionSyncPanel />
+        )}
+        {activeTab === 'content' && currentAdminId && (
+          <BlogCmsPanel currentAdminId={currentAdminId} />
         )}
 
         {/* System Status */}

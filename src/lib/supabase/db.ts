@@ -623,7 +623,7 @@ export const caretakerProfileService = {
       .from('caretaker_profiles')
       .select('*')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
     return { data, error };
   },
 };
@@ -645,13 +645,49 @@ export const caretakerSearchService = {
     console.log('🔍 Searching caretakers with filters:', filters);
 
     try {
-      console.log('🔄 Fetching caretakers from view...');
-      const { data: caretakers, error } = await supabase
-        .from('caretaker_search_view')
-        .select('*');
+      console.log('🔄 Fetching caretakers via profiles + users join...');
+      let query = supabase
+        .from('caretaker_profiles')
+        .select(`
+          id,
+          services,
+          prices,
+          hourly_rate,
+          rating,
+          review_count,
+          is_verified,
+          short_about_me,
+          long_about_me,
+          is_commercial,
+          users!inner(
+            id,
+            first_name,
+            last_name,
+            city,
+            plz,
+            profile_photo_url,
+            user_type
+          )
+        `)
+        .eq('users.user_type', 'caretaker');
+
+      if (filters.location) {
+        const locationLower = filters.location.toLowerCase();
+        query = query.or(`users.city.ilike.%${locationLower}%,users.plz.ilike.%${locationLower}%`);
+      }
+
+      // Preisgrenzen auf DB-Seite anwenden, soweit möglich
+      if (filters.minPrice !== undefined) {
+        query = query.gte('hourly_rate', filters.minPrice);
+      }
+      if (filters.maxPrice !== undefined) {
+        query = query.lte('hourly_rate', filters.maxPrice);
+      }
+
+      const { data: caretakers, error } = await query;
       
       if (error) {
-        console.error('❌ View error:', error);
+        console.error('❌ Query error:', error);
         return { data: [], error };
       }
       
@@ -663,34 +699,45 @@ export const caretakerSearchService = {
       }
 
       console.log('🔄 Transforming caretaker data...');
-      const transformedResults = caretakers.map((caretaker: any) => ({
-        id: caretaker.id,
-        name: caretaker.full_name || `${caretaker.first_name || ''} ${caretaker.last_name || ''}`.trim() || 'Unbekannt',
-        avatar: caretaker.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(caretaker.first_name || 'U')}&background=f3f4f6&color=374151`,
-        location: caretaker.city && caretaker.plz ? `${caretaker.city} ${caretaker.plz}` : (caretaker.city || 'Unbekannt'),
-        rating: Number(caretaker.rating) || 0,
-        reviewCount: caretaker.review_count || 0,
-        hourlyRate: Number(caretaker.hourly_rate) || 0,
-        services: Array.isArray(caretaker.services) ? caretaker.services : [],
-        bio: caretaker.short_about_me || 'Keine Beschreibung verfügbar.',
-        responseTime: 'unter 1 Stunde',
-        verified: caretaker.is_verified || false,
-        isCommercial: caretaker.is_commercial || false,
-      }));
+      const transformedResults = caretakers.map((row: any) => {
+        const firstName = row.users?.first_name || '';
+        const lastName = row.users?.last_name || '';
+        const name = firstName && lastName ? `${firstName} ${lastName[0]}.` : (firstName || 'Unbekannt');
+        const location = row.users?.city && row.users?.plz
+          ? `${row.users.city} ${row.users.plz}`
+          : (row.users?.city || 'Unbekannt');
+
+        const services = Array.isArray(row.services) ? row.services : [];
+
+        // Bestpreis aus prices ermitteln, fallback hourly_rate
+        const prices = (row.prices && typeof row.prices === 'object') ? row.prices : {};
+        const numericPrices = Object.values(prices || {})
+          .filter((p: any) => p !== '' && p !== null && p !== undefined)
+          .map((p: any) => typeof p === 'string' ? parseFloat(p) : p)
+          .filter((p: any) => typeof p === 'number' && !isNaN(p) && p > 0);
+        const bestPrice = numericPrices.length > 0 ? Math.min(...numericPrices as number[]) : Number(row.hourly_rate) || 0;
+
+        return {
+          id: row.id,
+          name,
+          avatar: row.users?.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(firstName || 'U')}&background=f3f4f6&color=374151`,
+          location,
+          rating: Number(row.rating) || 0,
+          reviewCount: row.review_count || 0,
+          hourlyRate: bestPrice,
+          services,
+          bio: row.short_about_me || 'Keine Beschreibung verfügbar.',
+          responseTime: 'unter 1 Stunde',
+          verified: row.is_verified || false,
+          isCommercial: row.is_commercial || false,
+        };
+      });
 
       console.log('🎯 Transformed results:', transformedResults);
 
       // Wende Filter an
       let filteredResults = transformedResults;
       
-      if (filters.location) {
-        const locationLower = filters.location.toLowerCase();
-        filteredResults = filteredResults.filter((caretaker: any) => 
-          caretaker.location.toLowerCase().includes(locationLower)
-        );
-        console.log('📍 After location filter:', filteredResults);
-      }
-
       if (filters.services && filters.services.length > 0) {
         filteredResults = filteredResults.filter((caretaker: any) => 
           filters.services!.some(service => caretaker.services.includes(service))
@@ -722,35 +769,48 @@ export const caretakerSearchService = {
     console.log('🔍 Getting caretaker by ID:', id);
     
     try {
-      // Hole sowohl die View-Daten als auch das Verfügbarkeits-Feld und home_photos
-      const [viewResult, profileResult] = await Promise.all([
-        supabase
-          .from('caretaker_search_view')
-          .select('*')
-          .eq('id', id)
-          .single(),
-        supabase
-          .from('caretaker_profiles')
-          .select('availability, home_photos, languages')
-          .eq('id', id)
-          .single()
-      ]);
-      
-      const { data: result, error: viewError } = viewResult;
-      const { data: profileData, error: profileError } = profileResult;
-      
-      console.log('📊 Single caretaker result:', result);
-      console.log('📊 Profile availability:', profileData);
-      console.log('❌ View Error:', viewError);
-      console.log('❌ Profile Error:', profileError);
-      
-      if (viewError) {
-        return { data: null, error: viewError };
+      // Hole die Daten direkt aus caretaker_profiles + Join users und zusätzlich availability/home_photos
+      const { data: profileRow, error: profileJoinError } = await supabase
+        .from('caretaker_profiles')
+        .select(`
+          id,
+          services,
+          prices,
+          hourly_rate,
+          rating,
+          review_count,
+          is_verified,
+          short_about_me,
+          long_about_me,
+          qualifications,
+          experience_years,
+          languages,
+          availability,
+          home_photos,
+          is_commercial,
+          users!inner(
+            id,
+            first_name,
+            last_name,
+            city,
+            plz,
+            profile_photo_url,
+            user_type
+          )
+        `)
+        .eq('id', id)
+        .eq('users.user_type', 'caretaker')
+        .single();
+
+      if (profileJoinError) {
+        return { data: null, error: profileJoinError };
       }
 
-      if (!result) {
+      if (!profileRow) {
         return { data: null, error: new Error('Caretaker not found') };
       }
+
+      const result = profileRow as any;
 
       // Preise verarbeiten - kann JSON object sein
       let prices: Record<string, number | string> = {};
@@ -780,11 +840,15 @@ export const caretakerSearchService = {
       
       const bestPrice = getBestPrice(prices) || Number(result.hourly_rate) || 0;
 
+      const firstName = result.users?.first_name || '';
+      const lastName = result.users?.last_name || '';
+      const name = firstName && lastName ? `${firstName} ${lastName[0]}.` : (firstName || 'Unbekannt');
+
       const transformedData = {
         id: result.id,
-        name: result.full_name || `${result.first_name || ''} ${result.last_name || ''}`.trim() || 'Unbekannt',
-        avatar: result.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(result.first_name || 'U')}&background=f3f4f6&color=374151`,
-        location: result.city && result.plz ? `${result.city} ${result.plz}` : (result.city || 'Unbekannt'),
+        name,
+        avatar: result.users?.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(firstName || 'U')}&background=f3f4f6&color=374151`,
+        location: result.users?.city && result.users?.plz ? `${result.users.city} ${result.users.plz}` : (result.users?.city || 'Unbekannt'),
         rating: Number(result.rating) || 0,
         reviewCount: result.review_count || 0,
         hourlyRate: bestPrice,
@@ -797,11 +861,11 @@ export const caretakerSearchService = {
         experienceYears: result.experience_years || 0,
         fullBio: result.long_about_me || result.short_about_me || 'Keine ausführliche Beschreibung verfügbar.',
         qualifications: Array.isArray(result.qualifications) ? result.qualifications : [],
-        languages: Array.isArray(profileData?.languages) ? profileData.languages : (Array.isArray(result.languages) ? result.languages : []),
-        availability: profileData?.availability || {},
-        home_photos: Array.isArray(profileData?.home_photos) ? profileData.home_photos : [],
-        phone: null, // Nicht in der View verfügbar
-        email: null, // Nicht in der View verfügbar
+        languages: Array.isArray(result.languages) ? result.languages : [],
+        availability: result.availability || {},
+        home_photos: Array.isArray(result.home_photos) ? result.home_photos : [],
+        phone: null,
+        email: null,
       };
 
       console.log('✅ Transformed single caretaker:', transformedData);
@@ -1010,25 +1074,47 @@ export const ownerCaretakerService = {
         return { data: [], error: null }
       }
       
-      // Dann die Caretaker-Daten aus der Search View laden
+      // Dann die Caretaker-Daten aus caretaker_profiles + users laden
       const caretakerIds = connections.map(c => c.caretaker_id)
       const { data: caretakers, error: careteakersError } = await supabase
-        .from('caretaker_search_view')
-        .select('*')
+        .from('caretaker_profiles')
+        .select(`
+          id,
+          services,
+          prices,
+          hourly_rate,
+          rating,
+          review_count,
+          is_verified,
+          short_about_me,
+          is_commercial,
+          users!inner(
+            id,
+            first_name,
+            last_name,
+            city,
+            plz,
+            profile_photo_url,
+            user_type
+          )
+        `)
         .in('id', caretakerIds)
+        .eq('users.user_type', 'caretaker')
       
       if (careteakersError) throw careteakersError
       
       // Transform data to match the expected format
       const transformedData = connections.map(connection => {
-        const caretaker = caretakers?.find(c => c.id === connection.caretaker_id)
+        const caretaker: any = caretakers?.find((c: any) => c.id === connection.caretaker_id)
         if (!caretaker) return null
         
         return {
           id: caretaker.id,
-          name: caretaker.full_name || `${caretaker.first_name || ''} ${caretaker.last_name || ''}`.trim() || 'Unbekannt',
-          avatar: caretaker.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(caretaker.first_name || 'U')}&background=f3f4f6&color=374151`,
-          location: caretaker.city && caretaker.plz ? `${caretaker.city} ${caretaker.plz}` : (caretaker.city || 'Ort nicht angegeben'),
+          name: (caretaker.users?.first_name && caretaker.users?.last_name)
+            ? `${caretaker.users.first_name} ${caretaker.users.last_name[0]}.`
+            : (caretaker.users?.first_name || 'Unbekannt'),
+          avatar: caretaker.users?.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(caretaker.users?.first_name || 'U')}&background=f3f4f6&color=374151`,
+          location: caretaker.users?.city && caretaker.users?.plz ? `${caretaker.users.city} ${caretaker.users.plz}` : (caretaker.users?.city || 'Ort nicht angegeben'),
           services: Array.isArray(caretaker.services) ? caretaker.services : [],
           rating: Number(caretaker.rating) || 0,
           reviews_count: caretaker.review_count || 0,
@@ -1067,25 +1153,47 @@ export const ownerCaretakerService = {
         return { data: [], error: null }
       }
       
-      // Dann die Caretaker-Daten aus der Search View laden
+      // Dann die Caretaker-Daten aus caretaker_profiles + users laden
       const caretakerIds = connections.map(c => c.caretaker_id)
       const { data: caretakers, error: careteakersError } = await supabase
-        .from('caretaker_search_view')
-        .select('*')
+        .from('caretaker_profiles')
+        .select(`
+          id,
+          services,
+          prices,
+          hourly_rate,
+          rating,
+          review_count,
+          is_verified,
+          short_about_me,
+          is_commercial,
+          users!inner(
+            id,
+            first_name,
+            last_name,
+            city,
+            plz,
+            profile_photo_url,
+            user_type
+          )
+        `)
         .in('id', caretakerIds)
+        .eq('users.user_type', 'caretaker')
       
       if (careteakersError) throw careteakersError
       
       // Transform data to match the expected format
       const transformedData = connections.map(connection => {
-        const caretaker = caretakers?.find(c => c.id === connection.caretaker_id)
+        const caretaker: any = caretakers?.find((c: any) => c.id === connection.caretaker_id)
         if (!caretaker) return null
         
         return {
           id: caretaker.id,
-          name: caretaker.full_name || `${caretaker.first_name || ''} ${caretaker.last_name || ''}`.trim() || 'Unbekannt',
-          avatar: caretaker.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(caretaker.first_name || 'U')}&background=f3f4f6&color=374151`,
-          location: caretaker.city && caretaker.plz ? `${caretaker.city} ${caretaker.plz}` : (caretaker.city || 'Ort nicht angegeben'),
+          name: (caretaker.users?.first_name && caretaker.users?.last_name)
+            ? `${caretaker.users.first_name} ${caretaker.users.last_name[0]}.`
+            : (caretaker.users?.first_name || 'Unbekannt'),
+          avatar: caretaker.users?.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(caretaker.users?.first_name || 'U')}&background=f3f4f6&color=374151`,
+          location: caretaker.users?.city && caretaker.users?.plz ? `${caretaker.users.city} ${caretaker.users.plz}` : (caretaker.users?.city || 'Ort nicht angegeben'),
           services: Array.isArray(caretaker.services) ? caretaker.services : [],
           rating: Number(caretaker.rating) || 0,
           reviews_count: caretaker.review_count || 0,
