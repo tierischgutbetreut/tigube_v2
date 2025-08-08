@@ -1327,4 +1327,5 @@ export const Constants = {
   },
 } as const
 
-export type CaretakerSearchResult = Tables<'caretaker_search_view'>
+// Deprecated: caretaker_search_view wurde entfernt. Dieser Typ bleibt als Alias für kompatible Transformationsfunktionen.
+export type CaretakerSearchResult = never

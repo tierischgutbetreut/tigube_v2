@@ -8,8 +8,8 @@ import CommercialInfoInput from '../components/ui/CommercialInfoInput';
 import type { ClientData } from '../components/ui/ClientDetailsAccordion';
 import { useAuth } from '../lib/auth/AuthContext';
 import { useEffect, useState, useRef } from 'react';
-import { caretakerProfileService, ownerCaretakerService } from '../lib/supabase/db';
-import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info, Lock, Briefcase, Verified, Eye, EyeOff, KeyRound, Trash2, AlertTriangle, Mail } from 'lucide-react';
+import { caretakerProfileService, ownerCaretakerService, userService } from '../lib/supabase/db';
+import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info, Lock, Briefcase, Verified, Eye, EyeOff, KeyRound, Trash2, AlertTriangle, Mail, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
 import { useFeatureAccess } from '../hooks/useFeatureAccess';
@@ -18,41 +18,27 @@ import { usePaymentSuccess } from '../hooks/usePaymentSuccess';
 import { PremiumBadge } from '../components/ui/PremiumBadge';
 import { useSubscription } from '../lib/auth/useSubscription';
 import RegistrationSuccessModal from '../components/ui/RegistrationSuccessModal';
+import ProfileImageCropper from '../components/ui/ProfileImageCropper';
 
 function CaretakerDashboardPage() {
-  const { user, userProfile, loading: authLoading, subscription } = useAuth();
+  const { user, userProfile, loading: authLoading, subscription, updateProfileState } = useAuth();
   const { isPremiumUser } = useSubscription();
   const { maxEnvironmentImages } = useFeatureAccess();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [profileLoadAttempts, setProfileLoadAttempts] = useState(0);
+  // Onboarding-Modal State
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingUserName, setOnboardingUserName] = useState<string>('');
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [showImageCropper, setShowImageCropper] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Payment Success Modal
   const { paymentSuccess, isValidating: paymentValidating, closeModal } = usePaymentSuccess();
-  
-  // Onboarding Modal für neue Nutzer
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  
-  // Check für neu registrierte Nutzer
-  useEffect(() => {
-    const checkForNewUser = () => {
-      // Prüfe localStorage für frische Registrierung
-      const justRegistered = localStorage.getItem('justRegistered');
-      if (justRegistered === 'true' && user && userProfile) {
-        setShowOnboarding(true);
-        // Clean up flag
-        localStorage.removeItem('justRegistered');
-      }
-    };
-
-    if (user && userProfile && !authLoading) {
-      checkForNewUser();
-    }
-  }, [user, userProfile, authLoading]);
-  
   const [editData, setEditData] = useState(false);
   const [caretakerData, setCaretakerData] = useState({
     phoneNumber: userProfile?.phone_number || '',
@@ -62,6 +48,25 @@ function CaretakerDashboardPage() {
     city: userProfile?.city || ''
   });
   const [emailError, setEmailError] = useState<string | null>(null);
+
+  // Onboarding nach Dashboard-Load starten (nur einmal, via sessionStorage)
+  useEffect(() => {
+    if (!authLoading && user) {
+      try {
+        const raw = sessionStorage.getItem('onboardingData');
+        if (raw) {
+          const parsed = JSON.parse(raw) as { userType?: 'owner' | 'caretaker'; userName?: string };
+          if (parsed.userType === 'caretaker') {
+            setOnboardingUserName(parsed.userName || userProfile?.first_name || '');
+            setShowOnboarding(true);
+          }
+          sessionStorage.removeItem('onboardingData');
+        }
+      } catch (e) {
+        console.warn('⚠️ Konnte onboardingData nicht lesen:', e);
+      }
+    }
+  }, [authLoading, user, userProfile]);
 
   // --- Verfügbarkeits-State ---
   type TimeSlot = { start: string; end: string };
@@ -459,51 +464,77 @@ function CaretakerDashboardPage() {
         const { data, error } = await caretakerProfileService.getProfile(user.id);
         if (error) {
           console.error('Caretaker profile loading error:', error);
-          // Für 406 Fehler oder PGRST116 (not found) erstelle ein leeres Profil
-          if (error.message?.includes('PGRST116') || error.code === 'PGRST116') {
-            console.log('No caretaker profile found, creating empty profile for user:', user.id);
-            setProfile(null); // Zeige Setup-Guide an
-          } else {
-            setError('Fehler beim Laden des Profils!');
-          }
-          setLoading(false);
-          return;
         }
 
-        setProfile(data);
+        // Wenn kein Profil existiert, lege ein Default-Profil an, damit das Dashboard rendern kann
+        let ensuredProfile = data as any;
+        if (!ensuredProfile) {
+          console.log('No caretaker profile found, creating default profile for user:', user.id);
+          // Default-Verfügbarkeit in DB-Format erzeugen
+          const dbDefaultAvailability: Record<string, string[]> = {};
+          for (const [day, slots] of Object.entries(defaultAvailability)) {
+            dbDefaultAvailability[day] = slots.map(slot => `${slot.start}-${slot.end}`);
+          }
+          const { data: created, error: createError } = await caretakerProfileService.saveProfile(user.id, {
+            services: [],
+            animalTypes: [],
+            prices: {},
+            serviceRadius: 0,
+            availability: dbDefaultAvailability,
+            homePhotos: [],
+            qualifications: [],
+            experienceDescription: '',
+            shortAboutMe: '',
+            longAboutMe: '',
+            languages: [],
+            isCommercial: false,
+            companyName: '',
+            taxNumber: '',
+            vatId: '',
+          });
+          if (createError) {
+            console.error('Failed to create default caretaker profile:', createError);
+            setProfile(null);
+            setLoading(false);
+            return;
+          }
+          ensuredProfile = Array.isArray(created) ? created[0] : created;
+        }
+
+        setProfile(ensuredProfile);
         
         // Texte-States und Verfügbarkeit aktualisieren wenn Profil geladen wird
-        if (data) {
-          setShortDescription((data as any).short_about_me || '');
-          setShortDescDraft((data as any).short_about_me || '');
-          setAboutMe((data as any).long_about_me || '');
-          setAboutMeDraft((data as any).long_about_me || '');
+        if (ensuredProfile) {
+          setShortDescription((ensuredProfile as any).short_about_me || '');
+          setShortDescDraft((ensuredProfile as any).short_about_me || '');
+          setAboutMe((ensuredProfile as any).long_about_me || '');
+          setAboutMeDraft((ensuredProfile as any).long_about_me || '');
           
           // Aktualisiere skillsDraft mit geladenen Daten
-          const loadedPrices = (data as any).prices || {};
+          const loadedPrices = (ensuredProfile as any).prices || {};
           // Stelle sicher, dass Standard-Preisfelder immer vorhanden sind
           const mergedPrices = { ...defaultPriceFields, ...loadedPrices };
           
           setSkillsDraft({
-            services: (data as any).services || [],
-            animal_types: (data as any).animal_types || [],
-            qualifications: (data as any).qualifications || [],
-            experience_description: (data as any).experience_description || '',
+            services: (ensuredProfile as any).services || [],
+            animal_types: (ensuredProfile as any).animal_types || [],
+            qualifications: (ensuredProfile as any).qualifications || [],
+            experience_description: (ensuredProfile as any).experience_description || '',
             prices: mergedPrices,
-            languages: (data as any).languages || [],
-            isCommercial: (data as any).is_commercial || false,
-            companyName: (data as any).company_name || '',
-            taxNumber: (data as any).tax_number || '',
-            vatId: (data as any).vat_id || '',
+            languages: (ensuredProfile as any).languages || [],
+            isCommercial: (ensuredProfile as any).is_commercial || false,
+            companyName: (ensuredProfile as any).company_name || '',
+            taxNumber: (ensuredProfile as any).tax_number || '',
+            vatId: (ensuredProfile as any).vat_id || '',
           });
           
           // Aktualisiere Fotos-State - filtere ungültige URLs
-          const validPhotos = ((data as any).home_photos || [])
+          const validPhotos = ((ensuredProfile as any).home_photos || [])
             .filter((url: string) => url && typeof url === 'string' && !url.includes('undefined') && !url.includes('null'));
           setPhotos(validPhotos);
           
           // Verfügbarkeit aus der Datenbank laden und validieren
-          const dbAvailability = (data as any).availability;
+          const dbAvailability = (ensuredProfile as any).availability;
         if (dbAvailability && typeof dbAvailability === 'object') {
           // Konvertiere String-Array-Daten zu TimeSlot-Objekten
           const validatedAvailability: AvailabilityState = {};
@@ -617,17 +648,35 @@ function CaretakerDashboardPage() {
     ensureProfileLoaded();
   }, [user, userProfile, authLoading, profileLoadAttempts]);
 
-  // Dummy-Upload-Handler (hier bitte später echten Upload zu Supabase Storage einbauen)
-  const handleProfilePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    // TODO: Upload zu Supabase Storage und Update der Profilbild-URL im User-Profil
-    // Simuliere Upload
-    setTimeout(() => {
-      setUploading(false);
-      // Nach Upload: Profilbild neu laden (hier ggf. fetchProfile() oder setProfile aktualisieren)
-    }, 1500);
+  // Profilbild-Upload (wie im Owner Dashboard)
+  async function uploadProfilePhoto(file: File): Promise<string> {
+    const fileExt = file.name.split('.').pop();
+    const filePath = `profile-${user!.id}-${Date.now()}.${fileExt}`;
+    const { error } = await supabase.storage.from('profile-photos').upload(filePath, file, { upsert: true });
+    if (error) throw error;
+    const { data: urlData } = supabase.storage.from('profile-photos').getPublicUrl(filePath);
+    return urlData.publicUrl;
+  }
+
+  const handleCroppedImageSave = async (croppedImageUrl: string) => {
+    if (!user) return;
+    setAvatarUploading(true);
+    setAvatarError(null);
+    try {
+      const resp = await fetch(croppedImageUrl);
+      const blob = await resp.blob();
+      const file = new File([blob], `profile-${user.id}-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      const url = await uploadProfilePhoto(file);
+      const { data, error } = await userService.updateUserProfile(user.id, { profilePhotoUrl: url });
+      if (error) throw error;
+      if (data && data[0]) updateProfileState(data[0]);
+      setShowImageCropper(false);
+    } catch (e: any) {
+      setAvatarError('Fehler beim Hochladen des Profilbilds!');
+      throw e;
+    } finally {
+      setAvatarUploading(false);
+    }
   };
 
   const handlePhoneNumberChange = (value: string) => {
@@ -1036,12 +1085,12 @@ function CaretakerDashboardPage() {
           <p className="text-gray-600 mb-6">
             Du hast noch kein vollständiges Caretaker-Profil. Vervollständige deine Registrierung, um dein Dashboard zu nutzen.
           </p>
-          <a
-            href="/registrieren?type=caretaker"
+          <button
+            onClick={() => setShowImageCropper(true)}
             className="btn btn-primary"
           >
-            Profil vervollständigen
-          </a>
+            Profilbild hochladen
+          </button>
         </div>
       </div>
     );
@@ -1051,7 +1100,7 @@ function CaretakerDashboardPage() {
       {/* Profilkarte */}
       <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
         <div className="flex flex-col lg:flex-row items-start gap-6">
-          <div className="relative w-32 h-32 mx-auto lg:mx-0">
+          <div className="relative w-32 h-32 mx-auto lg:mx-0 group">
             <img
               src={avatarUrl}
               alt={fullName}
@@ -1064,18 +1113,16 @@ function CaretakerDashboardPage() {
                 }
               }}
             />
-            {/* Overlay-Button für Upload */}
-            <label className="absolute bottom-2 right-2 bg-white rounded-full p-2 shadow cursor-pointer hover:bg-primary-50 transition-colors border border-gray-200">
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleProfilePhotoChange}
-                disabled={uploading}
-              />
-              <Camera className="h-5 w-5 text-primary-600" />
-            </label>
-            {uploading && <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-xl"><div className="w-10 h-10 border-4 border-green-400 border-t-transparent rounded-full animate-spin"></div></div>}
+            {/* Overlay für Edit-Button (öffnet Cropper) */}
+            <div
+              className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 rounded-xl flex items-center justify-center cursor-pointer"
+              onClick={() => setShowImageCropper(true)}
+            >
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white rounded-full p-2 shadow-lg">
+                <Edit className="h-5 w-5 text-primary-600" />
+              </div>
+            </div>
+            {avatarUploading && <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-xl"><div className="w-10 h-10 border-4 border-green-400 border-t-transparent rounded-full animate-spin"></div></div>}
           </div>
           <div className="flex-1 w-full">
             <div className="flex flex-col lg:flex-row gap-8">
@@ -2361,13 +2408,40 @@ function CaretakerDashboardPage() {
         sessionData={paymentSuccess.sessionData}
       />
 
-      {/* Onboarding Modal für neue Nutzer */}
+      {/* Registration Onboarding Modal */}
       <RegistrationSuccessModal
         isOpen={showOnboarding}
         userType="caretaker"
-        userName={userProfile?.first_name || 'Nutzer'}
+        userName={onboardingUserName}
         onComplete={() => setShowOnboarding(false)}
       />
+
+      {/* Profilbild Editor Modal */}
+      {showImageCropper && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">Profilbild bearbeiten</h2>
+                <button
+                  onClick={() => setShowImageCropper(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="h-5 w-5 text-gray-500" />
+                </button>
+              </div>
+
+              <ProfileImageCropper
+                photoUrl={avatarUrl}
+                onImageSave={handleCroppedImageSave}
+                uploading={avatarUploading}
+                error={avatarError}
+                className="w-full"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

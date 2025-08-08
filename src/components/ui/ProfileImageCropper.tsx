@@ -42,7 +42,34 @@ function ProfileImageCropper({
 
   // Update selectedImage when photoUrl changes
   useEffect(() => {
-    setSelectedImage(photoUrl || null);
+    let objectUrlToRevoke: string | null = null;
+    if (!photoUrl) {
+      setSelectedImage(null);
+      return;
+    }
+
+    // Für Remote-URLs: erst als Blob laden, um Canvas-CORS-Probleme zu vermeiden
+    if (/^https?:\/\//i.test(photoUrl)) {
+      fetch(photoUrl, { mode: 'cors' })
+        .then(async (resp) => {
+          const blob = await resp.blob();
+          const localUrl = URL.createObjectURL(blob);
+          objectUrlToRevoke = localUrl;
+          setSelectedImage(localUrl);
+        })
+        .catch(() => {
+          // Fallback: nutze Original-URL, falls Fetch fehlschlägt
+          setSelectedImage(photoUrl);
+        });
+    } else {
+      setSelectedImage(photoUrl);
+    }
+
+    return () => {
+      if (objectUrlToRevoke) {
+        URL.revokeObjectURL(objectUrlToRevoke);
+      }
+    };
   }, [photoUrl]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -88,44 +115,54 @@ function ProfileImageCropper({
       }
 
       const image = new Image();
+      // Verhindere Canvas-Tainting bei Remote-Images
+      image.crossOrigin = 'anonymous';
       image.onload = () => {
-        // Set canvas size to match crop area
-        canvas.width = croppedAreaPixels.width;
-        canvas.height = croppedAreaPixels.height;
+        try {
+          // Set canvas size to match crop area
+          canvas.width = croppedAreaPixels.width;
+          canvas.height = croppedAreaPixels.height;
 
-        // Apply rotation if needed
-        if (rotation !== 0) {
-          ctx.translate(canvas.width / 2, canvas.height / 2);
-          ctx.rotate((rotation * Math.PI) / 180);
-          ctx.translate(-canvas.width / 2, -canvas.height / 2);
+          // Apply rotation if needed
+          if (rotation !== 0) {
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate((rotation * Math.PI) / 180);
+            ctx.translate(-canvas.width / 2, -canvas.height / 2);
+          }
+
+          // Draw the cropped image
+          ctx.drawImage(
+            image,
+            croppedAreaPixels.x,
+            croppedAreaPixels.y,
+            croppedAreaPixels.width,
+            croppedAreaPixels.height,
+            0,
+            0,
+            croppedAreaPixels.width,
+            croppedAreaPixels.height
+          );
+
+          // Convert to blob and resolve
+          try {
+            canvas.toBlob(
+              (blob) => {
+                if (blob) {
+                  const url = URL.createObjectURL(blob);
+                  resolve(url);
+                } else {
+                  reject(new Error('Fehler beim Erstellen des Bildes'));
+                }
+              },
+              'image/jpeg',
+              0.9
+            );
+          } catch (e) {
+            reject(e as Error);
+          }
+        } catch (e) {
+          reject(e as Error);
         }
-
-        // Draw the cropped image
-        ctx.drawImage(
-          image,
-          croppedAreaPixels.x,
-          croppedAreaPixels.y,
-          croppedAreaPixels.width,
-          croppedAreaPixels.height,
-          0,
-          0,
-          croppedAreaPixels.width,
-          croppedAreaPixels.height
-        );
-
-        // Convert to blob and resolve
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              const url = URL.createObjectURL(blob);
-              resolve(url);
-            } else {
-              reject(new Error('Fehler beim Erstellen des Bildes'));
-            }
-          },
-          'image/jpeg',
-          0.9
-        );
       };
       
       image.onerror = () => {

@@ -50,8 +50,13 @@ function ProtectedRoute({ children, requireOwner = false, requireCaretaker = fal
   }, [loading, isAuthenticated, userProfile, user, requireOwner, requireCaretaker]); // Log state changes
 
 
+  // Wenn bereits authentifiziert, blockiere UI nicht während Hintergrund-Loads
+  if (loading && isAuthenticated) {
+    console.log('🛡️ ProtectedRoute: Authenticated and loading in background → allow rendering.');
+    return <>{children}</>;
+  }
   if (loading) {
-      console.log('🛡️ ProtectedRoute: Showing loading spinner.');
+    console.log('🛡️ ProtectedRoute: Showing loading spinner.');
     return <LoadingSpinner />;
   }
 
@@ -64,15 +69,8 @@ function ProtectedRoute({ children, requireOwner = false, requireCaretaker = fal
   // User is authenticated
   if (requireOwner) {
       console.log('🛡️ ProtectedRoute: Authenticated, checking owner requirement.', { userType: userProfile?.user_type, profileTimeout });
-      // Wait for userProfile to be loaded if owner is required, but with timeout
-      if (userProfile === null && !loading && !profileTimeout) {
-          console.log('🛡️ ProtectedRoute: Waiting for userProfile...');
-          // Zeige einen Lade-Spinner statt null
-          return <LoadingSpinner />;
-      }
-
-      // After timeout or if profile is loaded, check user type
-      if (userProfile?.user_type !== 'owner' && !profileTimeout) {
+      // Erlaube Zugriff, solange der Typ unbekannt ist (userProfile null). Blockiere nur, wenn bekannt und falsch.
+      if (userProfile && userProfile.user_type !== 'owner') {
           console.log('🛡️ ProtectedRoute: Authenticated, but not owner. Redirecting to /.', userProfile?.user_type);
           // Redirect non-owners away from owner-only pages
           return <Navigate to="/" replace />;
@@ -82,15 +80,8 @@ function ProtectedRoute({ children, requireOwner = false, requireCaretaker = fal
 
   if (requireCaretaker) {
       console.log('🛡️ ProtectedRoute: Authenticated, checking caretaker requirement.', { userType: userProfile?.user_type, profileTimeout });
-      // Wait for userProfile to be loaded if caretaker is required, but with timeout
-      if (userProfile === null && !loading && !profileTimeout) {
-          console.log('🛡️ ProtectedRoute: Waiting for userProfile...');
-          // Zeige einen Lade-Spinner statt null
-          return <LoadingSpinner />;
-      }
-
-      // After timeout or if profile is loaded, check user type
-      if (userProfile?.user_type !== 'caretaker' && !profileTimeout) {
+      // Erlaube Zugriff, solange der Typ unbekannt ist (userProfile null). Blockiere nur, wenn bekannt und falsch.
+      if (userProfile && userProfile.user_type !== 'caretaker') {
           console.log('🛡️ ProtectedRoute: Authenticated, but not caretaker. Redirecting to /.', userProfile?.user_type);
           // Redirect non-caretakers away from caretaker-only pages
           return <Navigate to="/" replace />;

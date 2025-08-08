@@ -1,5 +1,4 @@
 import { supabase } from './client';
-import type { CaretakerSearchResult } from './database.types';
 
 export interface SearchFilters {
   petType?: string;
@@ -51,25 +50,48 @@ function getBestPrice(prices: Record<string, number | string>): number {
 /**
  * Konvertiert View-Daten in ein UI-freundliches Format
  */
-function transformCaretakerData(viewData: CaretakerSearchResult): CaretakerDisplayData {
-  console.log('🔄 Transforming view data:', viewData);
-  
-  const firstName = viewData.first_name || '';
-  // full_name kommt bereits korrekt formatiert aus der View (Vorname + N.)
-  const fullName = viewData.full_name || firstName || 'Unbekannt';
-  
+interface CaretakerJoinRow {
+  id: string;
+  services: any;
+  prices: Record<string, any> | null;
+  hourly_rate: number | null;
+  rating: number | null;
+  review_count: number | null;
+  is_verified: boolean | null;
+  short_about_me: string | null;
+  long_about_me: string | null;
+  is_commercial: boolean | null;
+  languages?: string[] | null;
+  home_photos?: string[] | null;
+  users: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    city: string | null;
+    plz: string | null;
+    profile_photo_url: string | null;
+    user_type?: string | null;
+  };
+}
+
+function transformCaretakerData(viewData: CaretakerJoinRow): CaretakerDisplayData {
+  console.log('🔄 Transforming joined data:', viewData);
+
+  const firstName = viewData.users?.first_name || '';
+  const lastName = viewData.users?.last_name || '';
+  const fullName = firstName && lastName ? `${firstName} ${lastName[0]}.` : (firstName || 'Unbekannt');
+
   // Services korrekt verarbeiten - kann JSON string oder Array sein
   let services: string[] = [];
   try {
-    if (viewData.services) {
-      if (Array.isArray(viewData.services)) {
-        services = (viewData.services as string[]).filter(s => typeof s === 'string');
-      } else if (typeof viewData.services === 'string') {
-        // Falls es ein JSON string ist, parsen
-        services = JSON.parse(viewData.services).filter((s: any) => typeof s === 'string');
-      } else {
-        // Falls es ein Object ist (JSON), direkt verwenden
-        services = Object.values(viewData.services).filter(s => typeof s === 'string') as string[];
+    const rawServices = viewData.services;
+    if (rawServices) {
+      if (Array.isArray(rawServices)) {
+        services = (rawServices as string[]).filter(s => typeof s === 'string');
+      } else if (typeof rawServices === 'string') {
+        services = JSON.parse(rawServices).filter((s: any) => typeof s === 'string');
+      } else if (typeof rawServices === 'object') {
+        services = Object.values(rawServices).filter(s => typeof s === 'string') as string[];
       }
     }
   } catch (error) {
@@ -87,22 +109,14 @@ function transformCaretakerData(viewData: CaretakerSearchResult): CaretakerDispl
     console.warn('⚠️ Error parsing prices:', error, 'Original value:', viewData.prices);
     prices = {};
   }
-  
-  // Bestpreis ermitteln - verwende Preis-Object falls verfügbar, sonst hourly_rate
-  // Debugging: Logge die verfügbaren Preisdaten
-  console.log('💰 Price calculation for', firstName, ':', {
-    prices_object: prices,
-    hourly_rate_raw: viewData.hourly_rate,
-    hourly_rate_parsed: Number(viewData.hourly_rate)
-  });
-  
+
   const bestPrice = getBestPrice(prices) || Number(viewData.hourly_rate) || 0;
 
-  const result = {
+  const result: CaretakerDisplayData = {
     id: viewData.id || '',
     name: fullName,
-    avatar: viewData.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(firstName || 'U')}&background=f3f4f6&color=374151`,
-    location: viewData.city && viewData.plz ? `${viewData.city} ${viewData.plz}` : (viewData.city || 'Unbekannt'),
+    avatar: viewData.users?.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(firstName || 'U')}&background=f3f4f6&color=374151`,
+    location: viewData.users?.city && viewData.users?.plz ? `${viewData.users.city} ${viewData.users.plz}` : (viewData.users?.city || 'Unbekannt'),
     rating: Number(viewData.rating) || 0,
     reviewCount: viewData.review_count || 0,
     hourlyRate: bestPrice,
@@ -112,7 +126,7 @@ function transformCaretakerData(viewData: CaretakerSearchResult): CaretakerDispl
     verified: viewData.is_verified || false,
     isCommercial: viewData.is_commercial || false,
   };
-  
+
   console.log('✅ Transformed result:', result);
   console.log('🎯 Prices data:', {
     original_prices: viewData.prices,
@@ -131,17 +145,37 @@ export async function searchCaretakers(filters?: SearchFilters): Promise<Caretak
   console.log('🔍 Starting caretaker search with filters:', filters);
 
   try {
-    // Da die caretaker_search_view möglicherweise das prices Feld noch nicht hat,
-    // holen wir zusätzlich die Preise direkt aus der caretaker_profiles Tabelle
+    // Direkt über caretaker_profiles + Join auf users (ohne View)
     let query = supabase
-      .from('caretaker_search_view')
-      .select('*');
+      .from('caretaker_profiles')
+      .select(`
+        id,
+        services,
+        prices,
+        hourly_rate,
+        rating,
+        review_count,
+        is_verified,
+        short_about_me,
+        long_about_me,
+        is_commercial,
+        users!inner(
+          id,
+          first_name,
+          last_name,
+          city,
+          plz,
+          profile_photo_url,
+          user_type
+        )
+      `)
+      .eq('users.user_type', 'caretaker');
 
     // Optional: Standort-Filter
     if (filters?.location) {
       const location = filters.location.toLowerCase();
       console.log('📍 Adding location filter:', location);
-      query = query.or(`city.ilike.%${location}%,plz.ilike.%${location}%`);
+      query = query.or(`users.city.ilike.%${location}%,users.plz.ilike.%${location}%`);
     }
 
     // Optional: Preis-Filter
@@ -169,35 +203,8 @@ export async function searchCaretakers(filters?: SearchFilters): Promise<Caretak
 
     console.log(`✅ Found ${data.length} caretakers from database`);
 
-    // Hole zusätzlich die Preise aus der caretaker_profiles Tabelle
-    const caretakerIds = data.map(item => item.id).filter((id): id is string => Boolean(id));
-    let pricesData: Record<string, any> = {};
-    
-    if (caretakerIds.length > 0) {
-      const { data: profilesData, error: pricesError } = await supabase
-        .from('caretaker_profiles')
-        .select('id, prices')
-        .in('id', caretakerIds);
-        
-      if (!pricesError && profilesData) {
-        pricesData = profilesData.reduce((acc, profile) => {
-          if (profile.id && profile.prices) {
-            acc[profile.id] = profile.prices;
-          }
-          return acc;
-        }, {} as Record<string, any>);
-        console.log('💰 Loaded additional prices data:', pricesData);
-      }
-    }
-
-    // Transformiere die Daten für die UI und ergänze Preise
-    let transformedData = data.map(item => {
-      const enrichedItem = {
-        ...item,
-        prices: (item.id && pricesData[item.id]) || item.prices || null
-      };
-      return transformCaretakerData(enrichedItem);
-    });
+    // Transformiere die Daten für die UI
+    let transformedData = (data as unknown as CaretakerJoinRow[]).map(item => transformCaretakerData(item));
 
     // Client-seitige Filterung für service (da PostgreSQL JSON-Array-Suche kompliziert ist)
     if (filters?.service) {
@@ -245,21 +252,32 @@ export async function getCaretakerById(id: string): Promise<CaretakerDisplayData
   console.log('🔍 Getting caretaker by ID:', id);
 
   try {
-    const [viewResult, pricesResult] = await Promise.all([
-      supabase
-        .from('caretaker_search_view')
-        .select('*')
-        .eq('id', id)
-        .single(),
-      supabase
-        .from('caretaker_profiles')
-        .select('prices')
-        .eq('id', id)
-        .single()
-    ]);
-
-    const { data, error } = viewResult;
-    const { data: pricesData } = pricesResult;
+    const { data, error } = await supabase
+      .from('caretaker_profiles')
+      .select(`
+        id,
+        services,
+        prices,
+        hourly_rate,
+        rating,
+        review_count,
+        is_verified,
+        short_about_me,
+        long_about_me,
+        is_commercial,
+        users!inner(
+          id,
+          first_name,
+          last_name,
+          city,
+          plz,
+          profile_photo_url,
+          user_type
+        )
+      `)
+      .eq('id', id)
+      .eq('users.user_type', 'caretaker')
+      .single();
 
     if (error) {
       console.error('❌ Error getting caretaker:', error);
@@ -270,14 +288,8 @@ export async function getCaretakerById(id: string): Promise<CaretakerDisplayData
       return null;
     }
 
-    // Ergänze Preise aus der caretaker_profiles Tabelle falls verfügbar
-    const enrichedData = {
-      ...data,
-      prices: pricesData?.prices || data.prices || null
-    };
-
-    console.log('✅ Found caretaker:', enrichedData);
-    return transformCaretakerData(enrichedData);
+    console.log('✅ Found caretaker:', data);
+    return transformCaretakerData(data as unknown as CaretakerJoinRow);
   } catch (error) {
     console.error('❌ Exception in getCaretakerById:', error);
     throw error;

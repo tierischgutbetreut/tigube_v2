@@ -378,16 +378,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateProfileState = (newProfile: any | null) => {
     console.log('🔄 Manually updating profile state:', newProfile);
     console.log('📊 Current userProfile before update:', userProfile);
-    
+
+    // Verhindere, dass die UI zwischenzeitlich null rendert:
+    // Mergen wir das neue Profil mit dem alten, wo sinnvoll, statt komplett null zu setzen
+    if (newProfile === null && userProfile) {
+      // Ignoriere Null-Updates, wenn bereits ein Profil vorhanden ist
+      console.warn('⚠️ Ignoring transient null profile update to avoid UI flicker.');
+      return;
+    }
+
     // Robuste State-Aktualisierung
     setUserProfile(newProfile);
-    
+
     // Zusätzlicher State-Update nach kurzer Verzögerung um React zu zwingen
     setTimeout(() => {
       setUserProfile(newProfile);
       console.log('✅ Profile state force-updated:', newProfile?.first_name);
     }, 50);
-    
+
     console.log('✅ Profile state update completed');
   };
 

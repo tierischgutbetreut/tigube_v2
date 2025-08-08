@@ -1,4 +1,4 @@
-import Layout from '../components/layout/Layout';
+ 
 import Button from '../components/ui/Button';
 import { MapPin, Phone, PawPrint, Edit, Shield, Heart, Trash, Check, X, Plus, Upload, Settings, AlertTriangle, Trash2, Briefcase, User, MessageCircle, KeyRound, Eye, EyeOff, Mail, Star, Crown } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -16,8 +16,8 @@ import PaymentSuccessModal from '../components/ui/PaymentSuccessModal';
 import { usePaymentSuccess } from '../hooks/usePaymentSuccess';
 import { PremiumBadge } from '../components/ui/PremiumBadge';
 import { useSubscription } from '../lib/auth/useSubscription';
-import ProfileImageCropper from '../components/ui/ProfileImageCropper';
 import RegistrationSuccessModal from '../components/ui/RegistrationSuccessModal';
+import ProfileImageCropper from '../components/ui/ProfileImageCropper';
 
 
 const ALL_SERVICES = [
@@ -107,29 +107,12 @@ function OwnerDashboardPage() {
   const { isPremiumUser } = useSubscription();
   const navigate = useNavigate();
   const [profileLoadAttempts, setProfileLoadAttempts] = useState(0);
+  // Onboarding-Modal State
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingUserName, setOnboardingUserName] = useState<string>('');
   
   // Payment Success Modal
   const { paymentSuccess, isValidating: paymentValidating, closeModal } = usePaymentSuccess();
-  
-  // Onboarding Modal für neue Nutzer
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  
-  // Check für neu registrierte Nutzer
-  useEffect(() => {
-    const checkForNewUser = () => {
-      // Prüfe localStorage für frische Registrierung
-      const justRegistered = localStorage.getItem('justRegistered');
-      if (justRegistered === 'true' && user && userProfile) {
-        setShowOnboarding(true);
-        // Clean up flag
-        localStorage.removeItem('justRegistered');
-      }
-    };
-
-    if (user && userProfile && !authLoading) {
-      checkForNewUser();
-    }
-  }, [user, userProfile, authLoading]);
   
   // Refs to track if data has been loaded to prevent unnecessary reloads
   const vetDataLoadedRef = useRef(false);
@@ -268,6 +251,25 @@ function OwnerDashboardPage() {
       }));
     }
   }, [userProfile, user, authLoading]);
+
+  // Onboarding nach Dashboard-Load starten (nur einmal, via sessionStorage)
+  useEffect(() => {
+    if (!authLoading && user) {
+      try {
+        const raw = sessionStorage.getItem('onboardingData');
+        if (raw) {
+          const parsed = JSON.parse(raw) as { userType?: 'owner' | 'caretaker'; userName?: string };
+          if (!parsed.userType || parsed.userType === 'owner') {
+            setOnboardingUserName(parsed.userName || userProfile?.first_name || '');
+            setShowOnboarding(true);
+          }
+          sessionStorage.removeItem('onboardingData');
+        }
+      } catch (e) {
+        console.warn('⚠️ Konnte onboardingData nicht lesen:', e);
+      }
+    }
+  }, [authLoading, user, userProfile]);
 
   // Zusätzlicher useEffect für robustes Profile-Loading nach Registrierung
   useEffect(() => {
@@ -508,23 +510,7 @@ function OwnerDashboardPage() {
     loadShareSettings();
   }, [user]);
 
-  // Robusteres Loading mit Profile-Check
-  const isReallyLoading = authLoading || (user && !userProfile && profileLoadAttempts < 3);
-  
-  if (isReallyLoading) {
-    return (
-      <Layout>
-        <div className="flex justify-center items-center min-h-[400px]">
-          <div className="text-center">
-            <LoadingSpinner />
-            {user && !userProfile && profileLoadAttempts > 0 && (
-              <p className="mt-4 text-gray-600">Lade Profil-Daten... (Versuch {profileLoadAttempts}/3)</p>
-            )}
-          </div>
-        </div>
-      </Layout>
-    );
-  }
+  // Keine Early-Return-Ladeanzeige mehr: UI bleibt stabil sichtbar, auch wenn das Profil kurz neu geladen wird
 
   if (!user) {
     return (
@@ -537,40 +523,9 @@ function OwnerDashboardPage() {
     );
   }
 
-  // Verwende Fallback-Profil wenn userProfile fehlt (z.B. bei unvollständiger Registrierung)
-  const shouldShowLoadingSpinner = !userProfile && authLoading;
-  
-  if (shouldShowLoadingSpinner) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <LoadingSpinner />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2 mt-4">Profil wird geladen ...</h2>
-          <p className="text-gray-600">Bitte warte einen Moment. Dein Profil wird geladen.</p>
-        </div>
-      </div>
-    );
-  }
+  // Keine globale Spinner-Übernahme mehr – wir rendern immer mit Fallback-Profil
 
-  // Falls UserProfile nicht existiert und wir nicht mehr laden, zeige Setup-Guide
-  if (!userProfile && !authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="text-center max-w-md">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Profil vervollständigen</h2>
-          <p className="text-gray-600 mb-6">
-            Du hast noch kein vollständiges Profil. Vervollständige deine Registrierung, um dein Dashboard zu nutzen.
-          </p>
-          <a
-            href="/registrieren"
-            className="btn btn-primary"
-          >
-            Profil vervollständigen
-          </a>
-        </div>
-      </div>
-    );
-  }
+  // Kein Early-Return mehr; wir verwenden immer ein Fallback-Profil
 
   // Fallback für fehlende Profile-Daten
   const fallbackProfile = {
@@ -1047,7 +1002,7 @@ function OwnerDashboardPage() {
 
           // Add PLZ and City to dataToUpdate for users table
           dataToUpdate.plz = ownerData.plz;
-          dataToUpdate.location = ownerData.location;
+          dataToUpdate.city = ownerData.location;
       }
 
       // If no fields have changed, exit without saving
@@ -3233,11 +3188,11 @@ function OwnerDashboardPage() {
         sessionData={paymentSuccess.sessionData}
       />
 
-      {/* Onboarding Modal für neue Nutzer */}
+      {/* Registration Onboarding Modal */}
       <RegistrationSuccessModal
         isOpen={showOnboarding}
         userType="owner"
-        userName={userProfile?.first_name || 'Nutzer'}
+        userName={onboardingUserName}
         onComplete={() => setShowOnboarding(false)}
       />
 
