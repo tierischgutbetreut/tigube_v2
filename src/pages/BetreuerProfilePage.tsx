@@ -17,6 +17,7 @@ import HomePhotosSection from '../components/ui/HomePhotosSection';
 
 interface Caretaker {
   id: string | null;
+  userId?: string; // users.id des Betreuers für Chat/Conversations
   name: string;
   avatar: string;
   location: string;
@@ -55,7 +56,7 @@ function BetreuerProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  const { checkFeature, trackUsage, subscription } = useFeatureAccess();
+  const { checkFeature, canSendContactRequest, trackUsage, subscription } = useFeatureAccess();
   const [isFavorite, setIsFavorite] = useState(false);
   const [isFavoriteLoading, setIsFavoriteLoading] = useState(false);
   const [caretaker, setCaretaker] = useState<Caretaker | null>(null);
@@ -182,40 +183,36 @@ function BetreuerProfilePage() {
     setIsContactLoading(true);
 
     try {
-      // Feature Gate Check: Contact Request Limit
-      const canContact = checkFeature('contact_request');
-      
-      if (!canContact) {
-        // Show upgrade prompt
-        console.log('Feature blocked: Contact request limit reached');
+      // Feature Gate Check: Kontaktanfrage (Premium = immer erlaubt, Free = Limit prüfen)
+      const allowed = await canSendContactRequest();
+
+      if (!allowed) {
         setIsContactLoading(false);
-        // TODO: Implement modal for upgrade prompt
         navigate('/mitgliedschaften?feature=contact_request');
         return;
       }
-      
-      // Track feature usage
+
+      // Track feature usage (nur für Free relevant, Premium ist unbegrenzt ok)
       await trackUsage('contact_request');
 
       // Erstelle oder finde bestehende Konversation
       const { data: conversation, error } = await getOrCreateConversation({
         owner_id: user.id,
-        caretaker_id: caretaker.id
+        caretaker_id: caretaker.userId || ''
       });
 
-      if (error) {
-        console.error('Fehler beim Erstellen der Konversation:', error);
-        // TODO: Toast-Benachrichtigung anzeigen
-        return;
-      }
-
-      if (conversation) {
-        // Navigiere zum Chat
+      if (conversation && !error) {
+        // Navigiere direkt in die Konversation
         navigate(`/nachrichten/${conversation.id}`);
+      } else {
+        console.warn('Konversation konnte nicht erstellt/gefunden werden. Öffne Nachrichtenübersicht.', error);
+        // Fallback: Öffne Nachrichten-Übersicht, damit der Chatbereich erreichbar ist
+        navigate('/nachrichten');
       }
     } catch (error) {
       console.error('Unerwarteter Fehler beim Kontaktieren:', error);
-      // TODO: Toast-Benachrichtigung anzeigen
+      // Fallback auch bei Fehler: Nachrichtenübersicht öffnen
+      navigate('/nachrichten');
     } finally {
       setIsContactLoading(false);
     }

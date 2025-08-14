@@ -719,6 +719,7 @@ export const caretakerSearchService = {
 
         return {
           id: row.id,
+          userId: row.users?.id,
           name,
           avatar: row.users?.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(firstName || 'U')}&background=f3f4f6&color=374151`,
           location,
@@ -846,6 +847,7 @@ export const caretakerSearchService = {
 
       const transformedData = {
         id: result.id,
+        userId: result.users?.id,
         name,
         avatar: result.users?.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(firstName || 'U')}&background=f3f4f6&color=374151`,
         location: result.users?.city && result.users?.plz ? `${result.users.city} ${result.users.plz}` : (result.users?.city || 'Unbekannt'),

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { useAuth } from '../lib/auth/AuthContext';
+import { getOrCreateConversation } from '../lib/supabase/chatService';
 import { ownerPublicService } from '../lib/supabase/ownerPublicService';
 import type { PublicOwnerProfile } from '../lib/supabase/types';
 import { 
@@ -265,6 +266,28 @@ function OwnerPublicProfilePage() {
   const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Unbekannter Benutzer';
   const avatarUrl = profile.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=f3f4f6&color=374151`;
 
+  const handleSendMessage = async () => {
+    if (!user) {
+      navigate(`/anmelden?redirect=${encodeURIComponent(`/owner/${userId}`)}`);
+      return;
+    }
+
+    if (!userId) return;
+
+    const { data: conversation, error } = await getOrCreateConversation({
+      owner_id: userId,
+      caretaker_id: user.id
+    });
+
+    if (error || !conversation) {
+      console.error('Fehler beim Öffnen der Konversation:', error);
+      navigate('/nachrichten');
+      return;
+    }
+
+    navigate(`/nachrichten/${conversation.id}`);
+  };
+
   return (
     <div className="bg-gray-50 min-h-screen py-6 sm:py-10">
       <div className="container-custom max-w-4xl">
@@ -520,7 +543,7 @@ function OwnerPublicProfilePage() {
             Kontaktiere {profile.first_name || 'den Tierbesitzer'} über die Nachrichtenfunktion!
           </p>
           <Button
-            onClick={() => navigate('/nachrichten')}
+            onClick={handleSendMessage}
             className="flex items-center justify-center gap-2 mx-auto"
           >
             <Mail className="h-4 w-4" />

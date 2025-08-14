@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../lib/auth/AuthContext';
 import { FEATURE_MATRIX } from '../lib/services/subscriptionService';
+import { UsageTrackingService, type ActionType } from '../lib/services/usageTrackingService';
 
 export const useFeatureAccess = () => {
   const { user, subscription } = useAuth();
@@ -24,6 +25,13 @@ export const useFeatureAccess = () => {
                             new Date(effectiveSubscription.plan_expires_at) <= new Date();
 
     const planType = isPremiumExpired ? 'free' : effectiveSubscription.plan_type;
+    // Spezialfall: Kontaktanfragen-Nachrichten
+    if (featureName === 'contact_request') {
+      if (planType === 'premium') return true; // Premium Owner dürfen immer schreiben
+      // Free-Plan: erlaubt grundsätzlich, Limit wird separat getrackt
+      return FEATURE_MATRIX.free.max_contact_requests !== 0;
+    }
+
     const planFeatures = FEATURE_MATRIX[planType as keyof typeof FEATURE_MATRIX];
     return planFeatures[featureName as keyof typeof planFeatures] as boolean || false;
   }, [user, effectiveSubscription]);
@@ -61,8 +69,39 @@ export const useFeatureAccess = () => {
   const isEffectivelyPremium = effectiveSubscription?.plan_type === 'premium' && 
                               (!effectiveSubscription.plan_expires_at || new Date(effectiveSubscription.plan_expires_at) > new Date());
 
+  // Asynchrone Prüfung für Kontaktanfragen (inkl. Limits und Premium-Status)
+  const canSendContactRequest = useCallback(async (): Promise<boolean> => {
+    if (!user) return false;
+
+    const planType = effectiveSubscription?.plan_type || 'free';
+
+    const isPremiumExpired = effectiveSubscription?.plan_type === 'premium' && 
+                             effectiveSubscription?.plan_expires_at && 
+                             new Date(effectiveSubscription.plan_expires_at) <= new Date();
+
+    const effectivePlan = isPremiumExpired ? 'free' : planType;
+
+    // Premium: unbegrenzte Kontaktanfragen
+    if (effectivePlan === 'premium') return true;
+
+    // Free-Plan: Limit prüfen
+    const limit = FEATURE_MATRIX.free.max_contact_requests;
+    if (limit === -1) return true;
+
+    const current = await UsageTrackingService.getCurrentMonthUsage(user.id, 'contact_request');
+    return current < limit;
+  }, [effectiveSubscription, user]);
+
+  // Usage-Tracking Helper (wird u.a. für contact_request verwendet)
+  const trackUsage = useCallback(async (action: ActionType): Promise<void> => {
+    if (!user) return;
+    await UsageTrackingService.trackAction(user.id, action);
+  }, [user]);
+
   return {
     checkFeature,
+    canSendContactRequest,
+    trackUsage,
     hasAdvancedFilters,
     hasPriorityRanking,
     maxEnvironmentImages,
