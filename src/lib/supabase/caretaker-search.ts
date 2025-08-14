@@ -16,7 +16,8 @@ export interface SearchFilters {
 
 // Interface für die Anzeige in der UI (basierend auf der alten CaretakerResult)
 export interface CaretakerDisplayData {
-  id: string;
+  id: string; // caretaker_profiles.id
+  userId: string; // users.id (wichtig für Chat/Beziehungen)
   name: string;
   avatar: string;
   location: string;
@@ -114,6 +115,7 @@ function transformCaretakerData(viewData: CaretakerJoinRow): CaretakerDisplayDat
 
   const result: CaretakerDisplayData = {
     id: viewData.id || '',
+    userId: viewData.users?.id || '',
     name: fullName,
     avatar: viewData.users?.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(firstName || 'U')}&background=f3f4f6&color=374151`,
     location: viewData.users?.city && viewData.users?.plz ? `${viewData.users.city} ${viewData.users.plz}` : (viewData.users?.city || 'Unbekannt'),
