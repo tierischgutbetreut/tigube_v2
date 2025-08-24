@@ -5,6 +5,7 @@ import Button from '../components/ui/Button';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { UsageLimitIndicator } from '../components/ui/UsageLimitIndicator';
 import { AdvancedFilters } from '../components/ui/AdvancedFilters';
+import MultiDaySelector from '../components/ui/MultiDaySelector';
 import { cn } from '../lib/utils';
 import { searchCaretakers as searchCaretakersService, type CaretakerDisplayData, type SearchFilters } from '../lib/supabase/caretaker-search';
 import { DEFAULT_SERVICE_CATEGORIES } from '../lib/types/service-categories';
@@ -33,7 +34,7 @@ function SearchPage() {
   const initialLocation = searchParams.get('location') || '';
   const initialPetType = searchParams.get('petType') || '';
   const initialService = searchParams.get('service') || '';
-  const initialAvailabilityDay = searchParams.get('availabilityDay') || '';
+  const initialAvailabilityDays = searchParams.getAll('availabilityDay');
   const initialAvailabilityTime = searchParams.get('availabilityTime') || '';
   const initialMaxPrice = parseInt(searchParams.get('maxPrice') || '100');
   
@@ -42,7 +43,7 @@ function SearchPage() {
   const [selectedPetType, setSelectedPetType] = useState(initialPetType);
   const [selectedService, setSelectedService] = useState(initialService);
   const [selectedServiceCategory, setSelectedServiceCategory] = useState(searchParams.get('serviceCategory') || '');
-  const [selectedAvailabilityDay, setSelectedAvailabilityDay] = useState(initialAvailabilityDay);
+  const [selectedAvailabilityDays, setSelectedAvailabilityDays] = useState<string[]>(initialAvailabilityDays);
   const [selectedAvailabilityTime, setSelectedAvailabilityTime] = useState(initialAvailabilityTime);
   const [selectedMinRating, setSelectedMinRating] = useState(searchParams.get('minRating') || '');
   const [selectedRadius, setSelectedRadius] = useState(searchParams.get('radius') || '');
@@ -86,16 +87,7 @@ function SearchPage() {
     }))
   ];
 
-  const availabilityDayOptions = [
-    { value: '', label: 'Alle Tage' },
-    { value: 'montag', label: 'Montag' },
-    { value: 'dienstag', label: 'Dienstag' },
-    { value: 'mittwoch', label: 'Mittwoch' },
-    { value: 'donnerstag', label: 'Donnerstag' },
-    { value: 'freitag', label: 'Freitag' },
-    { value: 'samstag', label: 'Samstag' },
-    { value: 'sonntag', label: 'Sonntag' }
-  ];
+
 
   const availabilityTimeOptions = [
     { value: '', label: 'Alle Zeiten' },
@@ -105,13 +97,27 @@ function SearchPage() {
     { value: 'ganztags', label: 'Ganztags verfügbar' }
   ];
 
+  // Hilfsfunktion für die Anzeige der Wochentage
+  const getDayLabel = (dayValue: string) => {
+    const dayLabels: { [key: string]: string } = {
+      'montag': 'Montag',
+      'dienstag': 'Dienstag',
+      'mittwoch': 'Mittwoch',
+      'donnerstag': 'Donnerstag',
+      'freitag': 'Freitag',
+      'samstag': 'Samstag',
+      'sonntag': 'Sonntag'
+    };
+    return dayLabels[dayValue] || dayValue;
+  };
+
   // Search function using database with filters
   const performSearch = async () => {
     console.log('🔍 performSearch called with filters:', {
       location,
       petType: selectedPetType,
       service: selectedService,
-      availabilityDay: selectedAvailabilityDay,
+      availabilityDays: selectedAvailabilityDays,
       availabilityTime: selectedAvailabilityTime,
       minRating: selectedMinRating,
       radius: selectedRadius,
@@ -161,7 +167,7 @@ function SearchPage() {
       }
       
       // Client-seitige Verfügbarkeits-Filterung (da noch keine DB-Unterstützung)
-      if ((selectedAvailabilityDay || selectedAvailabilityTime) && data) {
+      if ((selectedAvailabilityDays.length > 0 || selectedAvailabilityTime) && data) {
         console.log('🕒 Applying availability filters...');
         data = data.filter(caretaker => {
           // Vereinfachte Verfügbarkeits-Logik - in Zukunft aus DB
@@ -204,7 +210,9 @@ function SearchPage() {
       if (selectedPetType) newParams.set('petType', selectedPetType);
       if (selectedService) newParams.set('service', selectedService);
       if (selectedServiceCategory) newParams.set('serviceCategory', selectedServiceCategory);
-      if (selectedAvailabilityDay) newParams.set('availabilityDay', selectedAvailabilityDay);
+      if (selectedAvailabilityDays.length > 0) {
+        selectedAvailabilityDays.forEach(day => newParams.append('availabilityDay', day));
+      }
       if (selectedAvailabilityTime) newParams.set('availabilityTime', selectedAvailabilityTime);
       if (selectedMinRating) newParams.set('minRating', selectedMinRating);
       if (selectedRadius) newParams.set('radius', selectedRadius);
@@ -240,13 +248,13 @@ function SearchPage() {
     }, 300); // 300ms Debounce
     
     return () => clearTimeout(timeoutId);
-  }, [location, selectedPetType, selectedService, selectedAvailabilityDay, selectedAvailabilityTime, selectedMinRating, selectedRadius, maxPrice]); // Dependencies für Live-Suche
+  }, [location, selectedPetType, selectedService, selectedAvailabilityDays, selectedAvailabilityTime, selectedMinRating, selectedRadius, maxPrice]); // Dependencies für Live-Suche
 
   const clearAllFilters = () => {
     setSelectedPetType('');
     setSelectedService('');
     setSelectedServiceCategory('');
-    setSelectedAvailabilityDay('');
+    setSelectedAvailabilityDays([]);
     setSelectedAvailabilityTime('');
     setSelectedMinRating('');
     setSelectedRadius('');
@@ -254,7 +262,7 @@ function SearchPage() {
     setLocation('');
   };
 
-  const hasActiveFilters = selectedPetType || selectedService || selectedServiceCategory || selectedAvailabilityDay || selectedAvailabilityTime || selectedMinRating || selectedRadius || maxPrice < 100 || location.trim();
+  const hasActiveFilters = selectedPetType || selectedService || selectedServiceCategory || selectedAvailabilityDays.length > 0 || selectedAvailabilityTime || selectedMinRating || selectedRadius || maxPrice < 100 || location.trim();
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -392,11 +400,11 @@ function SearchPage() {
                 {showAdvancedFilters && (
                   <div className="border-t pt-6">
                     <AdvancedFilters
-                      availabilityDay={selectedAvailabilityDay}
+                      availabilityDay={selectedAvailabilityDays.join(',')}
                       availabilityTime={selectedAvailabilityTime}
                       minRating={selectedMinRating}
                       radius={selectedRadius}
-                      onAvailabilityDayChange={setSelectedAvailabilityDay}
+                      onAvailabilityDayChange={(day) => setSelectedAvailabilityDays(day ? day.split(',').filter(d => d) : [])}
                       onAvailabilityTimeChange={setSelectedAvailabilityTime}
                       onMinRatingChange={setSelectedMinRating}
                       onRadiusChange={setSelectedRadius}
@@ -460,11 +468,14 @@ function SearchPage() {
                         </div>
                       )}
                       
-                      {selectedAvailabilityDay && (
+                      {selectedAvailabilityDays.length > 0 && (
                         <div className="flex items-center bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm">
-                          🕒 {availabilityDayOptions.find(opt => opt.value === selectedAvailabilityDay)?.label}
+                          🕒 {selectedAvailabilityDays.length === 1 
+                            ? getDayLabel(selectedAvailabilityDays[0])
+                            : `${selectedAvailabilityDays.length} Tage ausgewählt`
+                          }
                           <button
-                            onClick={() => setSelectedAvailabilityDay('')}
+                            onClick={() => setSelectedAvailabilityDays([])}
                             className="ml-2 hover:text-primary-900"
                           >
                             <X className="h-3 w-3" />
