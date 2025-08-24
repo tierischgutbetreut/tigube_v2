@@ -1,8 +1,10 @@
 import { supabase } from './client';
+import { ServiceUtils, type CategorizedService } from './service-categories';
 
 export interface SearchFilters {
   petType?: string;
   service?: string;
+  serviceCategory?: string;
   location?: string;
   startDate?: string;
   endDate?: string;
@@ -29,6 +31,7 @@ export interface CaretakerDisplayData {
   bio: string;
   verified: boolean;
   isCommercial: boolean;
+  short_term_available?: boolean;
 }
 
 /**
@@ -62,6 +65,7 @@ interface CaretakerJoinRow {
   short_about_me: string | null;
   long_about_me: string | null;
   is_commercial: boolean | null;
+  short_term_available?: boolean | null;
   languages?: string[] | null;
   home_photos?: string[] | null;
   users: {
@@ -127,6 +131,7 @@ function transformCaretakerData(viewData: CaretakerJoinRow): CaretakerDisplayDat
     bio: viewData.short_about_me || viewData.long_about_me || 'Keine Beschreibung verfügbar.',
     verified: viewData.is_verified || false,
     isCommercial: viewData.is_commercial || false,
+    short_term_available: viewData.short_term_available || false,
   };
 
   console.log('✅ Transformed result:', result);
@@ -161,6 +166,7 @@ export async function searchCaretakers(filters?: SearchFilters): Promise<Caretak
         short_about_me,
         long_about_me,
         is_commercial,
+        short_term_available,
         users!inner(
           id,
           first_name,
@@ -217,6 +223,17 @@ export async function searchCaretakers(filters?: SearchFilters): Promise<Caretak
       console.log(`🔧 After service filter: ${transformedData.length} caretakers`);
     }
 
+    // Client-seitige Filterung für serviceCategory
+    if (filters?.serviceCategory) {
+      console.log('🏷️ Applying client-side service category filter:', filters.serviceCategory);
+      transformedData = transformedData.filter(caretaker => {
+        // Für jeden Caretaker prüfen wir, ob er Services in der gewünschten Kategorie anbietet
+        const categorizedServices = ServiceUtils.migrateStringArrayToCategories(caretaker.services);
+        return categorizedServices.some(service => service.categoryId === filters.serviceCategory);
+      });
+      console.log(`🏷️ After service category filter: ${transformedData.length} caretakers`);
+    }
+
     // Client-seitige Filterung für petType (da wir noch keine pet_types in der DB haben)
     if (filters?.petType) {
       console.log('🐾 Applying client-side pet type filter:', filters.petType);
@@ -267,6 +284,7 @@ export async function getCaretakerById(id: string): Promise<CaretakerDisplayData
         short_about_me,
         long_about_me,
         is_commercial,
+        short_term_available,
         users!inner(
           id,
           first_name,
@@ -327,4 +345,4 @@ export const getAvailableServices = async (): Promise<{
   } catch (error) {
     return { data: [], error: error as Error };
   }
-}; 
+};

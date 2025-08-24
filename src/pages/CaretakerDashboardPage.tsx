@@ -9,7 +9,7 @@ import type { ClientData } from '../components/ui/ClientDetailsAccordion';
 import { useAuth } from '../lib/auth/AuthContext';
 import { useEffect, useState, useRef } from 'react';
 import { caretakerProfileService, ownerCaretakerService, userService } from '../lib/supabase/db';
-import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info, Lock, Briefcase, Verified, Eye, EyeOff, KeyRound, Trash2, AlertTriangle, Mail, X } from 'lucide-react';
+import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info, Lock, Briefcase, Verified, Eye, EyeOff, KeyRound, Trash2, AlertTriangle, Mail, X, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
 import { useFeatureAccess } from '../hooks/useFeatureAccess';
@@ -19,6 +19,9 @@ import { PremiumBadge } from '../components/ui/PremiumBadge';
 import { useSubscription } from '../lib/auth/useSubscription';
 import RegistrationSuccessModal from '../components/ui/RegistrationSuccessModal';
 import ProfileImageCropper from '../components/ui/ProfileImageCropper';
+import { DEFAULT_SERVICE_CATEGORIES, ServiceUtils, type ServiceCategory, type CategorizedService } from '../lib/types/service-categories';
+import { ServiceUtils as SupabaseServiceUtils } from '../lib/supabase/service-categories';
+import { useShortTermAvailability } from '../contexts/ShortTermAvailabilityContext';
 
 function CaretakerDashboardPage() {
   const { user, userProfile, loading: authLoading, subscription, updateProfileState } = useAuth();
@@ -48,6 +51,10 @@ function CaretakerDashboardPage() {
     city: userProfile?.city || ''
   });
   const [emailError, setEmailError] = useState<string | null>(null);
+  
+  // Short-term availability state (nur lokaler State, keine DB-Persistierung)
+  const { shortTermAvailable, setShortTermAvailable, loading: contextLoading } = useShortTermAvailability();
+  const [shortTermLoading, setShortTermLoading] = useState(false);
 
   // Onboarding nach Dashboard-Load starten (nur einmal, via sessionStorage)
   useEffect(() => {
@@ -130,8 +137,11 @@ function CaretakerDashboardPage() {
   });
   // Freie Eingabe für Leistungen, Tierarten, Qualifikationen
   const [newService, setNewService] = useState('');
+  const [newServiceCategory, setNewServiceCategory] = useState(8); // Default: Allgemein
+
   const [newAnimal, setNewAnimal] = useState('');
   const [newQualification, setNewQualification] = useState('');
+  const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>(DEFAULT_SERVICE_CATEGORIES.map(cat => ({ ...cat, is_active: true })));
 
   // Default-Listen wie bei Anmeldung
   const defaultServices = [
@@ -255,8 +265,21 @@ function CaretakerDashboardPage() {
     }
   };
   function handleCancelSkills() {
+    // Rückwärtskompatibilität auch beim Abbrechen berücksichtigen
+    const profileServices = profile?.services || [];
+    const servicesWithCategories = (profile as any)?.services_with_categories;
+    
+    let normalizedServices: string[];
+    if (servicesWithCategories && Array.isArray(servicesWithCategories)) {
+            normalizedServices = SupabaseServiceUtils.extractServiceNames(servicesWithCategories);
+          } else if (SupabaseServiceUtils.isLegacyFormat(profileServices)) {
+      normalizedServices = profileServices;
+    } else {
+      normalizedServices = [];
+    }
+
     setSkillsDraft({
-      services: profile?.services || [],
+      services: normalizedServices,
       animal_types: profile?.animal_types || [],
       qualifications: profile?.qualifications || [],
       experience_description: profile?.experience_description || '',
@@ -345,6 +368,36 @@ function CaretakerDashboardPage() {
       setEditAboutMe(false);
     } catch (error) {
       console.error('Fehler beim Speichern der Über mich Beschreibung:', error);
+    }
+  };
+
+  // Handler für Short-Term Availability Toggle (mit Datenbank-Speicherung)
+  const handleShortTermAvailabilityToggle = async () => {
+    if (shortTermLoading || !user) return;
+    
+    setShortTermLoading(true);
+    const newValue = !shortTermAvailable;
+    
+    try {
+      // Speichere in der Datenbank
+      const { error } = await caretakerProfileService.saveProfile(user.id, {
+        shortTermAvailable: newValue
+      });
+      
+      if (error) {
+        console.error('Fehler beim Speichern der Kurzfristig-Verfügbar Option:', error);
+        setShortTermLoading(false);
+        return;
+      }
+      
+      // Aktualisiere lokalen State und Context nur bei erfolgreichem Speichern
+       setShortTermAvailable(newValue);
+       setProfile((prev: any) => ({ ...prev, short_term_available: newValue }));
+      
+    } catch (error) {
+      console.error('Fehler beim Speichern der Kurzfristig-Verfügbar Option:', error);
+    } finally {
+      setShortTermLoading(false);
     }
   };
 
@@ -510,13 +563,31 @@ function CaretakerDashboardPage() {
           setAboutMe((ensuredProfile as any).long_about_me || '');
           setAboutMeDraft((ensuredProfile as any).long_about_me || '');
           
+          // short_term_available wird jetzt über den Context verwaltet
+          // setShortTermAvailable wird automatisch durch den Context aktualisiert
+          
           // Aktualisiere skillsDraft mit geladenen Daten
           const loadedPrices = (ensuredProfile as any).prices || {};
           // Stelle sicher, dass Standard-Preisfelder immer vorhanden sind
           const mergedPrices = { ...defaultPriceFields, ...loadedPrices };
           
+          // Rückwärtskompatibilität für Services implementieren
+          const profileServices = (ensuredProfile as any).services || [];
+          const servicesWithCategories = (ensuredProfile as any).services_with_categories;
+          
+          let normalizedServices: string[];
+          if (servicesWithCategories && Array.isArray(servicesWithCategories)) {
+            // Neue kategorisierte Services verwenden
+            normalizedServices = SupabaseServiceUtils.extractServiceNames(servicesWithCategories);
+          } else if (SupabaseServiceUtils.isLegacyFormat(profileServices)) {
+            // Legacy String-Array Services
+            normalizedServices = profileServices;
+          } else {
+            normalizedServices = [];
+          }
+
           setSkillsDraft({
-            services: (ensuredProfile as any).services || [],
+            services: normalizedServices,
             animal_types: (ensuredProfile as any).animal_types || [],
             qualifications: (ensuredProfile as any).qualifications || [],
             experience_description: (ensuredProfile as any).experience_description || '',
@@ -1159,6 +1230,23 @@ function CaretakerDashboardPage() {
                         size="sm"
                       />
                     )}
+                    {/* Kurzfristig Verfügbar Toggle */}
+                    <button
+                      onClick={handleShortTermAvailabilityToggle}
+                      disabled={shortTermLoading}
+                      className={`flex items-center px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200 ${
+                        shortTermAvailable
+                          ? 'bg-green-500 text-white shadow-md hover:bg-green-600'
+                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                      } ${shortTermLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                      title={shortTermAvailable ? 'Kurzfristig verfügbar - Klicken zum Deaktivieren' : 'Nicht kurzfristig verfügbar - Klicken zum Aktivieren'}
+                    >
+                      <Clock className="h-2.5 w-2.5 mr-1" />
+                      {shortTermLoading ? (
+                        <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin mr-1" />
+                      ) : null}
+                      Kurzfristig Verfügbar
+                    </button>
                   </div>
                   <div className="mt-3">
                     <Link
@@ -1442,24 +1530,48 @@ function CaretakerDashboardPage() {
                   <div className="flex flex-wrap gap-2 mb-2">
                     {/* Default-Checkboxen */}
                     {defaultServices.map((s: string) => (
-                      <label key={s} className={`px-2 py-1 rounded text-xs cursor-pointer border ${skillsDraft.services.includes(s) ? 'bg-primary-100 text-primary-700 border-primary-300' : 'bg-gray-50 text-gray-700 border-gray-200'}`}>
-                        <input type="checkbox" className="mr-1" checked={skillsDraft.services.includes(s)} onChange={e => handleSkillsChange('services', e.target.checked ? [...skillsDraft.services, s] : skillsDraft.services.filter((x: string) => x !== s))} />
+                      <label key={s} className={`px-2 py-1 rounded text-xs cursor-pointer border ${skillsDraft.services.some((service: any) => typeof service === 'string' ? service === s : service.name === s) ? 'bg-primary-100 text-primary-700 border-primary-300' : 'bg-gray-50 text-gray-700 border-gray-200'}`}>
+                        <input type="checkbox" className="mr-1" checked={skillsDraft.services.some((service: any) => typeof service === 'string' ? service === s : service.name === s)} onChange={e => {
+                          if (e.target.checked) {
+                            const newService: CategorizedService = { name: s, category_id: 8 }; // Allgemein
+                            handleSkillsChange('services', [...skillsDraft.services.filter((service: any) => typeof service === 'string' ? service !== s : service.name !== s), newService]);
+                          } else {
+                            handleSkillsChange('services', skillsDraft.services.filter((service: any) => typeof service === 'string' ? service !== s : service.name !== s));
+                          }
+                        }} />
                         {s}
                       </label>
                     ))}
-                    {/* Individuelle Leistungen als Chips */}
-                    {skillsDraft.services.filter((s: string) => !defaultServices.includes(s)).map((s: string) => (
-                      <span key={s} className="flex items-center px-2 py-1 rounded text-xs bg-primary-100 text-primary-700 border border-primary-300">
-                        {s}
-                        <button type="button" className="ml-1 text-gray-400 hover:text-red-500" onClick={() => handleSkillsChange('services', skillsDraft.services.filter((x: string) => x !== s))} title="Entfernen">
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                      </span>
-                    ))}
+                    {/* Individuelle Services als Chips */}
+                    {skillsDraft.services.filter((service: any) => {
+                      const serviceName = typeof service === 'string' ? service : service.name;
+                      return !defaultServices.includes(serviceName);
+                    }).map((service: any, index: number) => {
+                      const serviceName = typeof service === 'string' ? service : service.name;
+                      return (
+                        <span key={`${serviceName}-${index}`} className="flex items-center px-2 py-1 rounded text-xs bg-primary-100 text-primary-700 border border-primary-300">
+                          {serviceName}
+                          <button type="button" className="ml-1 text-gray-400 hover:text-red-500" onClick={() => {
+                            if (typeof service === 'string') {
+                              handleSkillsChange('services', skillsDraft.services.filter((s: any) => s !== service));
+                            } else {
+                              handleSkillsChange('services', skillsDraft.services.filter((s: any) => !(typeof s === 'object' && s.name === service.name && s.category_id === service.category_id)));
+                            }
+                          }} title="Entfernen">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        </span>
+                      );
+                    })}
                   </div>
                   <div className="flex gap-2 items-center">
-                    <input className="input w-40" placeholder="Neue Leistung" value={newService} onChange={e => setNewService(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newService.trim()) { handleSkillsChange('services', [...skillsDraft.services, newService.trim()]); setNewService(''); } }} />
-                    <button type="button" className="text-green-600 hover:bg-green-50 rounded p-1" disabled={!newService.trim()} onClick={() => { handleSkillsChange('services', [...skillsDraft.services, newService.trim()]); setNewService(''); }} title="Hinzufügen"><Check className="w-4 h-4" /></button>
+                    <input className="input flex-[2]" placeholder="Neue Leistung" value={newService} onChange={e => setNewService(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newService.trim()) { const newCategorizedService: CategorizedService = { name: newService.trim(), category_id: newServiceCategory }; handleSkillsChange('services', [...skillsDraft.services, newCategorizedService]); setNewService(''); } }} />
+                    <select className="input flex-1" value={newServiceCategory} onChange={e => setNewServiceCategory(parseInt(e.target.value))}>
+                      {DEFAULT_SERVICE_CATEGORIES.map(category => (
+                        <option key={category.id} value={category.id}>{category.name}</option>
+                      ))}
+                    </select>
+                    <button type="button" className="text-green-600 hover:bg-green-50 rounded p-1" disabled={!newService.trim()} onClick={() => { const newCategorizedService: CategorizedService = { name: newService.trim(), category_id: newServiceCategory }; handleSkillsChange('services', [...skillsDraft.services, newCategorizedService]); setNewService(''); }} title="Hinzufügen"><Check className="w-4 h-4" /></button>
                     <button type="button" className="text-gray-400 hover:text-red-500 rounded p-1" onClick={() => setNewService('')} title="Abbrechen"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                   </div>
                 </div>
@@ -1484,7 +1596,7 @@ function CaretakerDashboardPage() {
                     ))}
                   </div>
                   <div className="flex gap-2 items-center">
-                    <input className="input w-40" placeholder="Neue Tierart" value={newAnimal} onChange={e => setNewAnimal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newAnimal.trim()) { handleSkillsChange('animal_types', [...skillsDraft.animal_types, newAnimal.trim()]); setNewAnimal(''); } }} />
+                    <input className="input flex-1" placeholder="Neue Tierart" value={newAnimal} onChange={e => setNewAnimal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newAnimal.trim()) { handleSkillsChange('animal_types', [...skillsDraft.animal_types, newAnimal.trim()]); setNewAnimal(''); } }} />
                     <button type="button" className="text-green-600 hover:bg-green-50 rounded p-1" disabled={!newAnimal.trim()} onClick={() => { handleSkillsChange('animal_types', [...skillsDraft.animal_types, newAnimal.trim()]); setNewAnimal(''); }} title="Hinzufügen"><Check className="w-4 h-4" /></button>
                     <button type="button" className="text-gray-400 hover:text-red-500 rounded p-1" onClick={() => setNewAnimal('')} title="Abbrechen"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                   </div>
@@ -1510,7 +1622,7 @@ function CaretakerDashboardPage() {
                     ))}
                   </div>
                   <div className="flex gap-2 items-center">
-                    <input className="input w-40" placeholder="Neue Qualifikation" value={newQualification} onChange={e => setNewQualification(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newQualification.trim()) { handleSkillsChange('qualifications', [...skillsDraft.qualifications, newQualification.trim()]); setNewQualification(''); } }} />
+                    <input className="input flex-1" placeholder="Neue Qualifikation" value={newQualification} onChange={e => setNewQualification(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newQualification.trim()) { handleSkillsChange('qualifications', [...skillsDraft.qualifications, newQualification.trim()]); setNewQualification(''); } }} />
                     <button type="button" className="text-green-600 hover:bg-green-50 rounded p-1" disabled={!newQualification.trim()} onClick={() => { handleSkillsChange('qualifications', [...skillsDraft.qualifications, newQualification.trim()]); setNewQualification(''); }} title="Hinzufügen"><Check className="w-4 h-4" /></button>
                     <button type="button" className="text-gray-400 hover:text-red-500 rounded p-1" onClick={() => setNewQualification('')} title="Abbrechen"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                   </div>
@@ -2446,4 +2558,4 @@ function CaretakerDashboardPage() {
   );
 }
 
-export default CaretakerDashboardPage; 
+export default CaretakerDashboardPage;

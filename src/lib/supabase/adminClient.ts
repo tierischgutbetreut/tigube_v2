@@ -187,6 +187,7 @@ export interface AdminCaretakerProfile {
   about_me?: string;
   languages: string[];
   is_commercial: boolean;
+  short_term_available?: boolean;
   business_name?: string;
   tax_id?: string;
   total_earnings: number;
@@ -295,4 +296,4 @@ export interface ModerationSearchResult {
   page: number;
   page_size: number;
   total_pages: number;
-} 
+}

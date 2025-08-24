@@ -57,23 +57,20 @@ export function AdvancedFilters({
   // Feature Gate für Non-Premium Users
   if (!canUseAdvanced) {
     return (
-      <div className={`bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-6 ${className}`}>
-        <div className="flex items-start gap-3">
-          <div className="bg-yellow-100 p-2 rounded-lg">
-            <Crown className="w-6 h-6 text-yellow-600" />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-semibold text-yellow-800 mb-2 flex items-center gap-2">
-              <Lock className="w-4 h-4" />
-              Erweiterte Filter
-            </h3>
-            <p className="text-yellow-700 text-sm mb-4">
+      <div className={`bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-4 ${className}`}>
+        <div className="flex items-center gap-2 mb-2 flex-nowrap">
+          <Filter className="w-4 h-4 text-yellow-700 shrink-0" />
+          <Crown className="w-4 h-4 text-yellow-600 shrink-0" />
+          <div className="flex-1 min-w-0 text-base leading-6 font-bold text-yellow-800 whitespace-nowrap overflow-hidden text-ellipsis">Erweiterte Filter</div>
+        </div>
+        <div>
+            <p className="text-yellow-700 text-sm mb-4 text-left">
               Finde den perfekten Betreuer mit präzisen Filteroptionen. Premium-Mitglieder können nach 
               Verfügbarkeit, Bewertung, Umkreis und vielem mehr filtern.
             </p>
             
             {/* Preview of advanced filters (disabled) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 opacity-50">
+            <div className="space-y-4 mb-4 opacity-50">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Verfügbar am</label>
                 <select disabled className="w-full text-sm border border-gray-200 rounded bg-gray-50 px-2 py-1">
@@ -103,38 +100,38 @@ export function AdvancedFilters({
               </div>
             </div>
             
-            <div className="flex gap-3">
+            <div className="space-y-3">
               <Link
                 to="/mitgliedschaften"
-                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-yellow-600 to-orange-600 text-white text-sm rounded-lg hover:from-yellow-700 hover:to-orange-700 transition-all duration-200 shadow-md"
+                className="inline-flex items-center justify-center w-full px-4 py-2 bg-gradient-to-r from-yellow-600 to-orange-600 text-white text-sm rounded-lg hover:from-yellow-700 hover:to-orange-700 transition-all duration-200 shadow-md"
               >
                 <Crown className="w-4 h-4 mr-2" />
                 Premium werden
               </Link>
-              <div className="text-xs text-yellow-600 self-center">
+              <div className="text-xs text-yellow-600 text-left">
                 Bereits Premium? Die Filter werden automatisch freigeschaltet.
               </div>
             </div>
           </div>
         </div>
-      </div>
-    );
-  }
-
+      );
+    }
+  
+  // Premium users - show advanced filters
   return (
-    <div className={`bg-white border border-gray-200 rounded-lg p-6 ${className}`}>
-      <div className="flex items-center gap-2 mb-4">
-        <Filter className="w-5 h-5 text-primary-600" />
-        <h3 className="font-semibold text-gray-900">Erweiterte Filter</h3>
-        {canUseAdvanced && (
-          <span className="bg-primary-100 text-primary-800 text-xs font-medium px-2 py-1 rounded-full">
-            Premium
-          </span>
-        )}
+    <div className={className}>
+        <div className="flex items-center gap-2 mb-4 flex-nowrap">
+          <Filter className="w-4 h-4 text-primary-600 shrink-0" />
+          <Crown className="w-4 h-4 text-primary-600 shrink-0" />
+          <div className="flex-1 min-w-0 text-base leading-6 font-bold text-gray-900 whitespace-nowrap overflow-hidden text-ellipsis">Erweiterte Filter</div>
+          {canUseAdvanced && (
+            <span className="bg-primary-100 text-primary-800 text-xs font-medium px-2 py-1 rounded-full shrink-0">
+              Premium
+            </span>
+          )}
+        </div>
 
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="space-y-4">
         {/* Verfügbar am Tag */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Verfügbar am</label>
@@ -223,9 +220,9 @@ export function AdvancedFilters({
           💡 Diese erweiterten Filter helfen dir dabei, Betreuer zu finden, die zu deinen 
           spezifischen Verfügbarkeits- und Qualitätsanforderungen passen.
         </p>
+        </div>
       </div>
-    </div>
   );
 }
 
-export default AdvancedFilters; 
+export default AdvancedFilters;

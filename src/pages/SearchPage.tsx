@@ -7,8 +7,11 @@ import { UsageLimitIndicator } from '../components/ui/UsageLimitIndicator';
 import { AdvancedFilters } from '../components/ui/AdvancedFilters';
 import { cn } from '../lib/utils';
 import { searchCaretakers as searchCaretakersService, type CaretakerDisplayData, type SearchFilters } from '../lib/supabase/caretaker-search';
+import { DEFAULT_SERVICE_CATEGORIES } from '../lib/types/service-categories';
 import { useFeatureAccess } from '../hooks/useFeatureAccess';
 import useCurrentUsage from '../hooks/useCurrentUsage';
+import { useShortTermAvailability } from '../contexts/ShortTermAvailabilityContext';
+import { useAuth } from "../lib/auth/AuthContext";
 
 // Using the type from the service
 type Caretaker = CaretakerDisplayData;
@@ -22,6 +25,8 @@ function SearchPage() {
   const navigate = useNavigate();
   const { contactLimit, subscription } = useFeatureAccess();
   const { currentUsage: contactUsage } = useCurrentUsage('contact_request');
+  const { shortTermAvailable } = useShortTermAvailability();
+  const { user } = useAuth();
   const isFirstRender = useRef(true);
   
   // Initialize filters from URL params
@@ -36,6 +41,7 @@ function SearchPage() {
   const [location, setLocation] = useState(initialLocation);
   const [selectedPetType, setSelectedPetType] = useState(initialPetType);
   const [selectedService, setSelectedService] = useState(initialService);
+  const [selectedServiceCategory, setSelectedServiceCategory] = useState(searchParams.get('serviceCategory') || '');
   const [selectedAvailabilityDay, setSelectedAvailabilityDay] = useState(initialAvailabilityDay);
   const [selectedAvailabilityTime, setSelectedAvailabilityTime] = useState(initialAvailabilityTime);
   const [selectedMinRating, setSelectedMinRating] = useState(searchParams.get('minRating') || '');
@@ -70,6 +76,14 @@ function SearchPage() {
     { value: 'Katzenbetreuung', label: 'Katzenbetreuung' },
     { value: 'Hundetagesbetreuung', label: 'Hundetagesbetreuung' },
     { value: 'Kleintierbetreuung', label: 'Kleintierbetreuung' }
+  ];
+
+  const serviceCategoryOptions = [
+    { value: '', label: 'Alle Kategorien' },
+    ...DEFAULT_SERVICE_CATEGORIES.map(category => ({
+      value: category.id,
+      label: category.name
+    }))
   ];
 
   const availabilityDayOptions = [
@@ -112,6 +126,7 @@ function SearchPage() {
       if (location.trim()) filters.location = location.trim();
       if (selectedPetType) filters.petType = selectedPetType;
       if (selectedService) filters.service = selectedService;
+      if (selectedServiceCategory) filters.serviceCategory = selectedServiceCategory;
       
       // Nur Preis-Filter setzen wenn er nicht dem Default-Wert entspricht
       if (maxPrice < 100) {
@@ -128,6 +143,7 @@ function SearchPage() {
         const { mockCaregivers } = await import('../data/mockData');
         data = mockCaregivers.map(mock => ({
           id: mock.id,
+          userId: mock.id, // Using id as userId for mock data
           name: mock.name,
           avatar: mock.avatar,
           location: mock.location,
@@ -138,7 +154,8 @@ function SearchPage() {
           services: mock.services,
           bio: mock.bio,
           verified: mock.verified,
-          isCommercial: false
+          isCommercial: false,
+          short_term_available: user && mock.id === user.id ? shortTermAvailable : false // Use context value for current user
         }));
         console.log('📊 Using mock data:', data);
       }
@@ -186,6 +203,7 @@ function SearchPage() {
       if (location.trim()) newParams.set('location', location.trim());
       if (selectedPetType) newParams.set('petType', selectedPetType);
       if (selectedService) newParams.set('service', selectedService);
+      if (selectedServiceCategory) newParams.set('serviceCategory', selectedServiceCategory);
       if (selectedAvailabilityDay) newParams.set('availabilityDay', selectedAvailabilityDay);
       if (selectedAvailabilityTime) newParams.set('availabilityTime', selectedAvailabilityTime);
       if (selectedMinRating) newParams.set('minRating', selectedMinRating);
@@ -227,6 +245,7 @@ function SearchPage() {
   const clearAllFilters = () => {
     setSelectedPetType('');
     setSelectedService('');
+    setSelectedServiceCategory('');
     setSelectedAvailabilityDay('');
     setSelectedAvailabilityTime('');
     setSelectedMinRating('');
@@ -235,80 +254,100 @@ function SearchPage() {
     setLocation('');
   };
 
-  const hasActiveFilters = selectedPetType || selectedService || selectedAvailabilityDay || selectedAvailabilityTime || selectedMinRating || selectedRadius || maxPrice < 100 || location.trim();
+  const hasActiveFilters = selectedPetType || selectedService || selectedServiceCategory || selectedAvailabilityDay || selectedAvailabilityTime || selectedMinRating || selectedRadius || maxPrice < 100 || location.trim();
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      {/* Search Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="container-custom py-4">
-          {/* Filter-Zeile */}
-          <div className="space-y-4">
-            {/* Erste Zeile: Grundfilter */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
-              {/* PLZ/Stadt */}
-              <div className="lg:col-span-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Standort</label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="PLZ oder Stadt"
-                    className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                  />
-                </div>
-              </div>
+      {/* Main Content Layout */}
+      <div className="container-custom py-8">
+        <div className="flex gap-8">
+          {/* Filter Sidebar */}
+          <div className="w-80 flex-shrink-0">
+            <div className="bg-white rounded-xl p-6 shadow-sm sticky top-8">
+              <h2 className="text-lg font-semibold mb-6">Filter</h2>
               
-              {/* Tierart Dropdown */}
-              <div className="lg:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tierart</label>
-                <div className="relative">
-                  <PawPrint className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <select
-                    value={selectedPetType}
-                    onChange={(e) => setSelectedPetType(e.target.value)}
-                    className="w-full pl-9 pr-8 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm appearance-none bg-white"
-                  >
-                    {petTypeOptions.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              <div className="space-y-6">
+                {/* PLZ/Stadt */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Standort</label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="PLZ oder Stadt"
+                      className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                    />
+                  </div>
                 </div>
-              </div>
-
-              {/* Service Dropdown */}
-              <div className="lg:col-span-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Service</label>
-                <div className="relative">
-                  <Briefcase className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <select
-                    value={selectedService}
-                    onChange={(e) => setSelectedService(e.target.value)}
-                    className="w-full pl-9 pr-8 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm appearance-none bg-white"
-                  >
-                    {serviceOptions.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                
+                {/* Tierart Dropdown */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tierart</label>
+                  <div className="relative">
+                    <PawPrint className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <select
+                      value={selectedPetType}
+                      onChange={(e) => setSelectedPetType(e.target.value)}
+                      className="w-full pl-9 pr-8 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm appearance-none bg-white"
+                    >
+                      {petTypeOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                  </div>
                 </div>
-              </div>
 
-              {/* Max Preis Slider - Horizontal Mittig */}
-              <div className="lg:col-span-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1 text-center">
-                  Max. Preis: €{maxPrice === 100 ? '100+' : maxPrice}/Std
-                </label>
-                <div className="flex justify-center">
-                  <div className="relative w-full max-w-xs">
-                    {/* Single Range Slider */}
+                {/* Service Dropdown */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Service</label>
+                  <div className="relative">
+                    <Briefcase className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <select
+                      value={selectedService}
+                      onChange={(e) => setSelectedService(e.target.value)}
+                      className="w-full pl-9 pr-8 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm appearance-none bg-white"
+                    >
+                      {serviceOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Service Kategorie Dropdown */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Kategorie</label>
+                  <div className="relative">
+                    <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <select
+                      value={selectedServiceCategory}
+                      onChange={(e) => setSelectedServiceCategory(e.target.value)}
+                      className="w-full pl-9 pr-8 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm appearance-none bg-white"
+                    >
+                      {serviceCategoryOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Max Preis Slider */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Max. Preis: €{maxPrice === 100 ? '100+' : maxPrice}/Std
+                  </label>
+                  <div className="relative">
                     <div className="relative h-2 bg-gray-200 rounded-lg mt-1">
                       <div 
                         className="absolute h-2 bg-primary-500 rounded-lg"
@@ -326,169 +365,169 @@ function SearchPage() {
                         className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer range-slider"
                       />
                     </div>
-                    {/* Preis-Werte unter dem Slider */}
                     <div className="flex justify-between mt-1 text-xs text-gray-500">
                       <span>€0</span>
                       <span>€100+</span>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Filter & Clear Buttons */}
-              <div className="lg:col-span-1 flex flex-col gap-1">
                 {/* Advanced Filter Toggle */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                  className={cn(
-                    "w-full text-xs",
-                    showAdvancedFilters && "bg-primary-50 border-primary-300 text-primary-700"
-                  )}
-                >
-                  <Filter className="h-3 w-3 mr-1" />
-                  Filter
-                </Button>
+                <div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                    className={cn(
+                      "w-full",
+                      showAdvancedFilters && "bg-primary-50 border-primary-300 text-primary-700"
+                    )}
+                  >
+                    <Filter className="h-4 w-4 mr-2" />
+                    Erweiterte Filter
+                  </Button>
+                </div>
+
+                {/* Premium Filter (nur sichtbar wenn showAdvancedFilters true ist) */}
+                {showAdvancedFilters && (
+                  <div className="border-t pt-6">
+                    <AdvancedFilters
+                      availabilityDay={selectedAvailabilityDay}
+                      availabilityTime={selectedAvailabilityTime}
+                      minRating={selectedMinRating}
+                      radius={selectedRadius}
+                      onAvailabilityDayChange={setSelectedAvailabilityDay}
+                      onAvailabilityTimeChange={setSelectedAvailabilityTime}
+                      onMinRatingChange={setSelectedMinRating}
+                      onRadiusChange={setSelectedRadius}
+                    />
+                  </div>
+                )}
                 
                 {/* Clear Filters Button */}
                 {hasActiveFilters && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearAllFilters}
-                    className="text-gray-600 hover:text-gray-900 w-full text-xs"
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
+                  <div className="border-t pt-6">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearAllFilters}
+                      className="text-gray-600 hover:text-gray-900 w-full"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Alle Filter zurücksetzen
+                    </Button>
+                  </div>
+                )}
+
+                {/* Active Filters Summary */}
+                {hasActiveFilters && (
+                  <div className="border-t pt-6">
+                    <h3 className="text-sm font-medium text-gray-700 mb-3">Aktive Filter:</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {location.trim() && (
+                        <div className="flex items-center bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm">
+                          📍 {location.trim()}
+                          <button
+                            onClick={() => setLocation('')}
+                            className="ml-2 hover:text-primary-900"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+
+                      {selectedPetType && (
+                        <div className="flex items-center bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm">
+                          🐾 {petTypeOptions.find(opt => opt.value === selectedPetType)?.label}
+                          <button
+                            onClick={() => setSelectedPetType('')}
+                            className="ml-2 hover:text-primary-900"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+
+                      {selectedService && (
+                        <div className="flex items-center bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm">
+                          💼 {serviceOptions.find(opt => opt.value === selectedService)?.label}
+                          <button
+                            onClick={() => setSelectedService('')}
+                            className="ml-2 hover:text-primary-900"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                      
+                      {selectedAvailabilityDay && (
+                        <div className="flex items-center bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm">
+                          🕒 {availabilityDayOptions.find(opt => opt.value === selectedAvailabilityDay)?.label}
+                          <button
+                            onClick={() => setSelectedAvailabilityDay('')}
+                            className="ml-2 hover:text-primary-900"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+
+                      {selectedAvailabilityTime && (
+                        <div className="flex items-center bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm">
+                          ⏰ {availabilityTimeOptions.find(opt => opt.value === selectedAvailabilityTime)?.label}
+                          <button
+                            onClick={() => setSelectedAvailabilityTime('')}
+                            className="ml-2 hover:text-primary-900"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+
+                      {selectedMinRating && (
+                        <div className="flex items-center bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm">
+                          ⭐ {selectedMinRating}+ Sterne
+                          <button
+                            onClick={() => setSelectedMinRating('')}
+                            className="ml-2 hover:text-primary-900"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+
+                      {selectedRadius && (
+                        <div className="flex items-center bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm">
+                          📍 {selectedRadius} km Umkreis
+                          <button
+                            onClick={() => setSelectedRadius('')}
+                            className="ml-2 hover:text-primary-900"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+
+                      {maxPrice < 100 && (
+                        <div className="flex items-center bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm">
+                          💰 Max. €{maxPrice}/Std
+                          <button
+                            onClick={() => setMaxPrice(100)}
+                            className="ml-2 hover:text-primary-900"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
-
-            {/* Premium Filter (nur sichtbar wenn showAdvancedFilters true ist) */}
-            {showAdvancedFilters && (
-              <AdvancedFilters
-                availabilityDay={selectedAvailabilityDay}
-                availabilityTime={selectedAvailabilityTime}
-                minRating={selectedMinRating}
-                radius={selectedRadius}
-                onAvailabilityDayChange={setSelectedAvailabilityDay}
-                onAvailabilityTimeChange={setSelectedAvailabilityTime}
-                onMinRatingChange={setSelectedMinRating}
-                onRadiusChange={setSelectedRadius}
-              />
-            )}
           </div>
 
-
-
-          {/* Active Filters Summary */}
-          {hasActiveFilters && (
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="text-sm text-gray-600">Aktive Filter:</span>
-              
-              {location.trim() && (
-                <div className="flex items-center bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm">
-                  📍 {location.trim()}
-                  <button
-                    onClick={() => setLocation('')}
-                    className="ml-2 hover:text-primary-900"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              )}
-
-              {selectedPetType && (
-                <div className="flex items-center bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm">
-                  🐾 {petTypeOptions.find(opt => opt.value === selectedPetType)?.label}
-                  <button
-                    onClick={() => setSelectedPetType('')}
-                    className="ml-2 hover:text-primary-900"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              )}
-
-              {selectedService && (
-                <div className="flex items-center bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm">
-                  💼 {serviceOptions.find(opt => opt.value === selectedService)?.label}
-                  <button
-                    onClick={() => setSelectedService('')}
-                    className="ml-2 hover:text-primary-900"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              )}
-              
-              {selectedAvailabilityDay && (
-                <div className="flex items-center bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm">
-                  🕒 {availabilityDayOptions.find(opt => opt.value === selectedAvailabilityDay)?.label}
-                  <button
-                    onClick={() => setSelectedAvailabilityDay('')}
-                    className="ml-2 hover:text-primary-900"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              )}
-
-              {selectedAvailabilityTime && (
-                <div className="flex items-center bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm">
-                  ⏰ {availabilityTimeOptions.find(opt => opt.value === selectedAvailabilityTime)?.label}
-                  <button
-                    onClick={() => setSelectedAvailabilityTime('')}
-                    className="ml-2 hover:text-primary-900"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              )}
-
-              {selectedMinRating && (
-                <div className="flex items-center bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm">
-                  ⭐ {selectedMinRating}+ Sterne
-                  <button
-                    onClick={() => setSelectedMinRating('')}
-                    className="ml-2 hover:text-primary-900"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              )}
-
-              {selectedRadius && (
-                <div className="flex items-center bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm">
-                  📍 {selectedRadius} km Umkreis
-                  <button
-                    onClick={() => setSelectedRadius('')}
-                    className="ml-2 hover:text-primary-900"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              )}
-
-              {maxPrice < 100 && (
-                <div className="flex items-center bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm">
-                  💰 Max. €{maxPrice}/Std
-                  <button
-                    onClick={() => setMaxPrice(100)}
-                    className="ml-2 hover:text-primary-900"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Results */}
-      <div className="container-custom py-8">
+          {/* Main Content Area */}
+          <div className="flex-1">
         {/* Usage Limit Display for Contact Requests - Compact Badge */}
         {subscription && subscription.user_type === 'owner' && (
           <div className="mb-4">
@@ -568,7 +607,8 @@ function SearchPage() {
               <CaretakerCard key={caretaker.id} caretaker={caretaker} />
             ))}
           </div>
-        )}
+        )}</div>
+        </div>
       </div>
     </div>
   );
@@ -624,6 +664,11 @@ function CaretakerCard({ caretaker }: CaretakerCardProps) {
           {caretaker.isCommercial && (
             <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md flex items-center justify-center">
               <Briefcase className="h-3 w-3 mr-1" /> Pro
+            </div>
+          )}
+          {caretaker.short_term_available && (
+            <div className="bg-green-500 text-white text-xs font-semibold px-2 py-1 rounded-full flex items-center justify-center">
+              <Clock className="h-3 w-3 mr-1" /> Kurzfristig
             </div>
           )}
         </div>

@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './lib/auth/AuthContext';
 import { NotificationProvider } from './lib/notifications/NotificationContext';
+import { ShortTermAvailabilityProvider } from './contexts/ShortTermAvailabilityContext';
 import './index.css';
 
 createRoot(document.getElementById('root')!).render(
@@ -11,7 +12,9 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <AuthProvider>
         <NotificationProvider>
-          <App />
+          <ShortTermAvailabilityProvider>
+            <App />
+          </ShortTermAvailabilityProvider>
         </NotificationProvider>
       </AuthProvider>
     </BrowserRouter>
