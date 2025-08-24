@@ -15,13 +15,15 @@ interface RegistrationSuccessModalProps {
   userType: 'owner' | 'caretaker';
   userName: string;
   onComplete: () => void;
+  onSkip?: () => void;
 }
 
 const RegistrationSuccessModal: React.FC<RegistrationSuccessModalProps> = ({
   isOpen,
   userType,
   userName,
-  onComplete
+  onComplete,
+  onSkip
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -114,6 +116,14 @@ const RegistrationSuccessModal: React.FC<RegistrationSuccessModalProps> = ({
     setCurrentStep(stepIndex);
   };
 
+  const handleSkip = () => {
+    if (onSkip) {
+      onSkip();
+    } else {
+      onComplete();
+    }
+  };
+
   if (!isOpen) return null;
 
   const currentStepData = steps[currentStep];
@@ -121,8 +131,18 @@ const RegistrationSuccessModal: React.FC<RegistrationSuccessModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn">
       <div className="bg-white rounded-xl shadow-sm max-w-lg w-full overflow-hidden animate-slideInUp">
+        {/* Header with Skip Button */}
+        <div className="flex justify-end p-4">
+          <button
+            onClick={handleSkip}
+            className="text-sm text-gray-500 hover:text-gray-700 transition-colors px-3 py-1 rounded-md hover:bg-gray-100"
+          >
+            Überspringen
+          </button>
+        </div>
+
         {/* Content */}
-        <div className="p-8 text-center min-h-[400px] flex flex-col justify-center">
+        <div className="px-8 pb-8 text-center min-h-[400px] flex flex-col justify-center">
           {/* Icon */}
           <div className="flex justify-center mb-6">
             {currentStepData.icon}
@@ -143,7 +163,7 @@ const RegistrationSuccessModal: React.FC<RegistrationSuccessModalProps> = ({
         </div>
 
         {/* Navigation */}
-        <div className="px-8 pb-8">
+        <div className="px-8 pb-8 pt-4">
           {/* Dots Indicator */}
           <div className="flex justify-center space-x-2 mb-6">
             {steps.map((_, index) => (

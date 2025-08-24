@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Cropper from 'react-easy-crop';
 import { Upload, X, Check, RotateCcw, ZoomIn, ZoomOut, Move } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
@@ -38,7 +38,6 @@ function ProfileImageCropper({
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Update selectedImage when photoUrl changes
   useEffect(() => {
@@ -373,17 +372,6 @@ function ProfileImageCropper({
         } ${(uploading || isSaving) ? 'opacity-50 pointer-events-none' : ''}`}
       >
         <input {...getInputProps()} />
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            if (e.target.files && e.target.files[0]) {
-              onDrop([e.target.files[0]]);
-            }
-          }}
-        />
         
         <div className="flex flex-col items-center space-y-2">
           {isDragActive ? (
@@ -412,7 +400,9 @@ function ProfileImageCropper({
               className="text-primary-600 border-primary-300 hover:bg-primary-50"
               onClick={(e) => {
                 e.stopPropagation();
-                fileInputRef.current?.click();
+                // Trigger the dropzone input directly
+                const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+                if (input) input.click();
               }}
             >
               <Upload className="h-4 w-4 mr-2" />

@@ -62,7 +62,7 @@ export default function OvernightAvailabilitySelector({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Moon className="h-5 w-5 text-green-600" />
+          <Moon className="h-5 w-5 text-primary-500" />
           <h3 className="text-lg font-semibold text-gray-900">Übernachtungen</h3>
         </div>
         
@@ -71,7 +71,7 @@ export default function OvernightAvailabilitySelector({
             <button
               type="button"
               onClick={handleSelectAll}
-              className="text-sm text-green-600 hover:text-green-700 font-medium"
+              className="text-sm text-primary-600 hover:text-primary-700 font-medium"
             >
               Alle auswählen
             </button>
@@ -99,7 +99,7 @@ export default function OvernightAvailabilitySelector({
             key={day.key}
             className={`flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all min-h-[48px] ${
               overnightAvailability[day.key]
-                ? 'border-green-500 bg-green-50 text-green-700'
+                ? 'border-primary-500 bg-primary-500 text-white'
                 : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
             } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
@@ -112,7 +112,7 @@ export default function OvernightAvailabilitySelector({
             />
             <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${
               overnightAvailability[day.key]
-                ? 'border-green-500 bg-green-500'
+                ? 'border-primary-500 bg-primary-500'
                 : 'border-gray-300 bg-white'
             }`}>
               {overnightAvailability[day.key] && (
@@ -126,26 +126,7 @@ export default function OvernightAvailabilitySelector({
         ))}
       </div>
 
-      {/* Summary */}
-      {hasAnyOvernight && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-          <div className="flex items-center gap-2 text-green-700">
-            <Moon className="h-4 w-4" />
-            <span className="font-medium">
-              Übernachtungen verfügbar: {selectedDays.map(day => day.label).join(', ')}
-            </span>
-          </div>
-        </div>
-      )}
 
-      {!hasAnyOvernight && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-          <div className="flex items-center gap-2 text-gray-600">
-            <Moon className="h-4 w-4" />
-            <span>Keine Übernachtungen ausgewählt</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

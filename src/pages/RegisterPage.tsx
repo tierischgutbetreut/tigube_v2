@@ -143,10 +143,9 @@ function RegisterPage() {
         
         // Setze Onboarding-Flag für das Dashboard und leite direkt weiter
         try {
-          sessionStorage.setItem(
-            'onboardingData',
-            JSON.stringify({ userType, userName: formStep1.firstName })
-          );
+          const onboardingData = { userType, userName: formStep1.firstName };
+          sessionStorage.setItem('onboardingData', JSON.stringify(onboardingData));
+          console.log('✅ Onboarding data set for:', userType, onboardingData);
         } catch (e) {
           console.warn('⚠️ Konnte onboardingData nicht in sessionStorage setzen:', e);
         }

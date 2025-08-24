@@ -259,7 +259,9 @@ function OwnerDashboardPage() {
         const raw = sessionStorage.getItem('onboardingData');
         if (raw) {
           const parsed = JSON.parse(raw) as { userType?: 'owner' | 'caretaker'; userName?: string };
+          console.log('🔍 OwnerDashboard: Checking onboarding data:', parsed);
           if (!parsed.userType || parsed.userType === 'owner') {
+            console.log('✅ OwnerDashboard: Starting owner onboarding for:', parsed.userName);
             setOnboardingUserName(parsed.userName || userProfile?.first_name || '');
             setShowOnboarding(true);
           }
@@ -3194,6 +3196,7 @@ function OwnerDashboardPage() {
         userType="owner"
         userName={onboardingUserName}
         onComplete={() => setShowOnboarding(false)}
+        onSkip={() => setShowOnboarding(false)}
       />
 
       {/* Profilbild Editor Modal */}
