@@ -78,6 +78,19 @@ export const mockCaregivers = [
     bio: 'Student der Tierwissenschaften mit flexiblem Zeitplan. Ich liebe alle Tiere und behandle Ihres mit größter Sorgfalt.',
     responseTime: 'unter 1 Stunde',
     verified: true,
+  },
+  {
+    id: '7',
+    name: 'Dr. Maximilian von und zu Hohenstein-Bergenwalde',
+    avatar: 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=600',
+    location: 'München-Obermenzing',
+    rating: 4.9,
+    reviewCount: 156,
+    hourlyRate: 25,
+    services: ['Gassi-Service', 'Haustierbetreuung', 'Übernachtung', 'Hundetagesbetreuung'],
+    bio: 'Tierarzt mit über 15 Jahren Erfahrung in der Haustierbetreuung. Spezialisiert auf ältere Tiere und Tiere mit besonderen Bedürfnissen.',
+    responseTime: 'unter 30 Minuten',
+    verified: true,
   }
 ];
 

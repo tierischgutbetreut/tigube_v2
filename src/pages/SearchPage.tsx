@@ -50,7 +50,6 @@ function SearchPage() {
   const [caretakers, setCaretakers] = useState<Caretaker[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [noResults, setNoResults] = useState(false);
   const [totalResults, setTotalResults] = useState(0);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   
@@ -121,9 +120,6 @@ function SearchPage() {
     
     setLoading(true);
     setError(null);
-    setNoResults(false);
-    setCaretakers([]);
-    setTotalResults(0);
     try {
       const filters: SearchFilters = {};
       
@@ -138,14 +134,8 @@ function SearchPage() {
       }
 
       console.log('📞 Calling searchCaretakersService with filters:', filters);
-      let data;
-      try {
-        data = await searchCaretakersService(filters);
-        console.log('📊 Service returned:', data);
-      } catch (serviceError) {
-        console.warn('⚠️ Service error, falling back to mock data:', serviceError);
-        data = [];
-      }
+      let data = await searchCaretakersService(filters);
+      console.log('📊 Service returned:', data);
       
       // Fallback to mock data if database is empty (for development)
       if (!data || data.length === 0) {
@@ -170,46 +160,6 @@ function SearchPage() {
         console.log('📊 Using mock data:', data);
       }
       
-      // Client-seitige Standort-Filterung (muss zuerst kommen)
-      if (location.trim() && data) {
-        console.log('📍 Applying location filter:', location.trim());
-        const searchLocation = location.trim().toLowerCase();
-        data = data.filter(caretaker => {
-          const caretakerLocation = caretaker.location?.toLowerCase() || '';
-          
-          // Wenn Betreuer "Unbekannt" oder ähnliche Werte hat, nicht anzeigen bei spezifischer PLZ-Suche
-          if (caretakerLocation === 'unbekannt' || 
-              caretakerLocation === 'unknown' || 
-              caretakerLocation === '' || 
-              caretakerLocation === 'n/a' ||
-              caretakerLocation === 'nicht angegeben' ||
-              caretakerLocation === 'ort nicht angegeben') {
-            console.log(`📍 Filtering out caretaker with location: "${caretaker.location}"`);
-            return false;
-          }
-          
-          // Wenn eine PLZ gesucht wird (5-stellige Zahl), dann nur Betreuer mit PLZ anzeigen
-          if (/^\d{5}$/.test(location.trim())) {
-            // Prüfe ob der Betreuer eine PLZ in seinem Standort hat
-            if (!/\d{5}/.test(caretakerLocation)) {
-              console.log(`📍 PLZ search but caretaker has no PLZ: "${caretaker.location}"`);
-              return false;
-            }
-          }
-          
-          // Prüfe ob Standort die gesuchte PLZ oder Stadt enthält
-          const matches = caretakerLocation.includes(searchLocation) || 
-                         searchLocation.includes(caretakerLocation);
-          
-          if (!matches) {
-            console.log(`📍 Location mismatch: searching for "${searchLocation}", caretaker has "${caretaker.location}"`);
-          }
-          
-          return matches;
-        });
-        console.log(`📍 After location filter: ${data.length} caretakers`);
-      }
-
       // Client-seitige Verfügbarkeits-Filterung (da noch keine DB-Unterstützung)
       if ((selectedAvailabilityDay || selectedAvailabilityTime) && data) {
         console.log('🕒 Applying availability filters...');
@@ -248,17 +198,6 @@ function SearchPage() {
       setCaretakers(data || []);
       setTotalResults(data?.length || 0);
       
-      // Prüfe ob keine Ergebnisse gefunden wurden
-      if (!data || data.length === 0) {
-        setNoResults(true);
-        setError(null);
-        console.log('📭 No results found, showing no results message');
-      } else {
-        setNoResults(false);
-        setError(null);
-        console.log('✅ Results found, showing results');
-      }
-      
       // URL aktualisieren
       const newParams = new URLSearchParams();
       if (location.trim()) newParams.set('location', location.trim());
@@ -274,17 +213,8 @@ function SearchPage() {
       setSearchParams(newParams);
     } catch (err) {
       console.error('🚨 Unexpected error:', err);
-      // Nur echte Fehler als Fehler behandeln, nicht "keine Ergebnisse"
-      if (err instanceof Error && err.message.includes('network') || err instanceof Error && err.message.includes('fetch')) {
-        setError('Unerwarteter Fehler beim Suchen. Bitte versuche es erneut.');
-        setCaretakers([]);
-        setNoResults(false);
-      } else {
-        // Bei anderen Fehlern einfach keine Ergebnisse anzeigen
-        setError(null);
-        setCaretakers([]);
-        setNoResults(true);
-      }
+      setError('Unerwarteter Fehler beim Suchen. Bitte versuche es erneut.');
+      setCaretakers([]);
     } finally {
       setLoading(false);
     }
@@ -322,8 +252,6 @@ function SearchPage() {
     setSelectedRadius('');
     setMaxPrice(100);
     setLocation('');
-    setNoResults(false);
-    setError(null);
   };
 
   const hasActiveFilters = selectedPetType || selectedService || selectedServiceCategory || selectedAvailabilityDay || selectedAvailabilityTime || selectedMinRating || selectedRadius || maxPrice < 100 || location.trim();
@@ -623,6 +551,8 @@ function SearchPage() {
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
                 <span className="text-gray-600">Suche läuft...</span>
               </div>
+            ) : error ? (
+              <p className="text-red-600">{error}</p>
             ) : (
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 mb-2">Tierbetreuer in allen Orten</h1>
@@ -652,43 +582,27 @@ function SearchPage() {
           </div>
         )}
 
-        {/* No Results - Humorvolle Nachricht */}
-        {!loading && !error && noResults && (
+        {/* No Results */}
+        {!loading && !error && caretakers.length === 0 && (
           <div className="text-center py-12">
-            <div className="mb-6">
-              <div className="text-6xl mb-4">🐕‍🦺</div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Wuff! Keine Betreuer in der Nähe gefunden
-              </h3>
-              <p className="text-gray-600 mb-4">
-                Auch unser bester Spürhund konnte in dieser Gegend keine Tierbetreuer aufspüren! 
-              </p>
-              <p className="text-gray-500 text-sm">
-                {location && `Für "${location}" haben wir leider keine passenden Betreuer.`}
-              </p>
-            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Keine Betreuer gefunden</h3>
+            <p className="text-gray-600 mb-6">
+              Versuche es mit anderen Suchkriterien oder erweitere deine Filter.
+            </p>
             
-            <div className="space-y-3">
-              <p className="text-gray-600 text-sm">
-                💡 Tipp: Versuche es mit einer anderen PLZ oder erweitere deine Suchkriterien
-              </p>
-              
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button onClick={clearAllFilters} variant="outline">
-                  Filter zurücksetzen
-                </Button>
-                
-                <Button onClick={performSearch}>
-                  Erneut suchen
-                </Button>
-              </div>
-            </div>
+            <Button onClick={clearAllFilters}>
+              Filter zurücksetzen
+            </Button>
+            
+            <Button onClick={performSearch} className="ml-2">
+              Suche wiederholen
+            </Button>
           </div>
         )}
 
         {/* Results Grid */}
         {!loading && !error && caretakers.length > 0 && (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {caretakers.map(caretaker => (
               <CaretakerCard key={caretaker.id} caretaker={caretaker} />
             ))}
@@ -729,84 +643,98 @@ function CaretakerCard({ caretaker }: CaretakerCardProps) {
   };
 
   return (
-    <div className="card group hover:border-primary-200 transition-all duration-200">
+    <div className="card group hover:border-primary-200 transition-all duration-200 w-60">
       <div className="relative">
-        <img
-          src={caretaker.avatar}
-          alt={caretaker.name}
-          className="w-full h-48 object-cover object-center rounded-t-xl"
-          onError={(e) => {
-            // Fallback für gebrochene Bilder
-            const target = e.target as HTMLImageElement;
-            target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(caretaker.name)}&background=f3f4f6&color=374151`;
-          }}
-        />
-        <div className="absolute top-2 right-2 flex flex-col gap-1 items-center">
-          {caretaker.verified && (
-            <div className="bg-primary-500 text-white text-xs font-medium px-2 py-1 rounded-full text-center">
-              Verifiziert
-            </div>
-          )}
-          {caretaker.isCommercial && (
-            <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md flex items-center justify-center">
-              <Briefcase className="h-3 w-3 mr-1" /> Pro
-            </div>
-          )}
-          {caretaker.short_term_available && (
-            <div className="bg-green-500 text-white text-xs font-semibold px-2 py-1 rounded-full flex items-center justify-center">
-              <Clock className="h-3 w-3 mr-1" /> Kurzfristig
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="p-5">
-        <div className="flex justify-between items-start mb-3">
-          <div>
-            <h3 className="font-semibold text-lg group-hover:text-primary-600 transition-colors">
-              {caretaker.name}
-            </h3>
-            <p className="text-gray-600 text-sm flex items-center">
-              <MapPin className="h-3 w-3 mr-1" /> {caretaker.location}
-            </p>
-          </div>
-          <div className="flex items-center">
-            <Star className="h-4 w-4 text-accent-500 fill-accent-500 mr-1" />
-            <span className="font-medium">{caretaker.rating > 0 ? caretaker.rating.toFixed(1) : '—'}</span>
-            <span className="text-gray-500 text-sm ml-1">({caretaker.reviewCount})</span>
+        {/* Quadratisches Bild */}
+        <div className="relative w-full aspect-square">
+          <img
+            src={caretaker.avatar}
+            alt={caretaker.name}
+            className="w-full h-full object-cover object-center rounded-t-xl"
+            onError={(e) => {
+              // Fallback für gebrochene Bilder
+              const target = e.target as HTMLImageElement;
+              target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(caretaker.name)}&background=f3f4f6&color=374151&size=400`;
+            }}
+          />
+          
+          {/* Badges overlay */}
+          <div className="absolute top-2 right-2 flex flex-col gap-1 items-center">
+            {caretaker.verified && (
+              <div className="bg-primary-500 text-white text-xs font-medium px-2 py-1 rounded-full text-center">
+                Verifiziert
+              </div>
+            )}
+            {caretaker.isCommercial && (
+              <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md flex items-center justify-center">
+                <Briefcase className="h-3 w-3 mr-1" /> Pro
+              </div>
+            )}
+            {caretaker.short_term_available && (
+              <div className="bg-green-500 text-white text-xs font-semibold px-2 py-1 rounded-full flex items-center justify-center">
+                <Clock className="h-3 w-3 mr-1" /> Kurzfristig
+              </div>
+            )}
           </div>
         </div>
 
-        <p className="text-gray-700 text-sm mb-4 line-clamp-2">{caretaker.bio}</p>
+        {/* Info-Bereich - unter dem Bild */}
+        <div className="p-4 bg-white rounded-b-xl">
+          {/* Name und Bewertung */}
+          <div className="flex justify-between items-start mb-2">
+            <div className="flex-1 min-w-0 mr-2">
+              <h3 className="font-semibold text-base group-hover:text-primary-600 transition-colors truncate" title={caretaker.name}>
+                {caretaker.name}
+              </h3>
+              <p className="text-gray-600 text-xs flex items-center truncate" title={caretaker.location}>
+                <MapPin className="h-3 w-3 mr-1 flex-shrink-0" /> 
+                <span className="truncate">{caretaker.location}</span>
+              </p>
+            </div>
+            <div className="flex items-center flex-shrink-0">
+              <Star className="h-4 w-4 text-yellow-500 fill-yellow-500 mr-1" />
+              <span className="font-medium text-sm">{caretaker.rating > 0 ? caretaker.rating.toFixed(1) : '—'}</span>
+              <span className="text-gray-500 text-xs ml-1">({caretaker.reviewCount})</span>
+            </div>
+          </div>
 
-        <div className="flex flex-wrap gap-1 mb-4">
-          {caretaker.services.slice(0, 3).map((service: string) => (
-            <span
-              key={service}
-              className="text-xs font-medium bg-gray-100 text-gray-800 px-2 py-1 rounded-full"
-            >
-              {service}
-            </span>
-          ))}
-          {caretaker.services.length > 3 && (
-            <span className="text-xs font-medium bg-gray-100 text-gray-800 px-2 py-1 rounded-full">
-              +{caretaker.services.length - 3} weitere
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center justify-end">
-          <p className="font-semibold text-primary-600">
-            {getDisplayPrice(caretaker)}
+          {/* Bio - kürzer für quadratisches Format */}
+          <p className="text-gray-700 text-sm mb-3 line-clamp-2 leading-tight">
+            {caretaker.bio}
           </p>
-        </div>
 
-        <Button
-          variant="primary"
-          className="w-full mt-4"
-          onClick={() => window.location.href = `/betreuer/${caretaker.id}`}
-        >
-          Profil ansehen
-        </Button>
+          {/* Services - kompakter */}
+          <div className="flex flex-wrap gap-1 mb-3">
+            {caretaker.services.slice(0, 2).map((service: string) => (
+              <span
+                key={service}
+                className="text-xs font-medium bg-gray-100 text-gray-800 px-2 py-1 rounded-full"
+              >
+                {service}
+              </span>
+            ))}
+            {caretaker.services.length > 2 && (
+              <span className="text-xs font-medium bg-gray-100 text-gray-800 px-2 py-1 rounded-full">
+                +{caretaker.services.length - 2}
+              </span>
+            )}
+          </div>
+
+          {/* Preis und Button */}
+          <div className="space-y-2">
+            <p className="font-semibold text-primary-600 text-sm text-center">
+              {getDisplayPrice(caretaker)}
+            </p>
+            <Button
+              variant="primary"
+              size="sm"
+              className="w-full"
+              onClick={() => window.location.href = `/betreuer/${caretaker.id}`}
+            >
+              Profil ansehen
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );
