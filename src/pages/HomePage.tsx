@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Search, MapPin, Clock, Shield, Heart, Dog, Cat, Rabbit, Calendar, Briefcase, PawPrint, CheckCircle, X, ChevronDown, Sparkles, Gift, Users } from 'lucide-react';
 import Button from '../components/ui/Button';
+import MultiDaySelector from '../components/ui/MultiDaySelector';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -10,20 +11,10 @@ export default function HomePage() {
   const [showMessage, setShowMessage] = useState(!!location.state?.message);
   const [formLocation, setFormLocation] = useState('');
   const [service, setService] = useState('Haustierbetreuung');
-  const [selectedDay, setSelectedDay] = useState('');
+  const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [selectedTime, setSelectedTime] = useState('');
 
-  // Verfügbarkeitsoptionen (gleich wie in SearchPage)
-  const availabilityDayOptions = [
-    { value: '', label: 'Alle Tage' },
-    { value: 'montag', label: 'Montag' },
-    { value: 'dienstag', label: 'Dienstag' },
-    { value: 'mittwoch', label: 'Mittwoch' },
-    { value: 'donnerstag', label: 'Donnerstag' },
-    { value: 'freitag', label: 'Freitag' },
-    { value: 'samstag', label: 'Samstag' },
-    { value: 'sonntag', label: 'Sonntag' }
-  ];
+
 
   const availabilityTimeOptions = [
     { value: '', label: 'Alle Zeiten' },
@@ -38,7 +29,9 @@ export default function HomePage() {
     const queryParams = new URLSearchParams();
     if (service) queryParams.append('service', service);
     if (formLocation) queryParams.append('location', formLocation);
-    if (selectedDay) queryParams.append('availabilityDay', selectedDay);
+    if (selectedDays.length > 0) {
+      selectedDays.forEach(day => queryParams.append('availabilityDay', day));
+    }
     if (selectedTime) queryParams.append('availabilityTime', selectedTime);
     navigate(`/suche?${queryParams.toString()}`);
   };
@@ -83,7 +76,7 @@ export default function HomePage() {
                     <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <select
                       id="service"
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
                       value={service}
                       onChange={(e) => setService(e.target.value)}
                     >
@@ -114,23 +107,10 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="flex flex-col md:col-span-2">
-                  <label htmlFor="availabilityDay" className="text-sm font-medium text-gray-700 mb-1">Wochentag</label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <select
-                      id="availabilityDay"
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none bg-white"
-                      value={selectedDay}
-                      onChange={(e) => setSelectedDay(e.target.value)}
-                    >
-                      {availabilityDayOptions.map(option => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
+                  <MultiDaySelector
+                    selectedDays={selectedDays}
+                    onDaysChange={setSelectedDays}
+                  />
                 </div>
                 <div className="flex flex-col md:col-span-2">
                   <label htmlFor="availabilityTime" className="text-sm font-medium text-gray-700 mb-1">Uhrzeit</label>
@@ -138,7 +118,7 @@ export default function HomePage() {
                     <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <select
                       id="availabilityTime"
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none bg-white"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none bg-white"
                       value={selectedTime}
                       onChange={(e) => setSelectedTime(e.target.value)}
                     >
