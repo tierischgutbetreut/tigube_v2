@@ -595,6 +595,7 @@ export const caretakerProfileService = {
     vatId?: string;
     servicesWithCategories?: any[];
     shortTermAvailable?: boolean;
+    overnightAvailability?: Record<string, boolean>;
   }) => {
     // Nur die übergebenen Felder aktualisieren
     const updateData: any = { id: userId };
@@ -623,6 +624,7 @@ export const caretakerProfileService = {
     if (profile.vatId !== undefined) updateData.vat_id = profile.vatId;
     if (profile.servicesWithCategories !== undefined) updateData.services_with_categories = profile.servicesWithCategories;
     if (profile.shortTermAvailable !== undefined) updateData.short_term_available = profile.shortTermAvailable;
+    if (profile.overnightAvailability !== undefined) updateData.overnight_availability = profile.overnightAvailability;
     
     const { data, error } = await supabase
       .from('caretaker_profiles')
@@ -674,6 +676,7 @@ export const caretakerSearchService = {
           long_about_me,
           is_commercial,
           short_term_available,
+          overnight_availability,
           users!inner(
             id,
             first_name,
@@ -747,6 +750,7 @@ export const caretakerSearchService = {
           verified: row.is_verified || false,
           isCommercial: row.is_commercial || false,
           short_term_available: row.short_term_available || false,
+          overnight_availability: row.overnight_availability || null,
         };
       });
 
@@ -806,6 +810,7 @@ export const caretakerSearchService = {
           home_photos,
           is_commercial,
           short_term_available,
+          overnight_availability,
           users!inner(
             id,
             first_name,
@@ -886,6 +891,7 @@ export const caretakerSearchService = {
         phone: null,
         email: null,
         short_term_available: result.short_term_available || false,
+        overnight_availability: result.overnight_availability || null,
       };
 
       console.log('✅ Transformed single caretaker:', transformedData);

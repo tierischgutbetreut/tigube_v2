@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Smile } from 'lucide-react'
+import { Send } from 'lucide-react'
 
 interface MessageInputProps {
   onSendMessage: (content: string) => Promise<void>
@@ -88,21 +88,10 @@ function MessageInput({
             onBlur={onTypingStop}
             placeholder={placeholder}
             disabled={disabled || isLoading}
-            className="w-full px-4 py-2 pr-12 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed min-h-[42px] max-h-32"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed min-h-[42px] max-h-32"
             rows={1}
             style={{ overflow: 'hidden' }}
           />
-          
-          {/* Emoji Button (placeholder for future feature) */}
-          <button
-            type="button"
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
-            disabled={disabled}
-            aria-label="Emoji hinzufügen"
-            title="Emoji hinzufügen (demnächst verfügbar)"
-          >
-            <Smile className="w-4 h-4" />
-          </button>
         </div>
 
         {/* Send Button */}

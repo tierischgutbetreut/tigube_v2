@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { MapPin, Star, Clock, Shield, Calendar, MessageCircle, Heart, HeartOff, ArrowLeft, Verified, ChevronRight, CheckCircle, Edit3, Briefcase, Globe } from 'lucide-react';
+import { MapPin, Star, Clock, Shield, Calendar, MessageCircle, Heart, HeartOff, ArrowLeft, Verified, ChevronRight, CheckCircle, Edit3, Briefcase, Globe, Moon } from 'lucide-react';
 import { DE, GB, FR, ES, IT, PT, NL, RU, PL, TR, AE } from 'country-flag-icons/react/3x2';
 import Button from '../components/ui/Button';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -40,6 +40,7 @@ interface Caretaker {
   email?: string | null;
   home_photos?: string[]; // Umgebungsbilder aus dem caretaker-home-photos Bucket
   short_term_available?: boolean;
+  overnight_availability?: Record<string, boolean>; // Übernachtungs-Verfügbarkeit pro Wochentag
 }
 
 interface Review {
@@ -377,6 +378,8 @@ function BetreuerProfilePage() {
     return languageMap[language] || null; // Fallback für unbekannte Sprachen
   };
 
+
+
   return (
     <div className="bg-gray-50 min-h-screen pb-16">
       {/* Hero Section */}
@@ -420,6 +423,7 @@ function BetreuerProfilePage() {
                         <Clock className="h-2.5 w-2.5 mr-1" /> Kurzfristig Verfügbar
                       </span>
                     )}
+
                     {/* Herz-Icon neben dem Namen, rechts */}
                     <Button
                       variant="ghost"
@@ -522,7 +526,10 @@ function BetreuerProfilePage() {
             </div>
 
             {/* Verfügbarkeit */}
-            <AvailabilityDisplay availability={caretaker.availability} />
+            <AvailabilityDisplay 
+              availability={caretaker.availability} 
+              overnightAvailability={caretaker.overnight_availability}
+            />
 
             {/* Umgebungsbilder */}
             <HomePhotosSection homePhotos={caretaker.home_photos || []} caretakerName={displayName} />

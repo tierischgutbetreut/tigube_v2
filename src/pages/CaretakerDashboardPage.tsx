@@ -2,6 +2,7 @@ import Layout from '../components/layout/Layout';
 import Button from '../components/ui/Button';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import AvailabilityScheduler from '../components/ui/AvailabilityScheduler';
+import OvernightAvailabilitySelector from '../components/ui/OvernightAvailabilitySelector';
 import ClientDetailsAccordion from '../components/ui/ClientDetailsAccordion';
 import LanguageSelector from '../components/ui/LanguageSelector';
 import CommercialInfoInput from '../components/ui/CommercialInfoInput';
@@ -55,6 +56,17 @@ function CaretakerDashboardPage() {
   // Short-term availability state (nur lokaler State, keine DB-Persistierung)
   const { shortTermAvailable, setShortTermAvailable, loading: contextLoading } = useShortTermAvailability();
   const [shortTermLoading, setShortTermLoading] = useState(false);
+
+  // Overnight availability state
+  const [overnightAvailability, setOvernightAvailability] = useState<Record<string, boolean>>({
+    Mo: false,
+    Di: false,
+    Mi: false,
+    Do: false,
+    Fr: false,
+    Sa: false,
+    So: false,
+  });
 
   // Onboarding nach Dashboard-Load starten (nur einmal, via sessionStorage)
   useEffect(() => {
@@ -401,6 +413,39 @@ function CaretakerDashboardPage() {
     }
   };
 
+  // Handler für Übernachtungs-Verfügbarkeit
+  const handleOvernightAvailabilityChange = async (newOvernightAvailability: Record<string, boolean>) => {
+    if (!user || !profile) return;
+    
+    console.log('🔄 Speichere Übernachtungs-Verfügbarkeit:', newOvernightAvailability);
+    
+    // Sofort lokalen State aktualisieren für bessere UX
+    setOvernightAvailability(newOvernightAvailability);
+    setProfile((prev: any) => ({ ...prev, overnight_availability: newOvernightAvailability }));
+    
+    try {
+      // Nur das overnight_availability Feld aktualisieren
+      const { data, error } = await caretakerProfileService.saveProfile(user.id, {
+        overnightAvailability: newOvernightAvailability,
+      });
+      
+      if (error) {
+        console.error('❌ Fehler beim Speichern der Übernachtungs-Verfügbarkeit:', error);
+        // Bei Fehler: State zurücksetzen
+        setOvernightAvailability(overnightAvailability);
+        setProfile((prev: any) => ({ ...prev, overnight_availability: overnightAvailability }));
+        return;
+      }
+      
+      console.log('✅ Übernachtungs-Verfügbarkeit erfolgreich gespeichert:', data);
+    } catch (error) {
+      console.error('❌ Exception beim Speichern der Übernachtungs-Verfügbarkeit:', error);
+      // Bei Exception: State zurücksetzen
+      setOvernightAvailability(overnightAvailability);
+      setProfile((prev: any) => ({ ...prev, overnight_availability: overnightAvailability }));
+    }
+  };
+
   // State für Fotos-Tab
   const [photos, setPhotos] = useState<(string | File)[]>([]);
   const fileInputRefFotos = useRef<HTMLInputElement>(null);
@@ -544,6 +589,15 @@ function CaretakerDashboardPage() {
             companyName: '',
             taxNumber: '',
             vatId: '',
+            overnightAvailability: {
+              Mo: false,
+              Di: false,
+              Mi: false,
+              Do: false,
+              Fr: false,
+              Sa: false,
+              So: false,
+            },
           });
           if (createError) {
             console.error('Failed to create default caretaker profile:', createError);
@@ -603,6 +657,27 @@ function CaretakerDashboardPage() {
           const validPhotos = ((ensuredProfile as any).home_photos || [])
             .filter((url: string) => url && typeof url === 'string' && !url.includes('undefined') && !url.includes('null'));
           setPhotos(validPhotos);
+          
+          // Lade Übernachtungs-Verfügbarkeit
+          const dbOvernightAvailability = (ensuredProfile as any).overnight_availability;
+          console.log('📥 Lade Übernachtungs-Verfügbarkeit aus DB:', dbOvernightAvailability);
+          
+          if (dbOvernightAvailability && typeof dbOvernightAvailability === 'object') {
+            console.log('✅ Übernachtungs-Verfügbarkeit gefunden, setze State:', dbOvernightAvailability);
+            setOvernightAvailability(dbOvernightAvailability);
+          } else {
+            console.log('⚠️ Keine Übernachtungs-Verfügbarkeit in DB, setze Standard-Werte');
+            // Fallback: Standard-Werte setzen
+            setOvernightAvailability({
+              Mo: false,
+              Di: false,
+              Mi: false,
+              Do: false,
+              Fr: false,
+              Sa: false,
+              So: false,
+            });
+          }
           
           // Verfügbarkeit aus der Datenbank laden und validieren
           const dbAvailability = (ensuredProfile as any).availability;
@@ -1202,6 +1277,19 @@ function CaretakerDashboardPage() {
                 <div className="mb-4">
                   <div className="flex items-center gap-2 mb-2">
                     <h1 className="text-2xl font-bold">{fullName}</h1>
+                    {/* Auge-Icon neben dem Namen mit Hovereffekt */}
+                    <div className="group relative">
+                      <Link
+                        to={`/betreuer/${user?.id}`}
+                        className="inline-flex items-center justify-center w-6 h-6 text-primary-600 hover:text-primary-700 transition-colors"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Link>
+                      <div className="absolute left-1/2 transform -translate-x-1/2 top-8 w-48 p-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                        <div className="text-center">Zu meinem Profil</div>
+                        <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                      </div>
+                    </div>
                     {editData && (
                       <div className="group relative">
                         <Info className="h-5 w-5 text-blue-500 cursor-help" />
@@ -1247,15 +1335,6 @@ function CaretakerDashboardPage() {
                       ) : null}
                       Kurzfristig Verfügbar
                     </button>
-                  </div>
-                  <div className="mt-3">
-                    <Link
-                      to={`/betreuer/${user?.id}`}
-                      className="inline-flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 transition-colors"
-                    >
-                      <Eye className="h-4 w-4" />
-                      Zu meinem Profil
-                    </Link>
                   </div>
                 </div>
               </div>
@@ -1722,6 +1801,16 @@ function CaretakerDashboardPage() {
               <AvailabilityScheduler
                 availability={availability}
                 onAvailabilityChange={handleSaveAvailability}
+              />
+            </div>
+          </div>
+
+          {/* Übernachtungs-Verfügbarkeit */}
+          <div className="mb-8">
+            <div className="bg-white rounded-xl shadow p-6">
+              <OvernightAvailabilitySelector
+                overnightAvailability={overnightAvailability}
+                onOvernightAvailabilityChange={handleOvernightAvailabilityChange}
               />
             </div>
           </div>

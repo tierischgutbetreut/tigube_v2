@@ -139,7 +139,26 @@ function AvailabilityScheduler({ availability, onAvailabilityChange }: Availabil
     setSaving(true);
     try {
       const newAvailability = { ...availability };
-      newAvailability[toDay] = [...(availability[fromDay] || [])];
+      
+      if (toDay === 'workdays') {
+        // Kopiere zu allen Werktagen (Mo-Fr)
+        ['Mo', 'Di', 'Mi', 'Do', 'Fr'].forEach(day => {
+          if (day !== fromDay) {
+            newAvailability[day] = [...(availability[fromDay] || [])];
+          }
+        });
+      } else if (toDay === 'all') {
+        // Kopiere zu allen Tagen
+        DAYS.forEach(dayInfo => {
+          if (dayInfo.key !== fromDay) {
+            newAvailability[dayInfo.key] = [...(availability[fromDay] || [])];
+          }
+        });
+      } else {
+        // Kopiere zu einem einzelnen Tag
+        newAvailability[toDay] = [...(availability[fromDay] || [])];
+      }
+      
       await onAvailabilityChange(newAvailability);
     } catch (error) {
       console.error('Fehler beim Kopieren:', error);
@@ -223,9 +242,13 @@ function AvailabilityScheduler({ availability, onAvailabilityChange }: Availabil
                     disabled={saving}
                   >
                     <option value="">Kopieren nach...</option>
-                    {DAYS.filter(d => d.key !== dayInfo.key).map(d => (
-                      <option key={d.key} value={d.key}>{d.label}</option>
-                    ))}
+                    <option value="workdays">Alle Werktage (Mo-Fr.)</option>
+                    <option value="all">Alle Tage</option>
+                    <optgroup label="Einzelne Tage">
+                      {DAYS.filter(d => d.key !== dayInfo.key).map(d => (
+                        <option key={d.key} value={d.key}>{d.label}</option>
+                      ))}
+                    </optgroup>
                   </select>
                 )}
               </div>
