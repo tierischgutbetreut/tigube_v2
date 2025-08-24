@@ -32,7 +32,7 @@ function BlogListPage({}: BlogListPageProps) {
   return (
     <div className="container-custom py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900">Blog & News</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900">🐾 Neu aus der tigube-Welt</h1>
         <p className="text-gray-600 mt-2">Neuigkeiten, Tipps und Insights rund um tigube und Haustierbetreuung.</p>
       </div>
 
