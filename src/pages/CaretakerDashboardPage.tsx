@@ -936,6 +936,8 @@ function CaretakerDashboardPage() {
   const [activeTab, setActiveTab] = useState<'uebersicht' | 'fotos' | 'texte' | 'kunden' | 'bewertungen' | 'sicherheit' | 'mitgliedschaften'>('uebersicht');
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [respondingToReview, setRespondingToReview] = useState<string | null>(null);
+  const [responseText, setResponseText] = useState('');
 
   // Clients/Kunden State
   const [clients, setClients] = useState<ClientData[]>([]);
@@ -949,7 +951,7 @@ function CaretakerDashboardPage() {
       setReviewsLoading(true);
       const { data, error } = await supabase
         .from('reviews')
-        .select('id, rating, comment, created_at, user_id, users(first_name, last_name)')
+        .select('id, rating, comment, created_at, user_id, caretaker_response, caretaker_response_created_at, users(first_name, last_name)')
         .eq('caretaker_id', user.id)
         .order('created_at', { ascending: false });
       if (!error && data) setReviews(data);
@@ -1002,6 +1004,123 @@ function CaretakerDashboardPage() {
     }
     if (activeTab === 'kunden') fetchClients();
   }, [activeTab, user, profile?.id]);
+
+  // Bewertung beantworten
+  const handleRespondToReview = async (reviewId: string) => {
+    if (!responseText.trim()) return;
+    
+    console.log('🔄 Speichere Antwort für Review:', reviewId);
+    console.log('📝 Antwort-Text:', responseText.trim());
+    console.log('👤 Aktueller User:', user?.id);
+    
+    try {
+      const { data, error } = await supabase
+        .from('reviews')
+        .update({
+          caretaker_response: responseText.trim(),
+          caretaker_response_created_at: new Date().toISOString()
+        })
+        .eq('id', reviewId)
+        .select();
+      
+      console.log('✅ Update Result:', { data, error });
+      
+      if (error) {
+        console.error('❌ Fehler beim Speichern der Antwort:', error);
+        return;
+      }
+      
+      // Lokalen State aktualisieren
+      setReviews(prev => prev.map(review => 
+        review.id === reviewId 
+          ? { 
+              ...review, 
+              caretaker_response: responseText.trim(),
+              caretaker_response_created_at: new Date().toISOString()
+            }
+          : review
+      ));
+      
+      setResponseText('');
+      setRespondingToReview(null);
+    } catch (error) {
+      console.error('Fehler beim Beantworten der Bewertung:', error);
+    }
+  };
+
+  // Antwort bearbeiten
+  const handleEditResponse = async (reviewId: string) => {
+    if (!responseText.trim()) return;
+    
+    console.log('🔄 Bearbeite Antwort für Review:', reviewId);
+    
+    try {
+      const { data, error } = await supabase
+        .from('reviews')
+        .update({
+          caretaker_response: responseText.trim(),
+          caretaker_response_created_at: new Date().toISOString()
+        })
+        .eq('id', reviewId)
+        .select();
+      
+      console.log('✅ Edit Result:', { data, error });
+      
+      if (error) {
+        console.error('❌ Fehler beim Bearbeiten der Antwort:', error);
+        return;
+      }
+      
+      // Lokalen State aktualisieren
+      setReviews(prev => prev.map(review => 
+        review.id === reviewId 
+          ? { 
+              ...review, 
+              caretaker_response: responseText.trim(),
+              caretaker_response_created_at: new Date().toISOString()
+            }
+          : review
+      ));
+      
+      setResponseText('');
+      setRespondingToReview(null);
+    } catch (error) {
+      console.error('Fehler beim Bearbeiten der Antwort:', error);
+    }
+  };
+
+  // Antwort löschen
+  const handleDeleteResponse = async (reviewId: string) => {
+    if (!confirm('Möchtest du deine Antwort wirklich löschen?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('reviews')
+        .update({
+          caretaker_response: null,
+          caretaker_response_created_at: null
+        })
+        .eq('id', reviewId);
+      
+      if (error) {
+        console.error('Fehler beim Löschen der Antwort:', error);
+        return;
+      }
+      
+      // Lokalen State aktualisieren
+      setReviews(prev => prev.map(review => 
+        review.id === reviewId 
+          ? { 
+              ...review, 
+              caretaker_response: null,
+              caretaker_response_created_at: null
+            }
+          : review
+      ));
+    } catch (error) {
+      console.error('Fehler beim Löschen der Antwort:', error);
+    }
+  };
 
   // Kunden löschen
   const handleDeleteClient = async (clientId: string) => {
@@ -2054,17 +2173,102 @@ function CaretakerDashboardPage() {
             ) : (
               <div className="space-y-6">
                 {reviews.map((r) => (
-                  <div key={r.id} className="border-b last:border-b-0 pb-4 mb-4 last:mb-0 flex flex-col sm:flex-row sm:items-center gap-2">
-                    <div className="flex items-center gap-1 mb-1 sm:mb-0">
-                      {[1,2,3,4,5].map(i => (
-                        <Star key={i} className={`w-5 h-5 ${i <= r.rating ? 'text-yellow-400 fill-yellow-300' : 'text-gray-300'}`} fill={i <= r.rating ? 'currentColor' : 'none'} />
-                      ))}
+                  <div key={r.id} className="border-b last:border-b-0 pb-4 mb-4 last:mb-0">
+                    {/* Bewertung */}
+                    <div className="flex flex-col sm:flex-row sm:items-start gap-2 mb-3">
+                      <div className="flex items-center gap-1 mb-1 sm:mb-0">
+                        {[1,2,3,4,5].map(i => (
+                          <Star key={i} className={`w-5 h-5 ${i <= r.rating ? 'text-yellow-400 fill-yellow-300' : 'text-gray-300'}`} fill={i <= r.rating ? 'currentColor' : 'none'} />
+                        ))}
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-gray-800 font-medium">{r.users?.first_name || ''} {r.users?.last_name || ''}</div>
+                        <div className="text-gray-600 text-sm whitespace-pre-line">{r.comment || <span className="text-gray-400">(Kein Kommentar)</span>}</div>
+                      </div>
+                      <div className="text-xs text-gray-400 ml-auto sm:text-right">{r.created_at ? new Date(r.created_at).toLocaleDateString('de-DE', { year: 'numeric', month: 'short', day: 'numeric' }) : ''}</div>
                     </div>
-                    <div className="flex-1">
-                      <div className="text-gray-800 font-medium">{r.users?.first_name || ''} {r.users?.last_name || ''}</div>
-                      <div className="text-gray-600 text-sm whitespace-pre-line">{r.comment || <span className="text-gray-400">(Kein Kommentar)</span>}</div>
-                    </div>
-                    <div className="text-xs text-gray-400 ml-auto sm:text-right">{r.created_at ? new Date(r.created_at).toLocaleDateString('de-DE', { year: 'numeric', month: 'short', day: 'numeric' }) : ''}</div>
+
+                    {/* Caretaker Antwort */}
+                    {r.caretaker_response && (
+                      <div className="ml-4 pl-4 border-l-2 border-primary-200 bg-primary-50 rounded-r-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-sm font-medium text-primary-800">Deine Antwort:</div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setResponseText(r.caretaker_response || '');
+                                setRespondingToReview(r.id);
+                              }}
+                              className="text-xs text-primary-600 hover:text-primary-800"
+                            >
+                              Bearbeiten
+                            </button>
+                            <button
+                              onClick={() => handleDeleteResponse(r.id)}
+                              className="text-xs text-red-600 hover:text-red-800"
+                            >
+                              Löschen
+                            </button>
+                          </div>
+                        </div>
+                        <div className="text-sm text-primary-700 whitespace-pre-line">{r.caretaker_response}</div>
+                        <div className="text-xs text-primary-500 mt-1">
+                          {r.caretaker_response_created_at ? new Date(r.caretaker_response_created_at).toLocaleDateString('de-DE', { year: 'numeric', month: 'short', day: 'numeric' }) : ''}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Antwort-Formular */}
+                    {respondingToReview === r.id && (
+                      <div className="ml-4 pl-4 border-l-2 border-primary-200 bg-primary-50 rounded-r-lg p-3 mt-3">
+                        <div className="mb-2">
+                          <label className="block text-sm font-medium text-primary-800 mb-1">
+                            {r.caretaker_response ? 'Antwort bearbeiten:' : 'Antwort schreiben:'}
+                          </label>
+                          <textarea
+                            value={responseText}
+                            onChange={(e) => setResponseText(e.target.value)}
+                            className="w-full p-2 border border-primary-300 rounded text-sm"
+                            rows={3}
+                            placeholder="Antworte höflich und professionell auf die Bewertung..."
+                            maxLength={500}
+                          />
+                          <div className="text-xs text-gray-500 mt-1">
+                            {responseText.length}/500 Zeichen
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => r.caretaker_response ? handleEditResponse(r.id) : handleRespondToReview(r.id)}
+                            disabled={!responseText.trim()}
+                            className="px-3 py-1 bg-primary-600 text-white text-sm rounded hover:bg-primary-700 disabled:opacity-50"
+                          >
+                            {r.caretaker_response ? 'Aktualisieren' : 'Antworten'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setResponseText('');
+                              setRespondingToReview(null);
+                            }}
+                            className="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400"
+                          >
+                            Abbrechen
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Antwort-Button (nur wenn keine Antwort vorhanden) */}
+                    {!r.caretaker_response && respondingToReview !== r.id && (
+                      <div className="ml-4 pl-4">
+                        <button
+                          onClick={() => setRespondingToReview(r.id)}
+                          className="text-sm text-primary-600 hover:text-primary-800 font-medium"
+                        >
+                          Auf diese Bewertung antworten
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

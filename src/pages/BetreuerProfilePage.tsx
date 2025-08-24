@@ -49,6 +49,8 @@ interface Review {
   comment: string | null;
   created_at: string | null;
   user_id: string | null;
+  caretaker_response?: string | null;
+  caretaker_response_created_at?: string | null;
   users?: {
     first_name: string | null;
     last_name: string | null;
@@ -58,7 +60,7 @@ interface Review {
 function BetreuerProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, userProfile } = useAuth();
   const { checkFeature, canSendContactRequest, trackUsage, subscription } = useFeatureAccess();
   const { shortTermAvailable } = useShortTermAvailability();
   const [isFavorite, setIsFavorite] = useState(false);
@@ -153,6 +155,8 @@ function BetreuerProfilePage() {
             comment,
             created_at,
             user_id,
+            caretaker_response,
+            caretaker_response_created_at,
             users(first_name, last_name)
           `)
           .eq('caretaker_id', id)
@@ -160,6 +164,19 @@ function BetreuerProfilePage() {
 
         if (!error && data) {
           setReviews(data);
+          
+          // Aktualisiere auch die Bewertungsdaten im Caretaker-Objekt
+          if (caretaker) {
+            const averageRating = data.length > 0 
+              ? data.reduce((sum, review) => sum + review.rating, 0) / data.length 
+              : 0;
+            
+            setCaretaker(prev => prev ? {
+              ...prev,
+              rating: averageRating,
+              reviewCount: data.length
+            } : null);
+          }
         }
       } catch (err) {
         console.error('Error fetching reviews:', err);
@@ -237,10 +254,16 @@ function BetreuerProfilePage() {
     }
   };
 
-  // Review Submit Handler
+  // Review Submit Handler - Nur für Owners
   const handleReviewSubmit = async (rating: number, comment: string) => {
     if (!user || !caretaker?.id) {
       console.error('User or caretaker ID missing');
+      return;
+    }
+
+    // Zusätzliche Prüfung: Nur Owners können bewerten
+    if (userProfile?.user_type !== 'owner') {
+      console.error('Only owners can submit reviews');
       return;
     }
 
@@ -262,21 +285,34 @@ function BetreuerProfilePage() {
       }
 
       // Refresh reviews list
-      const { data: newReviews, error: fetchError } = await supabase
-        .from('reviews')
-        .select(`
-          id,
-          rating,
-          comment,
-          created_at,
-          user_id,
-          users(first_name, last_name)
-        `)
-        .eq('caretaker_id', caretaker.id)
-        .order('created_at', { ascending: false });
+              const { data: newReviews, error: fetchError } = await supabase
+          .from('reviews')
+          .select(`
+            id,
+            rating,
+            comment,
+            created_at,
+            user_id,
+            caretaker_response,
+            caretaker_response_created_at,
+            users(first_name, last_name)
+          `)
+          .eq('caretaker_id', caretaker.id)
+          .order('created_at', { ascending: false });
 
       if (!fetchError && newReviews) {
         setReviews(newReviews);
+        
+        // Aktualisiere auch die Bewertungsdaten im Caretaker-Objekt
+        const averageRating = newReviews.length > 0 
+          ? newReviews.reduce((sum, review) => sum + review.rating, 0) / newReviews.length 
+          : 0;
+        
+        setCaretaker(prev => prev ? {
+          ...prev,
+          rating: averageRating,
+          reviewCount: newReviews.length
+        } : null);
       }
 
       setShowReviewForm(false);
@@ -497,17 +533,7 @@ function BetreuerProfilePage() {
                 </Button>
                 
                 {/* Review Button - only for authenticated owners */}
-                {isAuthenticated && user && (
-                  <Button 
-                    variant="secondary" 
-                    size="lg"
-                    leftIcon={<Edit3 className="h-4 w-4" />}
-                    onClick={() => setShowReviewForm(true)}
-                    disabled={showReviewForm}
-                  >
-                    Bewertung schreiben
-                  </Button>
-                )}
+                {/* Review Button wurde in die Bewertungs-Sektion verschoben */}
               </div>
             </div>
           </div>
@@ -540,8 +566,8 @@ function BetreuerProfilePage() {
                 Bewertungen ({reviews.length})
               </h2>
 
-              {/* Review Form */}
-              {showReviewForm && caretaker && (
+              {/* Review Form - Nur für eingeloggte Owners */}
+              {showReviewForm && caretaker && isAuthenticated && userProfile?.user_type === 'owner' && (
                 <div className="mb-6">
                   <ReviewForm
                     caretakerId={caretaker.id || ''}
@@ -549,7 +575,39 @@ function BetreuerProfilePage() {
                     onSubmit={handleReviewSubmit}
                     onCancel={() => setShowReviewForm(false)}
                     isLoading={isSubmittingReview}
+                    reviewerName={userProfile ? `${userProfile.first_name} ${userProfile.last_name?.charAt(0) || ''}.` : undefined}
                   />
+                </div>
+              )}
+
+              {/* Review Button - Nur für eingeloggte Owners anzeigen */}
+              {!showReviewForm && isAuthenticated && userProfile?.user_type === 'owner' && (
+                <div className="mb-6">
+                  <Button
+                    variant="primary"
+                    onClick={() => setShowReviewForm(true)}
+                    className="w-full sm:w-auto bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg shadow-sm"
+                  >
+                    ⭐ Bewertung schreiben
+                  </Button>
+                </div>
+              )}
+
+              {/* Info für nicht eingeloggte User */}
+              {!isAuthenticated && (
+                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-blue-800 text-sm">
+                    <strong>Bewertung schreiben:</strong> Du musst angemeldet sein und ein Tierbesitzer-Profil haben, um Bewertungen zu schreiben.
+                  </p>
+                </div>
+              )}
+
+              {/* Info für eingeloggte Caretaker */}
+              {isAuthenticated && userProfile?.user_type === 'caretaker' && (
+                <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <p className="text-gray-700 text-sm">
+                    <strong>Bewertung schreiben:</strong> Nur Tierbesitzer können Bewertungen für Betreuer schreiben.
+                  </p>
                 </div>
               )}
 
@@ -559,9 +617,9 @@ function BetreuerProfilePage() {
                 </div>
               ) : reviews.length > 0 ? (
                 <div className="space-y-6">
-                  {reviews.map(review => (
-                    <ReviewCard key={review.id} review={review} />
-                  ))}
+                                  {reviews.map(review => (
+                  <ReviewCard key={review.id} review={review} caretakerName={displayName} />
+                ))}
                 </div>
               ) : (
                 <p className="text-gray-600">Noch keine Bewertungen vorhanden.</p>
@@ -658,20 +716,28 @@ function BetreuerProfilePage() {
 
 interface ReviewCardProps {
   review: Review;
+  caretakerName: string;
 }
 
-function ReviewCard({ review }: ReviewCardProps) {
-  // Nachname abkürzen für Reviewer
+function ReviewCard({ review, caretakerName }: ReviewCardProps) {
+  // Formatierung des Reviewer-Namens: Name + erster Buchstabe des Nachnamens
   const formatReviewerName = (firstName: string | null, lastName: string | null) => {
     if (!firstName && !lastName) {
-      // Verwende Test-Namen basierend auf der Review-ID für Konsistenz
-      const testNames = ['Maria S.', 'Thomas K.', 'Anna M.', 'Stefan L.', 'Julia H.'];
-      const nameIndex = parseInt(review.id.substring(0, 1), 16) % testNames.length;
-      return testNames[nameIndex] || 'Tierbesitzer';
+      // Fallback für Reviews ohne Benutzer-Daten
+      return 'Tierbesitzer';
     }
-    if (!lastName) return firstName || 'Anonymer Nutzer';
-    if (!firstName) return `${lastName.charAt(0)}.`;
     
+    if (!firstName) {
+      // Nur Nachname vorhanden
+      return lastName || 'Tierbesitzer';
+    }
+    
+    if (!lastName) {
+      // Nur Vorname vorhanden
+      return firstName;
+    }
+    
+    // Vollständiger Name: Vorname + erster Buchstabe des Nachnamens
     return `${firstName} ${lastName.charAt(0)}.`;
   };
 
@@ -706,6 +772,19 @@ function ReviewCard({ review }: ReviewCardProps) {
         </span>
       </div>
       <p className="text-gray-700">{review.comment || ''}</p>
+      
+      {/* Caretaker Antwort */}
+      {review.caretaker_response && (
+        <div className="mt-3 ml-4 pl-4 border-l-2 border-primary-200 bg-primary-50 rounded-r-lg p-3">
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-sm font-medium text-primary-800">Antwort von {caretakerName}:</div>
+            <span className="text-xs text-primary-600">
+              {review.caretaker_response_created_at ? new Date(review.caretaker_response_created_at).toLocaleDateString('de-DE') : ''}
+            </span>
+          </div>
+          <p className="text-sm text-primary-700 whitespace-pre-line">{review.caretaker_response}</p>
+        </div>
+      )}
     </div>
   );
 }

@@ -9,6 +9,7 @@ interface ReviewFormProps {
   onSubmit: (rating: number, comment: string) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
+  reviewerName?: string; // Name des eingeloggten Users
 }
 
 export function ReviewForm({ 
@@ -16,7 +17,8 @@ export function ReviewForm({
   caretakerName, 
   onSubmit, 
   onCancel, 
-  isLoading = false 
+  isLoading = false,
+  reviewerName
 }: ReviewFormProps) {
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
@@ -49,9 +51,16 @@ export function ReviewForm({
   return (
     <div className="bg-gray-50 rounded-lg p-6 border">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Bewertung für {caretakerName}
-        </h3>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">
+            Bewertung für {caretakerName}
+          </h3>
+          {reviewerName && (
+            <p className="text-sm text-gray-600 mt-1">
+              Bewertung von: {reviewerName}
+            </p>
+          )}
+        </div>
         <Button
           variant="ghost"
           size="sm"
@@ -98,7 +107,7 @@ export function ReviewForm({
           </div>
           {rating === 0 && (
             <p className="text-sm text-gray-500 mt-1">
-              Bitte wählen Sie eine Bewertung aus
+              Bitte wähle eine Bewertung aus
             </p>
           )}
         </div>
@@ -115,12 +124,12 @@ export function ReviewForm({
             disabled={isLoading}
             rows={4}
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-            placeholder="Teilen Sie Ihre Erfahrungen mit anderen Tierbesitzern..."
+            placeholder="Teile deine Erfahrungen mit anderen Tierbesitzern..."
             maxLength={1000}
           />
           <div className="flex justify-between items-center mt-1">
             <p className="text-sm text-gray-500">
-              Beschreiben Sie Ihre Erfahrung mit {caretakerName}
+              Beschreibe deine Erfahrung mit {caretakerName}
             </p>
             <span className="text-sm text-gray-400">
               {comment.length}/1000
