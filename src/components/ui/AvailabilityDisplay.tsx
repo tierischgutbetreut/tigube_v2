@@ -1,11 +1,12 @@
 import React from 'react';
-import { Clock } from 'lucide-react';
+import { Clock, Moon } from 'lucide-react';
 
 type TimeSlot = { start: string; end: string };
 type AvailabilityState = Record<string, TimeSlot[]>;
 
 interface AvailabilityDisplayProps {
   availability?: AvailabilityState;
+  overnightAvailability?: Record<string, boolean>;
   className?: string;
 }
 
@@ -21,7 +22,7 @@ const DAYS = [
 
 const HOURS = Array.from({ length: 14 }, (_, i) => i + 6); // 6:00 bis 19:00
 
-function AvailabilityDisplay({ availability = {}, className = '' }: AvailabilityDisplayProps) {
+function AvailabilityDisplay({ availability = {}, overnightAvailability, className = '' }: AvailabilityDisplayProps) {
   // Konvertiere Verfügbarkeitsdaten falls sie im Database-Format (string[]) vorliegen
   const convertDbAvailability = (dbAvailability: any): AvailabilityState => {
     if (!dbAvailability || typeof dbAvailability !== 'object') {
@@ -77,8 +78,10 @@ function AvailabilityDisplay({ availability = {}, className = '' }: Availability
 
   // Prüfe ob überhaupt Verfügbarkeit vorhanden ist
   const hasAnyAvailability = Object.values(normalizedAvailability).some(slots => slots.length > 0);
+  const hasAnyOvernight = overnightAvailability && Object.values(overnightAvailability).some(available => available);
 
-  if (!hasAnyAvailability) {
+  // Zeige Komponente auch wenn nur Übernachtungen verfügbar sind
+  if (!hasAnyAvailability && !hasAnyOvernight) {
     return (
       <div className={`bg-white rounded-xl p-6 shadow-sm ${className}`}>
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -114,55 +117,96 @@ function AvailabilityDisplay({ availability = {}, className = '' }: Availability
               </div>
             ))}
             
-            {/* Stundenzeilen */}
-            {HOURS.map(hour => (
-              <React.Fragment key={hour}>
-                {/* Stunden-Label (Y-Achse) */}
-                <div className="text-xs text-gray-600 text-right pr-2 py-1 flex items-center justify-end">
-                  {hour.toString().padStart(2, '0')}:00
-                </div>
-                
-                {/* Verfügbarkeits-Blöcke für jeden Tag */}
-                {DAYS.map(day => {
-                  const isAvailable = isHourAvailable(day.key, hour);
-                  return (
-                    <div
-                      key={`${day.key}-${hour}`}
-                      className={`h-8 rounded border ${
-                        isAvailable
-                          ? 'bg-primary-500 border-primary-600 shadow-sm'
-                          : 'bg-gray-100 border-gray-200'
-                      } transition-colors`}
-                      title={
-                        isAvailable
-                          ? `Verfügbar: ${day.label} ${hour}:00`
-                          : `Nicht verfügbar: ${day.label} ${hour}:00`
-                      }
-                    />
-                  );
-                })}
-              </React.Fragment>
-            ))}
+                         {/* Stundenzeilen */}
+             {HOURS.map(hour => (
+               <React.Fragment key={hour}>
+                 {/* Stunden-Label (Y-Achse) */}
+                 <div className="text-xs text-gray-600 text-right pr-2 py-1 flex items-center justify-end">
+                   {hour.toString().padStart(2, '0')}:00
+                 </div>
+                 
+                 {/* Verfügbarkeits-Blöcke für jeden Tag */}
+                 {DAYS.map(day => {
+                   const isAvailable = isHourAvailable(day.key, hour);
+                   return (
+                     <div
+                       key={`${day.key}-${hour}`}
+                       className={`h-8 rounded border ${
+                         isAvailable
+                           ? 'bg-primary-500 border-primary-600 shadow-sm'
+                           : 'bg-gray-100 border-gray-200'
+                       } transition-colors`}
+                       title={
+                         isAvailable
+                           ? `Verfügbar: ${day.label} ${hour}:00`
+                           : `Nicht verfügbar: ${day.label} ${hour}:00`
+                       }
+                     />
+                   );
+                 })}
+               </React.Fragment>
+             ))}
+             
+             {/* Übernachtungs-Zeile */}
+             {overnightAvailability && (
+               <React.Fragment>
+                 {/* Übernachtungs-Label (Y-Achse) */}
+                 <div className="text-xs text-gray-600 text-right pr-2 py-1 flex items-center justify-end">
+                   <Moon className="h-3 w-3 text-green-600 mr-1" />
+                   <span>Übernachtung</span>
+                 </div>
+                 
+                                   {/* Übernachtungs-Blöcke für jeden Tag */}
+                  {DAYS.map(day => {
+                    const isOvernightAvailable = overnightAvailability[day.key];
+                    return (
+                      <div
+                        key={`overnight-${day.key}`}
+                        className={`h-8 rounded border flex items-center justify-center ${
+                          isOvernightAvailable
+                            ? 'bg-primary-500 border-primary-600 shadow-sm'
+                            : 'bg-gray-100 border-gray-200'
+                        } transition-colors`}
+                        title={
+                          isOvernightAvailable
+                            ? `Übernachtung verfügbar: ${day.label}`
+                            : `Keine Übernachtung: ${day.label}`
+                        }
+                      >
+                        {isOvernightAvailable && (
+                          <Moon className="h-4 w-4 text-white" />
+                        )}
+                      </div>
+                    );
+                  })}
+               </React.Fragment>
+             )}
+           </div>
+         </div>
+       </div>
+
+               {/* Legende */}
+        <div className="mt-4 flex items-center gap-4 text-sm text-gray-600">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-primary-500 rounded border border-primary-600"></div>
+            <span>Verfügbar</span>
           </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-gray-100 rounded border border-gray-200"></div>
+            <span>Nicht verfügbar</span>
+          </div>
+                     {overnightAvailability && (
+             <div className="flex items-center gap-2">
+               <Moon className="h-4 w-4 text-primary-600" />
+               <span>Übernachtungen</span>
+             </div>
+           )}
         </div>
-      </div>
-      
-      {/* Legende */}
-      <div className="mt-4 flex items-center gap-4 text-sm text-gray-600">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-primary-500 rounded border border-primary-600"></div>
-          <span>Verfügbar</span>
+       
+               {/* Hinweis */}
+        <div className="mt-3 text-xs text-gray-500">
+          Zeiten sind Richtwerte. Bitte kontaktiere mich für genaue Verfügbarkeit.
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-gray-100 rounded border border-gray-200"></div>
-          <span>Nicht verfügbar</span>
-        </div>
-      </div>
-      
-      {/* Hinweis */}
-      <div className="mt-3 text-xs text-gray-500">
-        Zeiten sind Richtwerte. Bitte kontaktieren Sie für genaue Verfügbarkeit.
-      </div>
     </div>
   );
 }

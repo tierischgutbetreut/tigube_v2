@@ -235,7 +235,9 @@ export type Database = {
           review_count: number | null
           service_radius: number | null
           services: Json | null
+          services_with_categories: Json | null
           short_about_me: string | null
+          short_term_available: boolean | null
           tax_number: string | null
           updated_at: string | null
           vat_id: string | null
@@ -261,7 +263,9 @@ export type Database = {
           review_count?: number | null
           service_radius?: number | null
           services?: Json | null
+          services_with_categories?: Json | null
           short_about_me?: string | null
+          short_term_available?: boolean | null
           tax_number?: string | null
           updated_at?: string | null
           vat_id?: string | null
@@ -287,7 +291,9 @@ export type Database = {
           review_count?: number | null
           service_radius?: number | null
           services?: Json | null
+          services_with_categories?: Json | null
           short_about_me?: string | null
+          short_term_available?: boolean | null
           tax_number?: string | null
           updated_at?: string | null
           vat_id?: string | null
@@ -308,6 +314,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      service_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: number
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: number
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: number
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       conversations: {
         Row: {
@@ -1088,6 +1127,7 @@ export type Database = {
           service_radius: number | null
           services: Json | null
           short_about_me: string | null
+          short_term_available: boolean | null
           tax_number: string | null
           vat_id: string | null
         }

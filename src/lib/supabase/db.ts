@@ -1,5 +1,6 @@
 import { supabase } from './client';
 import type { Database } from './database.types';
+import { ServiceUtils } from './service-categories';
 
 // Typen für die Benutzerregistrierung und -aktualisierung
 export type UserRegistration = {
@@ -577,14 +578,14 @@ export const plzService = {
 export const caretakerProfileService = {
   // Profil anlegen oder aktualisieren
   saveProfile: async (userId: string, profile: {
-    services: string[];
-    animalTypes: string[];
-    prices: Record<string, any>;
-    serviceRadius: number;
-    availability: Record<string, string[]>;
-    homePhotos: string[];
-    qualifications: string[];
-    experienceDescription: string;
+    services?: string[];
+    animalTypes?: string[];
+    prices?: Record<string, number | string>;
+    serviceRadius?: number;
+    availability?: Record<string, string[]>;
+    homePhotos?: string[];
+    qualifications?: string[];
+    experienceDescription?: string;
     shortAboutMe?: string;
     longAboutMe?: string;
     languages?: string[];
@@ -592,27 +593,42 @@ export const caretakerProfileService = {
     companyName?: string;
     taxNumber?: string;
     vatId?: string;
+    servicesWithCategories?: any[];
+    shortTermAvailable?: boolean;
+    overnightAvailability?: Record<string, boolean>;
   }) => {
+    // Nur die übergebenen Felder aktualisieren
+    const updateData: any = { id: userId };
+    
+    if (profile.services !== undefined) {
+      updateData.services = profile.services;
+      // Automatisch kategorisierte Services erstellen, falls nicht explizit übergeben
+      const categorizedServices = profile.servicesWithCategories || 
+        ServiceUtils.migrateStringArrayToCategories(profile.services);
+      updateData.services_with_categories = categorizedServices;
+    }
+    
+    if (profile.animalTypes !== undefined) updateData.animal_types = profile.animalTypes;
+    if (profile.prices !== undefined) updateData.prices = profile.prices;
+    if (profile.serviceRadius !== undefined) updateData.service_radius = profile.serviceRadius;
+    if (profile.availability !== undefined) updateData.availability = profile.availability;
+    if (profile.homePhotos !== undefined) updateData.home_photos = profile.homePhotos;
+    if (profile.qualifications !== undefined) updateData.qualifications = profile.qualifications;
+    if (profile.experienceDescription !== undefined) updateData.experience_description = profile.experienceDescription;
+    if (profile.shortAboutMe !== undefined) updateData.short_about_me = profile.shortAboutMe;
+    if (profile.longAboutMe !== undefined) updateData.long_about_me = profile.longAboutMe;
+    if (profile.languages !== undefined) updateData.languages = profile.languages;
+    if (profile.isCommercial !== undefined) updateData.is_commercial = profile.isCommercial;
+    if (profile.companyName !== undefined) updateData.company_name = profile.companyName;
+    if (profile.taxNumber !== undefined) updateData.tax_number = profile.taxNumber;
+    if (profile.vatId !== undefined) updateData.vat_id = profile.vatId;
+    if (profile.servicesWithCategories !== undefined) updateData.services_with_categories = profile.servicesWithCategories;
+    if (profile.shortTermAvailable !== undefined) updateData.short_term_available = profile.shortTermAvailable;
+    if (profile.overnightAvailability !== undefined) updateData.overnight_availability = profile.overnightAvailability;
+    
     const { data, error } = await supabase
       .from('caretaker_profiles')
-      .upsert({
-        id: userId,
-        services: profile.services,
-        animal_types: profile.animalTypes,
-        prices: profile.prices,
-        service_radius: profile.serviceRadius,
-        availability: profile.availability,
-        home_photos: profile.homePhotos,
-        qualifications: profile.qualifications,
-        experience_description: profile.experienceDescription,
-        short_about_me: profile.shortAboutMe || null,
-        long_about_me: profile.longAboutMe || null,
-        languages: profile.languages || [],
-        is_commercial: profile.isCommercial || false,
-        company_name: profile.companyName || null,
-        tax_number: profile.taxNumber || null,
-        vat_id: profile.vatId || null,
-      }, { onConflict: 'id' })
+      .upsert(updateData, { onConflict: 'id' })
       .select();
     return { data, error };
   },
@@ -659,6 +675,8 @@ export const caretakerSearchService = {
           short_about_me,
           long_about_me,
           is_commercial,
+          short_term_available,
+          overnight_availability,
           users!inner(
             id,
             first_name,
@@ -731,6 +749,8 @@ export const caretakerSearchService = {
           responseTime: 'unter 1 Stunde',
           verified: row.is_verified || false,
           isCommercial: row.is_commercial || false,
+          short_term_available: row.short_term_available || false,
+          overnight_availability: row.overnight_availability || null,
         };
       });
 
@@ -789,6 +809,8 @@ export const caretakerSearchService = {
           availability,
           home_photos,
           is_commercial,
+          short_term_available,
+          overnight_availability,
           users!inner(
             id,
             first_name,
@@ -868,6 +890,8 @@ export const caretakerSearchService = {
         home_photos: Array.isArray(result.home_photos) ? result.home_photos : [],
         phone: null,
         email: null,
+        short_term_available: result.short_term_available || false,
+        overnight_availability: result.overnight_availability || null,
       };
 
       console.log('✅ Transformed single caretaker:', transformedData);

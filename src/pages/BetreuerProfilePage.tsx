@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { MapPin, Star, Clock, Shield, Calendar, MessageCircle, Heart, HeartOff, ArrowLeft, Verified, ChevronRight, CheckCircle, Edit3, Briefcase, Globe } from 'lucide-react';
+import { MapPin, Star, Clock, Shield, Calendar, MessageCircle, Heart, HeartOff, ArrowLeft, Verified, ChevronRight, CheckCircle, Edit3, Briefcase, Globe, Moon } from 'lucide-react';
 import { DE, GB, FR, ES, IT, PT, NL, RU, PL, TR, AE } from 'country-flag-icons/react/3x2';
 import Button from '../components/ui/Button';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -13,6 +13,7 @@ import { supabase } from '../lib/supabase/client';
 import { useAuth } from '../lib/auth/AuthContext';
 import { getOrCreateConversation } from '../lib/supabase/chatService';
 import { useFeatureAccess } from '../hooks/useFeatureAccess';
+import { useShortTermAvailability } from '../contexts/ShortTermAvailabilityContext';
 import HomePhotosSection from '../components/ui/HomePhotosSection';
 
 interface Caretaker {
@@ -38,6 +39,8 @@ interface Caretaker {
   phone?: string | null;
   email?: string | null;
   home_photos?: string[]; // Umgebungsbilder aus dem caretaker-home-photos Bucket
+  short_term_available?: boolean;
+  overnight_availability?: Record<string, boolean>; // Übernachtungs-Verfügbarkeit pro Wochentag
 }
 
 interface Review {
@@ -57,6 +60,7 @@ function BetreuerProfilePage() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const { checkFeature, canSendContactRequest, trackUsage, subscription } = useFeatureAccess();
+  const { shortTermAvailable } = useShortTermAvailability();
   const [isFavorite, setIsFavorite] = useState(false);
   const [isFavoriteLoading, setIsFavoriteLoading] = useState(false);
   const [caretaker, setCaretaker] = useState<Caretaker | null>(null);
@@ -89,7 +93,12 @@ function BetreuerProfilePage() {
           setError('Betreuer nicht gefunden');
           setCaretaker(null);
         } else {
-          setCaretaker(data);
+          // Override short_term_available with context value if this is the current user's profile
+          const updatedData = {
+            ...data,
+            short_term_available: user && data.userId === user.id ? shortTermAvailable : data.short_term_available
+          };
+          setCaretaker(updatedData);
         }
       } catch (err) {
         console.error('Error fetching caretaker:', err);
@@ -101,7 +110,17 @@ function BetreuerProfilePage() {
     };
 
     fetchCaretaker();
-  }, [id]);
+  }, [id, user, shortTermAvailable]);
+
+  // Update caretaker's short_term_available when context changes
+  useEffect(() => {
+    if (caretaker && user && caretaker.userId === user.id) {
+      setCaretaker(prev => prev ? {
+        ...prev,
+        short_term_available: shortTermAvailable
+      } : null);
+    }
+  }, [shortTermAvailable, caretaker?.userId, user?.id]);
 
   // Lade Favoriten-Status wenn User eingeloggt ist
   useEffect(() => {
@@ -359,6 +378,8 @@ function BetreuerProfilePage() {
     return languageMap[language] || null; // Fallback für unbekannte Sprachen
   };
 
+
+
   return (
     <div className="bg-gray-50 min-h-screen pb-16">
       {/* Hero Section */}
@@ -397,6 +418,12 @@ function BetreuerProfilePage() {
                         <Briefcase className="h-2.5 w-2.5 mr-1" /> Pro
                       </span>
                     )}
+                    {caretaker.short_term_available && (
+                      <span className="bg-green-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full flex items-center">
+                        <Clock className="h-2.5 w-2.5 mr-1" /> Kurzfristig Verfügbar
+                      </span>
+                    )}
+
                     {/* Herz-Icon neben dem Namen, rechts */}
                     <Button
                       variant="ghost"
@@ -499,7 +526,10 @@ function BetreuerProfilePage() {
             </div>
 
             {/* Verfügbarkeit */}
-            <AvailabilityDisplay availability={caretaker.availability} />
+            <AvailabilityDisplay 
+              availability={caretaker.availability} 
+              overnightAvailability={caretaker.overnight_availability}
+            />
 
             {/* Umgebungsbilder */}
             <HomePhotosSection homePhotos={caretaker.home_photos || []} caretakerName={displayName} />
