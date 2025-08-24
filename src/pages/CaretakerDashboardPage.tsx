@@ -1,4 +1,4 @@
-import Layout from '../components/layout/Layout';
+
 import Button from '../components/ui/Button';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import AvailabilityScheduler from '../components/ui/AvailabilityScheduler';
@@ -75,9 +75,14 @@ function CaretakerDashboardPage() {
         const raw = sessionStorage.getItem('onboardingData');
         if (raw) {
           const parsed = JSON.parse(raw) as { userType?: 'owner' | 'caretaker'; userName?: string };
+          console.log('🔍 Checking onboarding data:', parsed);
           if (parsed.userType === 'caretaker') {
+            console.log('✅ Starting caretaker onboarding for:', parsed.userName);
             setOnboardingUserName(parsed.userName || userProfile?.first_name || '');
             setShowOnboarding(true);
+            // Setze Flag, dass User gerade registriert wurde
+            sessionStorage.setItem('wasJustRegistered', 'true');
+            console.log('🎯 Onboarding state set - showOnboarding:', true, 'userName:', parsed.userName);
           }
           sessionStorage.removeItem('onboardingData');
         }
@@ -99,11 +104,13 @@ function CaretakerDashboardPage() {
     Sa: [],
     So: [],
   };
-  const [availability, setAvailability] = useState<AvailabilityState>({});
+  const [availability, setAvailability] = useState<AvailabilityState>(defaultAvailability);
 
   // Handler für Speichern der Verfügbarkeit
   const handleSaveAvailability = async (newAvailability: AvailabilityState) => {
     if (!user || !profile) return;
+    
+    console.log('🔄 Speichere Verfügbarkeit:', newAvailability);
     
     try {
       // Konvertiere TimeSlot-Objekte zu String-Array für Datenbank
@@ -112,24 +119,24 @@ function CaretakerDashboardPage() {
         dbAvailability[day] = slots.map(slot => `${slot.start}-${slot.end}`);
       }
       
-      await caretakerProfileService.saveProfile(user.id, {
-        services: profile.services || [],
-        animalTypes: profile.animal_types || [],
-        prices: profile.prices || {},
-        serviceRadius: profile.service_radius || 0,
+      console.log('📊 DB-Format Verfügbarkeit:', dbAvailability);
+      
+      const result = await caretakerProfileService.saveProfile(user.id, {
         availability: dbAvailability,
-        homePhotos: profile.home_photos || [],
-        qualifications: profile.qualifications || [],
-        experienceDescription: profile.experience_description || '',
-        shortAboutMe: profile.short_about_me || '',
-        longAboutMe: profile.long_about_me || '',
-        languages: Array.isArray(profile.languages) ? profile.languages : [],
       });
       
+      if (result.error) {
+        console.error('❌ Fehler beim Speichern der Verfügbarkeit:', result.error);
+        return;
+      }
+      
+      console.log('✅ Verfügbarkeit erfolgreich gespeichert:', result.data);
+      
+      // Lokalen State aktualisieren
       setAvailability(newAvailability);
-      setProfile((prev: any) => ({ ...prev, availability: newAvailability }));
+      setProfile((prev: any) => ({ ...prev, availability: dbAvailability }));
     } catch (error) {
-      console.error('Fehler beim Speichern der Verfügbarkeit:', error);
+      console.error('❌ Exception beim Speichern der Verfügbarkeit:', error);
     }
   };
 
@@ -601,7 +608,39 @@ function CaretakerDashboardPage() {
           });
           if (createError) {
             console.error('Failed to create default caretaker profile:', createError);
-            setProfile(null);
+            // Fallback: Erstelle ein lokales Profil-Objekt ohne DB-Speicherung
+            console.log('🔄 Creating fallback profile object');
+            const fallbackProfile = {
+              id: user.id,
+              user_id: user.id,
+              services: [],
+              animal_types: [],
+              prices: {},
+              service_radius: 0,
+              availability: dbDefaultAvailability,
+              home_photos: [],
+              qualifications: [],
+              experience_description: '',
+              short_about_me: '',
+              long_about_me: '',
+              languages: [],
+              is_commercial: false,
+              company_name: '',
+              tax_number: '',
+              vat_id: '',
+              overnight_availability: {
+                Mo: false,
+                Di: false,
+                Mi: false,
+                Do: false,
+                Fr: false,
+                Sa: false,
+                So: false,
+              },
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            setProfile(fallbackProfile);
             setLoading(false);
             return;
           }
@@ -794,8 +833,9 @@ function CaretakerDashboardPage() {
     ensureProfileLoaded();
   }, [user, userProfile, authLoading, profileLoadAttempts]);
 
-  // Profilbild-Upload (wie im Owner Dashboard)
+  // Profilbild-Upload
   async function uploadProfilePhoto(file: File): Promise<string> {
+    const { supabase } = await import('../lib/supabase/client');
     const fileExt = file.name.split('.').pop();
     const filePath = `profile-${user!.id}-${Date.now()}.${fileExt}`;
     const { error } = await supabase.storage.from('profile-photos').upload(filePath, file, { upsert: true });
@@ -809,17 +849,19 @@ function CaretakerDashboardPage() {
     setAvatarUploading(true);
     setAvatarError(null);
     try {
-      const resp = await fetch(croppedImageUrl);
-      const blob = await resp.blob();
+      // Konvertiere Data URL zu Blob
+      const response = await fetch(croppedImageUrl);
+      const blob = await response.blob();
       const file = new File([blob], `profile-${user.id}-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      
       const url = await uploadProfilePhoto(file);
       const { data, error } = await userService.updateUserProfile(user.id, { profilePhotoUrl: url });
       if (error) throw error;
       if (data && data[0]) updateProfileState(data[0]);
-      setShowImageCropper(false);
+      setShowImageCropper(false); // Modal schließen nach erfolgreichem Upload
     } catch (e: any) {
       setAvatarError('Fehler beim Hochladen des Profilbilds!');
-      throw e;
+      throw e; // Damit ProfileImageCropper den Fehler mitbekommt
     } finally {
       setAvatarUploading(false);
     }
@@ -1309,16 +1351,14 @@ function CaretakerDashboardPage() {
   
   if (isReallyLoading) {
     return (
-      <Layout>
-        <div className="flex justify-center items-center min-h-[400px]">
-          <div className="text-center">
-            <LoadingSpinner />
-            {user && !userProfile && profileLoadAttempts > 0 && (
-              <p className="mt-4 text-gray-600">Lade Profil-Daten... (Versuch {profileLoadAttempts}/3)</p>
-            )}
-          </div>
+      <div className="flex justify-center items-center min-h-[400px]">
+        <div className="text-center">
+          <LoadingSpinner />
+          {user && !userProfile && profileLoadAttempts > 0 && (
+            <p className="mt-4 text-gray-600">Lade Profil-Daten... (Versuch {profileLoadAttempts}/3)</p>
+          )}
         </div>
-      </Layout>
+      </div>
     );
   }
   
@@ -1341,21 +1381,57 @@ function CaretakerDashboardPage() {
     );
   }
   
-  // Wenn kein Caretaker-Profil existiert, erstelle ein Fallback oder zeige Setup-Guide
-  if (!profile && !loading) {
+  // Wenn kein Caretaker-Profil existiert, aber Onboarding aktiv ist, zeige nur das Onboarding-Modal
+  if (!profile && !loading && showOnboarding) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="text-center max-w-md">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Caretaker-Profil vervollständigen</h2>
-          <p className="text-gray-600 mb-6">
-            Du hast noch kein vollständiges Caretaker-Profil. Vervollständige deine Registrierung, um dein Dashboard zu nutzen.
-          </p>
-          <button
-            onClick={() => setShowImageCropper(true)}
-            className="btn btn-primary"
-          >
-            Profilbild hochladen
-          </button>
+      <div className="min-h-screen bg-gray-50">
+        {/* Registration Onboarding Modal */}
+        <RegistrationSuccessModal
+          isOpen={showOnboarding}
+          userType="caretaker"
+          userName={onboardingUserName}
+          onComplete={() => {
+            console.log('🎯 Onboarding completed, closing modal');
+            setShowOnboarding(false);
+          }}
+          onSkip={() => {
+            console.log('⏭️ Onboarding skipped');
+            setShowOnboarding(false);
+          }}
+        />
+      </div>
+    );
+  }
+  
+  // Wenn kein Caretaker-Profil existiert und kein Onboarding, zeige Setup-Guide
+  // ABER: Wenn der User gerade registriert wurde (onboardingData war vorhanden), zeige normales Dashboard
+  if (!profile && !loading && !showOnboarding) {
+    // Prüfe, ob der User gerade registriert wurde (onboardingData war vorhanden)
+    const wasJustRegistered = sessionStorage.getItem('wasJustRegistered') === 'true';
+    
+    if (wasJustRegistered) {
+      // User wurde gerade registriert, zeige normales Dashboard
+      sessionStorage.removeItem('wasJustRegistered');
+      console.log('✅ User was just registered, showing normal dashboard');
+    } else {
+      // User hat kein Profil und wurde nicht gerade registriert
+      // ABER: Zeige trotzdem das normale Dashboard für neue User
+      console.log('⚠️ No profile found, but showing normal dashboard anyway');
+    }
+  }
+  
+  // Fallback: Wenn Loading zu lange dauert, zeige Dashboard trotzdem
+  if (loading && !profile && !showOnboarding) {
+    const loadingTimeout = setTimeout(() => {
+      console.log('⏰ Loading timeout, showing dashboard anyway');
+      setLoading(false);
+    }, 5000); // 5 Sekunden Timeout
+    
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Dashboard wird geladen...</p>
         </div>
       </div>
     );
@@ -1769,7 +1845,7 @@ function CaretakerDashboardPage() {
                         <option key={category.id} value={category.id}>{category.name}</option>
                       ))}
                     </select>
-                    <button type="button" className="text-green-600 hover:bg-green-50 rounded p-1" disabled={!newService.trim()} onClick={() => { const newCategorizedService: CategorizedService = { name: newService.trim(), category_id: newServiceCategory }; handleSkillsChange('services', [...skillsDraft.services, newCategorizedService]); setNewService(''); }} title="Hinzufügen"><Check className="w-4 h-4" /></button>
+                    <button type="button" className="text-green-600 hover:bg-green-100 rounded p-1" disabled={!newService.trim()} onClick={() => { const newCategorizedService: CategorizedService = { name: newService.trim(), category_id: newServiceCategory }; handleSkillsChange('services', [...skillsDraft.services, newCategorizedService]); setNewService(''); }} title="Hinzufügen"><Check className="w-4 h-4" /></button>
                     <button type="button" className="text-gray-400 hover:text-red-500 rounded p-1" onClick={() => setNewService('')} title="Abbrechen"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                   </div>
                 </div>
@@ -1795,7 +1871,7 @@ function CaretakerDashboardPage() {
                   </div>
                   <div className="flex gap-2 items-center">
                     <input className="input flex-1" placeholder="Neue Tierart" value={newAnimal} onChange={e => setNewAnimal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newAnimal.trim()) { handleSkillsChange('animal_types', [...skillsDraft.animal_types, newAnimal.trim()]); setNewAnimal(''); } }} />
-                    <button type="button" className="text-green-600 hover:bg-green-50 rounded p-1" disabled={!newAnimal.trim()} onClick={() => { handleSkillsChange('animal_types', [...skillsDraft.animal_types, newAnimal.trim()]); setNewAnimal(''); }} title="Hinzufügen"><Check className="w-4 h-4" /></button>
+                    <button type="button" className="text-green-600 hover:bg-green-100 rounded p-1" disabled={!newAnimal.trim()} onClick={() => { handleSkillsChange('animal_types', [...skillsDraft.animal_types, newAnimal.trim()]); setNewAnimal(''); }} title="Hinzufügen"><Check className="w-4 h-4" /></button>
                     <button type="button" className="text-gray-400 hover:text-red-500 rounded p-1" onClick={() => setNewAnimal('')} title="Abbrechen"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                   </div>
                 </div>
@@ -1821,7 +1897,7 @@ function CaretakerDashboardPage() {
                   </div>
                   <div className="flex gap-2 items-center">
                     <input className="input flex-1" placeholder="Neue Qualifikation" value={newQualification} onChange={e => setNewQualification(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newQualification.trim()) { handleSkillsChange('qualifications', [...skillsDraft.qualifications, newQualification.trim()]); setNewQualification(''); } }} />
-                    <button type="button" className="text-green-600 hover:bg-green-50 rounded p-1" disabled={!newQualification.trim()} onClick={() => { handleSkillsChange('qualifications', [...skillsDraft.qualifications, newQualification.trim()]); setNewQualification(''); }} title="Hinzufügen"><Check className="w-4 h-4" /></button>
+                    <button type="button" className="text-green-600 hover:bg-green-100 rounded p-1" disabled={!newQualification.trim()} onClick={() => { handleSkillsChange('qualifications', [...skillsDraft.qualifications, newQualification.trim()]); setNewQualification(''); }} title="Hinzufügen"><Check className="w-4 h-4" /></button>
                     <button type="button" className="text-gray-400 hover:text-red-500 rounded p-1" onClick={() => setNewQualification('')} title="Abbrechen"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                   </div>
                 </div>
@@ -2819,6 +2895,10 @@ function CaretakerDashboardPage() {
         userType="caretaker"
         userName={onboardingUserName}
         onComplete={() => setShowOnboarding(false)}
+        onSkip={() => {
+          console.log('⏭️ Onboarding skipped');
+          setShowOnboarding(false);
+        }}
       />
 
       {/* Profilbild Editor Modal */}
@@ -2847,7 +2927,7 @@ function CaretakerDashboardPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
   );
 }
 
