@@ -198,7 +198,7 @@ function AvailabilityDisplay({ availability = {}, overnightAvailability, classNa
                      {overnightAvailability && (
              <div className="flex items-center gap-2">
                <Moon className="h-4 w-4 text-primary-600" />
-               <span>Übernachtungen</span>
+               <span>Übernachtungen möglich</span>
              </div>
            )}
         </div>
