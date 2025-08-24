@@ -303,7 +303,7 @@ function BetreuerProfilePage() {
     }
 
     // Premium-Prüfung: Nur Premium-Owner können bewerten
-    if (subscription?.status !== 'active') {
+    if (subscription?.plan_type !== 'premium') {
       console.error('Only premium owners can submit reviews');
       // Optional: Redirect to pricing page
       navigate('/mitgliedschaften?feature=review');
@@ -619,7 +619,7 @@ function BetreuerProfilePage() {
               </h2>
 
               {/* Review Form - Nur für eingeloggte Premium Owners */}
-              {showReviewForm && caretaker && isAuthenticated && userProfile?.user_type === 'owner' && subscription?.status === 'active' && (
+              {showReviewForm && caretaker && isAuthenticated && userProfile?.user_type === 'owner' && subscription?.plan_type === 'premium' && (
                 <div className="mb-6">
                   <ReviewForm
                     caretakerId={caretaker.id || ''}
@@ -633,7 +633,7 @@ function BetreuerProfilePage() {
               )}
 
               {/* Review Button - Nur für eingeloggte Premium Owners anzeigen */}
-              {!showReviewForm && isAuthenticated && userProfile?.user_type === 'owner' && subscription?.status === 'active' && (
+              {!showReviewForm && isAuthenticated && userProfile?.user_type === 'owner' && subscription?.plan_type === 'premium' && (
                 <div className="mb-6">
                   <Button
                     variant="primary"
@@ -664,7 +664,7 @@ function BetreuerProfilePage() {
               )}
 
               {/* Info für eingeloggte Free Owners */}
-              {isAuthenticated && userProfile?.user_type === 'owner' && subscription?.status !== 'active' && (
+              {isAuthenticated && userProfile?.user_type === 'owner' && subscription?.plan_type !== 'premium' && (
                 <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                   <p className="text-amber-800 text-sm">
                     <strong>Bewertung schreiben:</strong> Du benötigst ein Premium-Abo, um Bewertungen zu schreiben. 
