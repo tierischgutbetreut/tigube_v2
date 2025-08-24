@@ -669,6 +669,8 @@ export type Database = {
         Row: {
           care_request_id: string | null
           caretaker_id: string | null
+          caretaker_response: string | null
+          caretaker_response_created_at: string | null
           comment: string | null
           created_at: string | null
           id: string
@@ -679,6 +681,8 @@ export type Database = {
         Insert: {
           care_request_id?: string | null
           caretaker_id?: string | null
+          caretaker_response?: string | null
+          caretaker_response_created_at?: string | null
           comment?: string | null
           created_at?: string | null
           id?: string
@@ -689,6 +693,8 @@ export type Database = {
         Update: {
           care_request_id?: string | null
           caretaker_id?: string | null
+          caretaker_response?: string | null
+          caretaker_response_created_at?: string | null
           comment?: string | null
           created_at?: string | null
           id?: string
