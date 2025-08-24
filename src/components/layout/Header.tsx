@@ -81,7 +81,7 @@ function Header() {
                   Betreuer finden
                 </NavLink>
                 <NavLink to="/blog" isActive={isActive('/blog')}>
-                  Blog
+                  tigube-Welt
                 </NavLink>
                 {!isPremiumUser && (
                   <NavLink to="/mitgliedschaften" isActive={isActive('/mitgliedschaften') || isActive('/preise')}>
@@ -112,14 +112,14 @@ function Header() {
             <NavLink to="/suche" isActive={isActive('/suche')}>
             Betreuer finden
             </NavLink>
-            <NavLink to="/blog" isActive={isActive('/blog')}>
-            Blog
-            </NavLink>
             <NavLink to="/registrieren?type=caregiver" isActive={isActive('/registrieren?type=caregiver')}>
             Betreuer werden
             </NavLink>
             <NavLink to="/mitgliedschaften" isActive={isActive('/mitgliedschaften') || isActive('/preise')}>
             Preise
+            </NavLink>
+            <NavLink to="/blog" isActive={isActive('/blog')}>
+            tigube-Welt
             </NavLink>
             <Link
               to="/anmelden"
@@ -172,7 +172,7 @@ function Header() {
                     Betreuer finden
                   </MobileNavLink>
                   <MobileNavLink to="/blog" isActive={isActive('/blog')} onClick={() => setIsMenuOpen(false)}>
-                    Blog
+                    tigube-Welt
                   </MobileNavLink>
                   {!isPremiumUser && (
                     <MobileNavLink 
@@ -229,7 +229,7 @@ function Header() {
                 isActive={isActive('/blog')} 
                 onClick={() => setIsMenuOpen(false)}
               >
-                    Blog
+                    tigube-Welt
               </MobileNavLink>
               <div className="pt-2 flex flex-col space-y-2">
                 <Link
