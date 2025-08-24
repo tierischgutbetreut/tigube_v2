@@ -254,7 +254,7 @@ function BetreuerProfilePage() {
     }
   };
 
-  // Review Submit Handler - Nur für Owners
+  // Review Submit Handler - Nur für Premium Owners
   const handleReviewSubmit = async (rating: number, comment: string) => {
     if (!user || !caretaker?.id) {
       console.error('User or caretaker ID missing');
@@ -264,6 +264,14 @@ function BetreuerProfilePage() {
     // Zusätzliche Prüfung: Nur Owners können bewerten
     if (userProfile?.user_type !== 'owner') {
       console.error('Only owners can submit reviews');
+      return;
+    }
+
+    // Premium-Prüfung: Nur Premium-Owner können bewerten
+    if (subscription?.status !== 'active') {
+      console.error('Only premium owners can submit reviews');
+      // Optional: Redirect to pricing page
+      navigate('/mitgliedschaften?feature=review');
       return;
     }
 
@@ -566,8 +574,8 @@ function BetreuerProfilePage() {
                 Bewertungen ({reviews.length})
               </h2>
 
-              {/* Review Form - Nur für eingeloggte Owners */}
-              {showReviewForm && caretaker && isAuthenticated && userProfile?.user_type === 'owner' && (
+              {/* Review Form - Nur für eingeloggte Premium Owners */}
+              {showReviewForm && caretaker && isAuthenticated && userProfile?.user_type === 'owner' && subscription?.status === 'active' && (
                 <div className="mb-6">
                   <ReviewForm
                     caretakerId={caretaker.id || ''}
@@ -580,8 +588,8 @@ function BetreuerProfilePage() {
                 </div>
               )}
 
-              {/* Review Button - Nur für eingeloggte Owners anzeigen */}
-              {!showReviewForm && isAuthenticated && userProfile?.user_type === 'owner' && (
+              {/* Review Button - Nur für eingeloggte Premium Owners anzeigen */}
+              {!showReviewForm && isAuthenticated && userProfile?.user_type === 'owner' && subscription?.status === 'active' && (
                 <div className="mb-6">
                   <Button
                     variant="primary"
@@ -597,7 +605,7 @@ function BetreuerProfilePage() {
               {!isAuthenticated && (
                 <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-blue-800 text-sm">
-                    <strong>Bewertung schreiben:</strong> Du musst angemeldet sein und ein Tierbesitzer-Profil haben, um Bewertungen zu schreiben.
+                    <strong>Bewertung schreiben:</strong> Du musst angemeldet sein und ein Premium-Tierbesitzer-Profil haben, um Bewertungen zu schreiben.
                   </p>
                 </div>
               )}
@@ -606,7 +614,19 @@ function BetreuerProfilePage() {
               {isAuthenticated && userProfile?.user_type === 'caretaker' && (
                 <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
                   <p className="text-gray-700 text-sm">
-                    <strong>Bewertung schreiben:</strong> Nur Tierbesitzer können Bewertungen für Betreuer schreiben.
+                    <strong>Bewertung schreiben:</strong> Nur Premium-Tierbesitzer können Bewertungen für Betreuer schreiben.
+                  </p>
+                </div>
+              )}
+
+              {/* Info für eingeloggte Free Owners */}
+              {isAuthenticated && userProfile?.user_type === 'owner' && subscription?.status !== 'active' && (
+                <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-amber-800 text-sm">
+                    <strong>Bewertung schreiben:</strong> Du benötigst ein Premium-Abo, um Bewertungen zu schreiben. 
+                    <Link to="/pricing" className="text-amber-900 underline ml-1">
+                      Jetzt upgraden →
+                    </Link>
                   </p>
                 </div>
               )}
