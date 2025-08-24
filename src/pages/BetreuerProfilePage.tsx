@@ -15,6 +15,8 @@ import { getOrCreateConversation } from '../lib/supabase/chatService';
 import { useFeatureAccess } from '../hooks/useFeatureAccess';
 import { useShortTermAvailability } from '../contexts/ShortTermAvailabilityContext';
 import HomePhotosSection from '../components/ui/HomePhotosSection';
+import ResponseTimeDisplay from '../components/ui/ResponseTimeDisplay';
+import { getCaretakerResponseTime, calculateCaretakerResponseTime } from '../lib/supabase/responseTimeService';
 
 interface Caretaker {
   id: string | null;
@@ -73,6 +75,9 @@ function BetreuerProfilePage() {
   const [isContactLoading, setIsContactLoading] = useState(false);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [responseTime, setResponseTime] = useState<string | null>(null);
+  const [responseTimeLoading, setResponseTimeLoading] = useState(false);
+  const [responseTimeData, setResponseTimeData] = useState<{ text: string; messageCount: number } | null>(null);
   
   useEffect(() => {
     const fetchCaretaker = async () => {
@@ -186,6 +191,36 @@ function BetreuerProfilePage() {
     };
 
     fetchReviews();
+  }, [id]);
+
+  // Lade Antwortzeit des Caretakers
+  useEffect(() => {
+    const fetchResponseTime = async () => {
+      if (!id) return;
+      
+      setResponseTimeLoading(true);
+      try {
+        const responseTimeData = await calculateCaretakerResponseTime(id);
+        if (responseTimeData) {
+          setResponseTime(responseTimeData.responseTimeText);
+          setResponseTimeData({
+            text: responseTimeData.responseTimeText,
+            messageCount: responseTimeData.messageCount
+          });
+        } else {
+          setResponseTime(null);
+          setResponseTimeData(null);
+        }
+      } catch (error) {
+        console.error('Error fetching response time:', error);
+        setResponseTime(null);
+        setResponseTimeData(null);
+      } finally {
+        setResponseTimeLoading(false);
+      }
+    };
+
+    fetchResponseTime();
   }, [id]);
 
   // Funktion zum Abkürzen des Nachnamens
@@ -527,6 +562,15 @@ function BetreuerProfilePage() {
               </div>
               
               <p className="text-gray-700 mb-6">{caretaker.bio}</p>
+              
+              {/* Antwortzeit-Anzeige */}
+              <div className="mb-4">
+                <ResponseTimeDisplay 
+                  responseTime={responseTime || caretaker.responseTime} 
+                  messageCount={responseTimeData?.messageCount}
+                  isLoading={responseTimeLoading}
+                />
+              </div>
               
               <div className="flex flex-col sm:flex-row gap-3">
                 <Button 
