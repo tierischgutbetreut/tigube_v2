@@ -1449,7 +1449,21 @@ function OwnerDashboardPage() {
               <div className="flex flex-col lg:flex-row gap-8">
                 {/* Erste Spalte: Name und Tiere */}
                 <div className="flex-1">
-                  <h1 className="text-2xl font-bold mb-4">{fullName}</h1>
+                  <div className="flex items-center gap-2 mb-4">
+                    <h1 className="text-2xl font-bold">{fullName}</h1>
+                    {/* Crown-Icon für Premium-Status mit Hovereffekt */}
+                    {userProfile?.premium_badge && (
+                      <div className="group relative">
+                        <div className="inline-flex items-center justify-center w-6 h-6 text-amber-500 hover:text-amber-600 transition-colors">
+                          <Crown className="h-5 w-5" />
+                        </div>
+                        <div className="absolute left-1/2 transform -translate-x-1/2 top-8 w-48 p-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                          <div className="text-center">Premium Mitglied</div>
+                          <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   
                   {/* Pet-Badges */}
                   <div className="flex flex-wrap gap-2">
@@ -1460,15 +1474,7 @@ function OwnerDashboardPage() {
                     ))}
                   </div>
                   
-                  {/* Premium Badge */}
-                  {userProfile?.premium_badge && (
-                    <div className="mt-3">
-                      <PremiumBadge 
-                        planType="premium" 
-                        size="md"
-                      />
-                    </div>
-                  )}
+
                 </div>
                 
                 {/* Zweite Spalte: Kontaktdaten */}

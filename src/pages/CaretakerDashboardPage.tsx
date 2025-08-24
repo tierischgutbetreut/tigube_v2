@@ -10,8 +10,8 @@ import type { ClientData } from '../components/ui/ClientDetailsAccordion';
 import { useAuth } from '../lib/auth/AuthContext';
 import { useEffect, useState, useRef } from 'react';
 import { caretakerProfileService, ownerCaretakerService, userService } from '../lib/supabase/db';
-import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info, Lock, Briefcase, Verified, Eye, EyeOff, KeyRound, Trash2, AlertTriangle, Mail, X, Clock } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info, Lock, Briefcase, Verified, Eye, EyeOff, KeyRound, Trash2, AlertTriangle, Mail, X, Clock, Crown, Settings } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
 import { useFeatureAccess } from '../hooks/useFeatureAccess';
 import PaymentSuccessModal from '../components/ui/PaymentSuccessModal';
@@ -26,6 +26,7 @@ import { useShortTermAvailability } from '../contexts/ShortTermAvailabilityConte
 
 function CaretakerDashboardPage() {
   const { user, userProfile, loading: authLoading, subscription, updateProfileState } = useAuth();
+  const navigate = useNavigate();
   const { isPremiumUser } = useSubscription();
   const { maxEnvironmentImages } = useFeatureAccess();
   const [profile, setProfile] = useState<any>(null);
@@ -96,11 +97,11 @@ function CaretakerDashboardPage() {
   type TimeSlot = { start: string; end: string };
   type AvailabilityState = Record<string, TimeSlot[]>;
   const defaultAvailability: AvailabilityState = {
-    Mo: [{ start: '09:00', end: '17:00' }],
-    Di: [{ start: '09:00', end: '17:00' }],
-    Mi: [{ start: '09:00', end: '17:00' }],
-    Do: [{ start: '09:00', end: '17:00' }],
-    Fr: [{ start: '09:00', end: '17:00' }],
+    Mo: [],
+    Di: [],
+    Mi: [],
+    Do: [],
+    Fr: [],
     Sa: [],
     So: [],
   };
@@ -749,34 +750,8 @@ function CaretakerDashboardPage() {
           
           setAvailability(validatedAvailability);
         } else {
-          // Falls keine Verfügbarkeit in der DB, verwende Default-Verfügbarkeit und speichere sie
+          // Falls keine Verfügbarkeit in der DB, verwende leere Verfügbarkeit
           setAvailability(defaultAvailability);
-          // Default-Verfügbarkeit auch in DB speichern für neuen Benutzer
-          setTimeout(async () => {
-            try {
-              // Konvertiere Default-Verfügbarkeit zu String-Array für Datenbank
-              const dbDefaultAvailability: Record<string, string[]> = {};
-              for (const [day, slots] of Object.entries(defaultAvailability)) {
-                dbDefaultAvailability[day] = slots.map(slot => `${slot.start}-${slot.end}`);
-              }
-              
-              await caretakerProfileService.saveProfile(user.id, {
-                services: (data as any).services || [],
-                animalTypes: (data as any).animal_types || [],
-                prices: (data as any).prices || {},
-                serviceRadius: (data as any).service_radius || 0,
-                availability: dbDefaultAvailability,
-                homePhotos: (data as any).home_photos || [],
-                qualifications: (data as any).qualifications || [],
-                experienceDescription: (data as any).experience_description || '',
-                shortAboutMe: (data as any).short_about_me || '',
-                longAboutMe: (data as any).long_about_me || '',
-                languages: (data as any).languages || [],
-              });
-            } catch (error) {
-              console.error('Fehler beim Speichern der Default-Verfügbarkeit:', error);
-            }
-          }, 100);
         }
         }
       } catch (err) {
@@ -1485,6 +1460,18 @@ function CaretakerDashboardPage() {
                         <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
                       </div>
                     </div>
+                    {/* Crown-Icon für Premium-Status mit Hovereffekt */}
+                    {userProfile?.premium_badge && (
+                      <div className="group relative">
+                        <div className="inline-flex items-center justify-center w-6 h-6 text-amber-500 hover:text-amber-600 transition-colors">
+                          <Crown className="h-4 w-4" />
+                        </div>
+                        <div className="absolute left-1/2 transform -translate-x-1/2 top-8 w-48 p-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                          <div className="text-center">Premium Mitglied</div>
+                          <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                        </div>
+                      </div>
+                    )}
                     {editData && (
                       <div className="group relative">
                         <Info className="h-5 w-5 text-blue-500 cursor-help" />
@@ -1507,12 +1494,7 @@ function CaretakerDashboardPage() {
                         <Briefcase className="h-2.5 w-2.5 mr-1" /> Pro
                       </span>
                     )}
-                    {userProfile?.premium_badge && (
-                      <PremiumBadge 
-                        planType="premium" 
-                        size="sm"
-                      />
-                    )}
+
                     {/* Kurzfristig Verfügbar Toggle */}
                     <button
                       onClick={handleShortTermAvailabilityToggle}
@@ -1709,7 +1691,7 @@ function CaretakerDashboardPage() {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              Mitgliedschaften
+              Mitgliedschaft
             </button>
           </nav>
         </div>
@@ -2749,134 +2731,209 @@ function CaretakerDashboardPage() {
       {/* Mitgliedschaften Tab */}
       {activeTab === 'mitgliedschaften' && (
         <div className="space-y-8">
-          {/* Aktueller Mitgliedschaftsstatus */}
-          <div className="bg-white rounded-xl shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Deine Mitgliedschaft</h2>
-            
-            {isPremiumUser ? (
-              <div className="bg-gradient-to-r from-amber-50 to-yellow-100 border border-amber-200 rounded-lg p-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0">
-                    <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
-                      <Star className="w-6 h-6 text-white" />
+          {isPremiumUser ? (
+            <>
+              {/* Premium Status Card */}
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                      <Crown className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">Premium Mitgliedschaft</h2>
+                      <p className="text-sm text-gray-600">Aktiv seit {userProfile?.created_at ? new Date(userProfile.created_at).toLocaleDateString('de-DE') : 'Unbekannt'}</p>
                     </div>
                   </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-amber-900 mb-1">
-                      Premium-Mitglied
-                    </h3>
-                    <p className="text-amber-700 mb-4">
-                      Du bist Premium-Mitglied und genießt alle Vorteile der Plattform.
-                    </p>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div className="space-y-2">
-                        <h4 className="font-medium text-amber-900">Deine Vorteile:</h4>
-                        <ul className="space-y-1 text-sm text-amber-700">
-                          <li className="flex items-center gap-2">
-                            <Check className="w-4 h-4 text-amber-600" />
-                            Unbegrenzte Kontaktanfragen
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <Check className="w-4 h-4 text-amber-600" />
-                            Werbefreie Nutzung
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <Check className="w-4 h-4 text-amber-600" />
-                            Premium-Badge in deinem Profil
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <Check className="w-4 h-4 text-amber-600" />
-                            Priorität in Suchergebnissen
-                          </li>
-                        </ul>
-                      </div>
-                      
-                      {subscription && (
-                        <div className="space-y-2">
-                          <h4 className="font-medium text-amber-900">Abo-Details:</h4>
-                          <div className="space-y-1 text-sm text-amber-700">
-                            <div>Plan: {subscription.plan_type === 'premium' ? 'Premium' : 'Professional'}</div>
-                            <div>Status: {subscription.status === 'active' ? 'Aktiv' : subscription.status}</div>
-                            {subscription.ends_at && (
-                              <div>Verlängert sich am: {new Date(subscription.ends_at).toLocaleDateString()}</div>
-                            )}
-                          </div>
-                        </div>
-                      )}
+                  <div className="text-right">
+                    <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                      <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                      Aktiv
                     </div>
+                    {subscription?.plan_expires_at && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Verlängert sich am {new Date(subscription.plan_expires_at).toLocaleDateString('de-DE')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <div className="text-center p-4 bg-white rounded-lg border">
+                    <div className="text-2xl font-bold text-blue-600">Unlimited</div>
+                    <div className="text-sm text-gray-600">Kontaktanfragen</div>
+                  </div>
+                  <div className="text-center p-4 bg-white rounded-lg border">
+                    <div className="text-2xl font-bold text-green-600">Werbefrei</div>
+                    <div className="text-sm text-gray-600">Erfahrung</div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      // Öffne Stripe Customer Portal
+                      const customerPortalUrl = 'https://billing.stripe.com/p/login/test_00w9AU8GVfV897Q8gJ2oE00';
+                      window.open(customerPortalUrl, '_blank');
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <Settings className="w-4 h-4" />
+                    Mitgliedschaft verwalten
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate('/mitgliedschaften')}
+                    className="flex items-center gap-2"
+                  >
+                    <Star className="w-4 h-4" />
+                    Plan-Details ansehen
+                  </Button>
+                </div>
+              </div>
+
+              {/* Premium Features Overview */}
+              <div className="bg-white rounded-xl border p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Deine Premium Features</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                    <Check className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-gray-700">Unlimited Kontaktanfragen von Tierbesitzern</span>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                    <div className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-gray-700">Erweiterte Profiloptionen verwenden</span>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                    <Check className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-gray-700">Bewertungen von Tierbesitzern erhalten</span>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                    <Check className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-gray-700">Werbefreie Nutzung der Plattform</span>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                    <Check className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-gray-700">Premium Badge im Profil</span>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                    <Check className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-gray-700">Prioritärer Kundenservice</span>
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0">
+
+              {/* Billing History Preview */}
+              <div className="bg-white rounded-xl border p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Rechnungshistorie</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const customerPortalUrl = 'https://billing.stripe.com/p/login/test_00w9AU8GVfV897Q8gJ2oE00';
+                      window.open(customerPortalUrl, '_blank');
+                    }}
+                  >
+                    Alle Rechnungen anzeigen
+                  </Button>
+                </div>
+                <div className="text-center py-8 text-gray-500">
+                  <Briefcase className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p>Detaillierte Rechnungshistorie verfügbar im</p>
+                  <p className="font-medium">Stripe Kundenportal</p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Basic Status Card */}
+              <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
                     <div className="w-12 h-12 bg-gray-400 rounded-full flex items-center justify-center">
                       <Star className="w-6 h-6 text-white" />
                     </div>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                      Basic-Mitglied
-                    </h3>
-                    <p className="text-gray-600 mb-4">
-                      Du nutzt derzeit die kostenlose Basic-Version.
-                    </p>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div className="space-y-2">
-                        <h4 className="font-medium text-gray-900">Aktuelle Limits:</h4>
-                        <ul className="space-y-1 text-sm text-gray-600">
-                          <li className="flex items-center gap-2">
-                            <Info className="w-4 h-4 text-gray-500" />
-                            3 Kontaktanfragen pro Monat
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <Info className="w-4 h-4 text-gray-500" />
-                            Werbung wird angezeigt
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <Info className="w-4 h-4 text-gray-500" />
-                            Grundlegende Sichtbarkeit
-                          </li>
-                        </ul>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <h4 className="font-medium text-gray-900">Mit Premium erhältst du:</h4>
-                        <ul className="space-y-1 text-sm text-green-600">
-                          <li className="flex items-center gap-2">
-                            <Check className="w-4 h-4 text-green-500" />
-                            Unbegrenzte Kontaktanfragen
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <Check className="w-4 h-4 text-green-500" />
-                            Werbefreie Nutzung
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <Check className="w-4 h-4 text-green-500" />
-                            Premium-Badge
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <Check className="w-4 h-4 text-green-500" />
-                            Höhere Priorität in Suche
-                          </li>
-                        </ul>
-                      </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">Basic Mitgliedschaft</h2>
+                      <p className="text-sm text-gray-600">Kostenlose Version mit Einschränkungen</p>
                     </div>
-                    
-                    <Link
-                      to="/pricing"
-                      className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-                    >
-                      Jetzt Premium werden
-                    </Link>
+                  </div>
+                  <div className="text-right">
+                    <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
+                      Basic
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="text-center p-4 bg-white rounded-lg border">
+                    <div className="text-2xl font-bold text-gray-600">3</div>
+                    <div className="text-sm text-gray-600">Kontaktanfragen/Monat</div>
+                  </div>
+                  <div className="text-center p-4 bg-white rounded-lg border">
+                    <div className="text-2xl font-bold text-gray-600">Eingeschränkt</div>
+                    <div className="text-sm text-gray-600">Profiloptionen</div>
+                  </div>
+                  <div className="text-center p-4 bg-white rounded-lg border">
+                    <div className="text-2xl font-bold text-gray-600">Mit Werbung</div>
+                    <div className="text-sm text-gray-600">Erfahrung</div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <Link
+                    to="/pricing"
+                    className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                  >
+                    <Star className="w-4 h-4 mr-2" />
+                    Jetzt Premium werden
+                  </Link>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate('/pricing')}
+                    className="flex items-center gap-2"
+                  >
+                    <Info className="w-4 h-4" />
+                    Plan-Details ansehen
+                  </Button>
+                </div>
+              </div>
+
+              {/* Premium Features Preview */}
+              <div className="bg-white rounded-xl border p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Mit Premium erhältst du:</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                    <Check className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-gray-700">Unlimited Kontaktanfragen von Tierbesitzern</span>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                    <Check className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-gray-700">Erweiterte Profiloptionen verwenden</span>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                    <Check className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-gray-700">Bewertungen von Tierbesitzern erhalten</span>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                    <Check className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-gray-700">Werbefreie Nutzung der Plattform</span>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                    <Check className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-gray-700">Premium Badge im Profil</span>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                    <Check className="w-5 h-5 text-green-600" />
+                    <span className="text-sm text-gray-700">Prioritärer Kundenservice</span>
                   </div>
                 </div>
               </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
       )}
 
