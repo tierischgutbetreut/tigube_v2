@@ -33,6 +33,7 @@ function CaretakerDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [profileLoadAttempts, setProfileLoadAttempts] = useState(0);
+
   // Onboarding-Modal State
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingUserName, setOnboardingUserName] = useState<string>('');
@@ -772,6 +773,8 @@ function CaretakerDashboardPage() {
       street: userProfile?.street || '',
       city: userProfile?.city || ''
     });
+    
+
   }, [userProfile, user]);
 
   // Zusätzlicher useEffect für robustes Profile-Loading nach Registrierung
@@ -808,36 +811,76 @@ function CaretakerDashboardPage() {
     ensureProfileLoaded();
   }, [user, userProfile, authLoading, profileLoadAttempts]);
 
-  // Profilbild-Upload
+  // Profilbild-Upload - Robuste Version wie im OwnerDashboard
   async function uploadProfilePhoto(file: File): Promise<string> {
-    const { supabase } = await import('../lib/supabase/client');
-    const fileExt = file.name.split('.').pop();
-    const filePath = `profile-${user!.id}-${Date.now()}.${fileExt}`;
-    const { error } = await supabase.storage.from('profile-photos').upload(filePath, file, { upsert: true });
-    if (error) throw error;
-    const { data: urlData } = supabase.storage.from('profile-photos').getPublicUrl(filePath);
-    return urlData.publicUrl;
+    try {
+      const { supabase } = await import('../lib/supabase/client');
+      const fileExt = file.name.split('.').pop();
+      const filePath = `profile-${user!.id}-${Date.now()}.${fileExt}`;
+      const { error } = await supabase.storage.from('profile-photos').upload(filePath, file, { upsert: true });
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from('profile-photos').getPublicUrl(filePath);
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error('❌ Fehler beim Upload zu Supabase:', error);
+      throw new Error('Fehler beim Hochladen des Bildes: ' + (error as any)?.message || 'Unbekannter Fehler');
+    }
   }
 
   const handleCroppedImageSave = async (croppedImageUrl: string) => {
     if (!user) return;
+    
+    console.log('🔄 Starte Profilbild-Upload für User:', user.id);
     setAvatarUploading(true);
     setAvatarError(null);
+    
     try {
       // Konvertiere Data URL zu Blob
+      console.log('📸 Konvertiere Data URL zu Blob...');
       const response = await fetch(croppedImageUrl);
+      if (!response.ok) {
+        throw new Error('Fehler beim Laden des Bildes');
+      }
+      
       const blob = await response.blob();
+      if (!blob || blob.size === 0) {
+        throw new Error('Ungültiges Bild: Leere Datei');
+      }
       const file = new File([blob], `profile-${user.id}-${Date.now()}.jpg`, { type: 'image/jpeg' });
       
+      console.log('📤 Lade Bild zu Supabase hoch...');
       const url = await uploadProfilePhoto(file);
+      console.log('✅ Bild erfolgreich hochgeladen:', url);
+      
+      console.log('💾 Aktualisiere User-Profil in der Datenbank...');
       const { data, error } = await userService.updateUserProfile(user.id, { profilePhotoUrl: url });
-      if (error) throw error;
-      if (data && data[0]) updateProfileState(data[0]);
-      setShowImageCropper(false); // Modal schließen nach erfolgreichem Upload
+      
+      if (error) {
+        console.error('❌ Fehler beim Aktualisieren des Profils:', error);
+        // NICHT throw error - das würde das Dashboard zum Absturz bringen
+        setAvatarError('Fehler beim Aktualisieren des Profils: ' + error.message);
+        return;
+      }
+      
+      if (data && data[0]) {
+        console.log('✅ Profil erfolgreich aktualisiert:', data[0]);
+        // Verwende updateProfileState wie im OwnerDashboardPage - das funktioniert dort stabil
+        updateProfileState(data[0]);
+      } else {
+        console.warn('⚠️ Keine Daten beim Update zurückgegeben');
+        // Trotzdem das Modal schließen, da das Bild hochgeladen wurde
+        console.log('🔄 Verwende Fallback: Aktualisiere nur den lokalen State');
+      }
+      
+      console.log('🎯 Schließe Image Cropper Modal');
+      setShowImageCropper(false);
+      
     } catch (e: any) {
-      setAvatarError('Fehler beim Hochladen des Profilbilds!');
-      throw e; // Damit ProfileImageCropper den Fehler mitbekommt
+      console.error('❌ Fehler beim Profilbild-Upload:', e);
+      setAvatarError('Fehler beim Hochladen des Profilbilds: ' + (e.message || 'Unbekannter Fehler'));
+      // NICHT throw e - das würde das Dashboard zum Absturz bringen
     } finally {
+      console.log('🏁 Beende Upload-Prozess');
       setAvatarUploading(false);
     }
   };
@@ -934,14 +977,17 @@ function CaretakerDashboardPage() {
     return 'NN';
   }
 
-  // Profilquelle: userProfile (users-Tabelle)!
+  // Profilquelle: userProfile (users-Tabelle) - wie im OwnerDashboardPage!
   const profileData = userProfile || fallbackProfile;
   const fullName = `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || profileData.email;
   const initials = getInitials(profileData.first_name, profileData.last_name);
   // Sichere Avatar-URL mit Fallback für fehlerhafte URLs
   const getAvatarUrl = () => {
     const profileUrl = profileData.profile_photo_url || profileData.avatar_url;
-    if (profileUrl && !profileUrl.includes('undefined') && !profileUrl.includes('null')) {
+    if (profileUrl && 
+        !profileUrl.includes('undefined') && 
+        !profileUrl.includes('null') && 
+        profileUrl.trim() !== '') {
       return profileUrl;
     }
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=f3f4f6&color=374151&length=2`;
@@ -1422,11 +1468,15 @@ function CaretakerDashboardPage() {
               alt={fullName}
               className="w-32 h-32 rounded-xl object-cover border-4 border-primary-100 shadow"
               onError={(e) => {
+                console.log('🖼️ Avatar-Load-Fehler, verwende Fallback');
                 const target = e.target as HTMLImageElement;
                 const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=f3f4f6&color=374151&length=2`;
                 if (target.src !== fallbackUrl) {
                   target.src = fallbackUrl;
                 }
+              }}
+              onLoad={() => {
+                console.log('🖼️ Avatar erfolgreich geladen:', avatarUrl);
               }}
             />
             {/* Overlay für Edit-Button (öffnet Cropper) */}
