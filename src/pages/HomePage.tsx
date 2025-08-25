@@ -10,14 +10,15 @@ export default function HomePage() {
   const [searchStarted, setSearchStarted] = useState(false);
   const [showMessage, setShowMessage] = useState(!!location.state?.message);
   const [formLocation, setFormLocation] = useState('');
-  const [service, setService] = useState('Haustierbetreuung');
+  const [service, setService] = useState('');
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [selectedTime, setSelectedTime] = useState('');
 
 
 
   const availabilityTimeOptions = [
-    { value: '', label: 'Alle Zeiten' },
+    { value: '', label: 'Uhrzeit auswählen...' },
+    { value: 'alle', label: 'Alle Zeiten' },
     { value: 'morgens', label: 'Morgens (6-12 Uhr)' },
     { value: 'mittags', label: 'Mittags (12-18 Uhr)' },
     { value: 'abends', label: 'Abends (18-22 Uhr)' },
@@ -32,7 +33,11 @@ export default function HomePage() {
     if (selectedDays.length > 0) {
       selectedDays.forEach(day => queryParams.append('availabilityDay', day));
     }
-    if (selectedTime) queryParams.append('availabilityTime', selectedTime);
+    if (selectedTime && selectedTime !== '') {
+      // Wenn "Alle Zeiten" ausgewählt ist, setze leeren Wert
+      const timeValue = selectedTime === 'alle' ? '' : selectedTime;
+      queryParams.append('availabilityTime', timeValue);
+    }
     navigate(`/suche?${queryParams.toString()}`);
   };
 
@@ -76,18 +81,19 @@ export default function HomePage() {
                     <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <select
                       id="service"
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      className={`w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 ${service ? 'text-gray-900' : 'text-gray-400'}`}
                       value={service}
                       onChange={(e) => setService(e.target.value)}
                     >
-                      <option value="Gassi-Service">Gassi-Service</option>
-                      <option value="Haustierbetreuung">Haustierbetreuung</option>
-                      <option value="Übernachtung">Übernachtung</option>
-                      <option value="Kurzbesuche">Kurzbesuche</option>
-                      <option value="Haussitting">Haussitting</option>
-                      <option value="Katzenbetreuung">Katzenbetreuung</option>
-                      <option value="Hundetagesbetreuung">Hundetagesbetreuung</option>
-                      <option value="Kleintierbetreuung">Kleintierbetreuung</option>
+                      <option value="" className="text-gray-400">Ich suche...</option>
+                      <option value="Gassi-Service" className="text-gray-900">Gassi-Service</option>
+                      <option value="Haustierbetreuung" className="text-gray-900">Haustierbetreuung</option>
+                      <option value="Übernachtung" className="text-gray-900">Übernachtung</option>
+                      <option value="Kurzbesuche" className="text-gray-900">Kurzbesuche</option>
+                      <option value="Haussitting" className="text-gray-900">Haussitting</option>
+                      <option value="Katzenbetreuung" className="text-gray-900">Katzenbetreuung</option>
+                      <option value="Hundetagesbetreuung" className="text-gray-900">Hundetagesbetreuung</option>
+                      <option value="Kleintierbetreuung" className="text-gray-900">Kleintierbetreuung</option>
                     </select>
                   </div>
                 </div>
@@ -118,12 +124,16 @@ export default function HomePage() {
                     <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <select
                       id="availabilityTime"
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none bg-white"
+                      className={`w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none bg-white ${selectedTime && selectedTime !== '' ? 'text-gray-900' : 'text-gray-400'}`}
                       value={selectedTime}
                       onChange={(e) => setSelectedTime(e.target.value)}
                     >
                       {availabilityTimeOptions.map(option => (
-                        <option key={option.value} value={option.value}>
+                        <option 
+                          key={option.value} 
+                          value={option.value}
+                          className={option.value === '' ? 'text-gray-400' : 'text-gray-900'}
+                        >
                           {option.label}
                         </option>
                       ))}
