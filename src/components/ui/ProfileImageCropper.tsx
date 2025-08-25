@@ -177,11 +177,16 @@ function ProfileImageCropper({
     
     setIsSaving(true);
     try {
+      console.log('🔄 Erstelle gecropptes Bild...');
       const croppedImageUrl = await createCroppedImage();
+      console.log('✅ Gecropptes Bild erstellt, starte Upload...');
+      
       await onImageSave(croppedImageUrl);
+      console.log('✅ Upload erfolgreich abgeschlossen');
       setIsEditing(false);
     } catch (err) {
-      console.error('Fehler beim Speichern des Bildes:', err);
+      console.error('❌ Fehler beim Speichern des Bildes:', err);
+      // Fehler wird bereits in onImageSave behandelt, hier nur loggen
     } finally {
       setIsSaving(false);
     }
