@@ -37,6 +37,7 @@ interface Caretaker {
   fullBio?: string;
   qualifications: string[];
   languages?: string[]; // Sprachen die der Betreuer spricht
+  experience_description?: string; // Beschreibung aus dem Qualifikationen-Bereich
   availability?: any;
   phone?: string | null;
   email?: string | null;
@@ -601,6 +602,19 @@ function BetreuerProfilePage() {
             <div className="bg-white rounded-xl p-6 shadow-sm">
               <h2 className="text-lg font-semibold mb-4">Über {displayName}</h2>
               <p className="text-gray-700 leading-relaxed">{caretaker.fullBio || caretaker.bio}</p>
+            </div>
+
+            {/* Erfahrung */}
+            <div className="bg-white rounded-xl p-6 shadow-sm">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary-600" />
+                Erfahrung
+              </h2>
+              {caretaker.experience_description ? (
+                <p className="text-gray-700 leading-relaxed whitespace-pre-line">{caretaker.experience_description}</p>
+              ) : (
+                <p className="text-gray-500 italic">Keine Erfahrungsbeschreibung hinterlegt.</p>
+              )}
             </div>
 
             {/* Verfügbarkeit */}
