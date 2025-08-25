@@ -51,6 +51,7 @@ function SearchPage() {
   const [caretakers, setCaretakers] = useState<Caretaker[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [noResults, setNoResults] = useState(false);
   const [totalResults, setTotalResults] = useState(0);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   
@@ -126,6 +127,7 @@ function SearchPage() {
     
     setLoading(true);
     setError(null);
+    setNoResults(false);
     try {
       const filters: SearchFilters = {};
       
@@ -140,12 +142,18 @@ function SearchPage() {
       }
 
       console.log('📞 Calling searchCaretakersService with filters:', filters);
-      let data = await searchCaretakersService(filters);
-      console.log('📊 Service returned:', data);
+      let data;
+      try {
+        data = await searchCaretakersService(filters);
+        console.log('📊 Service returned:', data);
+      } catch (serviceError) {
+        console.warn('⚠️ Service error, falling back to mock data:', serviceError);
+        data = [];
+      }
       
-      // Fallback to mock data if database is empty (for development)
-      if (!data || data.length === 0) {
-        console.log('🔄 No data from database, using mock data for development');
+      // Fallback to mock data only if service failed completely (not for empty results)
+      if (data === undefined || data === null) {
+        console.log('🔄 Service failed, using mock data for development');
         const { mockCaregivers } = await import('../data/mockData');
         data = mockCaregivers.map(mock => ({
           id: mock.id,
@@ -164,6 +172,46 @@ function SearchPage() {
           short_term_available: user && mock.id === user.id ? shortTermAvailable : false // Use context value for current user
         }));
         console.log('📊 Using mock data:', data);
+      }
+      
+      // Client-seitige Standort-Filterung (muss zuerst kommen)
+      if (location.trim() && data) {
+        console.log('📍 Applying location filter:', location.trim());
+        const searchLocation = location.trim().toLowerCase();
+        data = data.filter(caretaker => {
+          const caretakerLocation = caretaker.location?.toLowerCase() || '';
+          
+          // Wenn Betreuer "Unbekannt" oder ähnliche Werte hat, nicht anzeigen bei spezifischer PLZ-Suche
+          if (caretakerLocation === 'unbekannt' || 
+              caretakerLocation === 'unknown' || 
+              caretakerLocation === '' || 
+              caretakerLocation === 'n/a' ||
+              caretakerLocation === 'nicht angegeben' ||
+              caretakerLocation === 'ort nicht angegeben') {
+            console.log(`📍 Filtering out caretaker with location: "${caretaker.location}"`);
+            return false;
+          }
+          
+          // Wenn eine PLZ gesucht wird (5-stellige Zahl), dann nur Betreuer mit PLZ anzeigen
+          if (/^\d{5}$/.test(location.trim())) {
+            // Prüfe ob der Betreuer eine PLZ in seinem Standort hat
+            if (!/\d{5}/.test(caretakerLocation)) {
+              console.log(`📍 PLZ search but caretaker has no PLZ: "${caretaker.location}"`);
+              return false;
+            }
+          }
+          
+          // Prüfe ob Standort die gesuchte PLZ oder Stadt enthält
+          const matches = caretakerLocation.includes(searchLocation) || 
+                         searchLocation.includes(caretakerLocation);
+          
+          if (!matches) {
+            console.log(`📍 Location mismatch: searching for "${searchLocation}", caretaker has "${caretaker.location}"`);
+          }
+          
+          return matches;
+        });
+        console.log(`📍 After location filter: ${data.length} caretakers`);
       }
       
       // Client-seitige Verfügbarkeits-Filterung (da noch keine DB-Unterstützung)
@@ -204,6 +252,17 @@ function SearchPage() {
       setCaretakers(data || []);
       setTotalResults(data?.length || 0);
       
+      // Prüfe ob keine Ergebnisse gefunden wurden
+      if (!data || data.length === 0) {
+        setNoResults(true);
+        setError(null);
+        console.log('📭 No results found, showing no results message');
+      } else {
+        setNoResults(false);
+        setError(null);
+        console.log('✅ Results found, showing results');
+      }
+      
       // URL aktualisieren
       const newParams = new URLSearchParams();
       if (location.trim()) newParams.set('location', location.trim());
@@ -221,8 +280,15 @@ function SearchPage() {
       setSearchParams(newParams);
     } catch (err) {
       console.error('🚨 Unexpected error:', err);
-      setError('Unerwarteter Fehler beim Suchen. Bitte versuche es erneut.');
-      setCaretakers([]);
+      // Nur echte Fehler als Fehler behandeln, nicht "keine Ergebnisse"
+      if (err instanceof Error && (err.message.includes('network') || err.message.includes('fetch') || err.message.includes('Failed to fetch'))) {
+        setError('Unerwarteter Fehler beim Suchen. Bitte versuche es erneut.');
+        setCaretakers([]);
+      } else {
+        // Bei anderen Fehlern einfach keine Ergebnisse anzeigen
+        setError(null);
+        setCaretakers([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -260,6 +326,8 @@ function SearchPage() {
     setSelectedRadius('');
     setMaxPrice(100);
     setLocation('');
+    setNoResults(false);
+    setError(null);
   };
 
   const hasActiveFilters = selectedPetType || selectedService || selectedServiceCategory || selectedAvailabilityDays.length > 0 || selectedAvailabilityTime || selectedMinRating || selectedRadius || maxPrice < 100 || location.trim();
@@ -593,21 +661,37 @@ function SearchPage() {
           </div>
         )}
 
-        {/* No Results */}
-        {!loading && !error && caretakers.length === 0 && (
+        {/* No Results - Humorvolle Nachricht */}
+        {!loading && !error && noResults && (
           <div className="text-center py-12">
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Keine Betreuer gefunden</h3>
-            <p className="text-gray-600 mb-6">
-              Versuche es mit anderen Suchkriterien oder erweitere deine Filter.
-            </p>
+            <div className="mb-6">
+              <div className="text-6xl mb-4">🐕‍🦺</div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                Wuff! Keine Betreuer in der Nähe gefunden
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Auch unser bester Spürhund konnte in dieser Gegend keine Tierbetreuer aufspüren! 
+              </p>
+              <p className="text-gray-500 text-sm">
+                {location && `Für "${location}" haben wir leider keine passenden Betreuer.`}
+              </p>
+            </div>
             
-            <Button onClick={clearAllFilters}>
-              Filter zurücksetzen
-            </Button>
-            
-            <Button onClick={performSearch} className="ml-2">
-              Suche wiederholen
-            </Button>
+            <div className="space-y-3">
+              <p className="text-gray-600 text-sm">
+                💡 Tipp: Versuche es mit anderen Suchkriterien oder erweitere deine Filter
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button onClick={clearAllFilters} variant="outline">
+                  Filter zurücksetzen
+                </Button>
+                
+                <Button onClick={performSearch}>
+                  Erneut suchen
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 
