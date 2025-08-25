@@ -1,4 +1,3 @@
-
 import Button from '../components/ui/Button';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import AvailabilityScheduler from '../components/ui/AvailabilityScheduler';
@@ -10,7 +9,7 @@ import type { ClientData } from '../components/ui/ClientDetailsAccordion';
 import { useAuth } from '../lib/auth/AuthContext';
 import { useEffect, useState, useRef } from 'react';
 import { caretakerProfileService, ownerCaretakerService, userService } from '../lib/supabase/db';
-import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info, Lock, Briefcase, Verified, Eye, EyeOff, KeyRound, Trash2, AlertTriangle, Mail, X, Clock, Crown, Settings } from 'lucide-react';
+import { Calendar, Check, Edit, LogOut, MapPin, Phone, Shield, Upload, Camera, Star, Info, Lock, Briefcase, Verified, Eye, EyeOff, KeyRound, Trash2, AlertTriangle, Mail, X, Clock, Crown, Settings, PawPrint, Moon } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
 import { useFeatureAccess } from '../hooks/useFeatureAccess';
@@ -143,26 +142,46 @@ function CaretakerDashboardPage() {
   };
 
   // --- Leistungen & Qualifikationen State ---
-  const [editSkills, setEditSkills] = useState(false);
-  const [skillsDraft, setSkillsDraft] = useState({
+  // Leistungen State
+  const [editServices, setEditServices] = useState(false);
+  const [servicesDraft, setServicesDraft] = useState<{
+    services: string[];
+    servicesWithCategories: CategorizedService[];
+    animal_types: string[];
+    prices: Record<string, string>;
+  }>({
     services: profile?.services || [],
+    servicesWithCategories: profile?.services_with_categories || [],
     animal_types: profile?.animal_types || [],
+    prices: profile?.prices || {},
+  });
+
+  // Qualifikationen State
+  const [editQualifications, setEditQualifications] = useState(false);
+  const [qualificationsDraft, setQualificationsDraft] = useState<{
+    qualifications: string[];
+    experience_description: string;
+    languages: string[];
+    isCommercial: boolean;
+    companyName: string;
+    taxNumber: string;
+    vatId: string;
+  }>({
     qualifications: profile?.qualifications || [],
     experience_description: profile?.experience_description || '',
-    prices: profile?.prices || {},
     languages: profile?.languages || [],
     isCommercial: profile?.is_commercial || false,
     companyName: profile?.company_name || '',
     taxNumber: profile?.tax_number || '',
     vatId: profile?.vat_id || '',
   });
+
   // Freie Eingabe für Leistungen, Tierarten, Qualifikationen
   const [newService, setNewService] = useState('');
   const [newServiceCategory, setNewServiceCategory] = useState(8); // Default: Allgemein
-
   const [newAnimal, setNewAnimal] = useState('');
   const [newQualification, setNewQualification] = useState('');
-  const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>(DEFAULT_SERVICE_CATEGORIES.map(cat => ({ ...cat, is_active: true })));
+  const [serviceCategories, setServiceCategories] = useState<any[]>(DEFAULT_SERVICE_CATEGORIES as unknown as any[]);
 
   // Default-Listen wie bei Anmeldung
   const defaultServices = [
@@ -201,9 +220,47 @@ function CaretakerDashboardPage() {
     'Übernachtung': 'Übernachtung (pro Nacht)',
   };
 
-  function handleSkillsChange(field: string, value: any) {
-    setSkillsDraft(d => ({ ...d, [field]: value }));
+  // Farbsystem für Service-Kategorien
+  const getServiceCategoryColor = (serviceName: string) => {
+    // Finde die Kategorie für diesen Service
+    const categorizedService = servicesDraft.servicesWithCategories.find(s => s.name === serviceName);
+    if (!categorizedService) {
+      // Fallback für Standard-Services (Allgemein)
+      return 'bg-primary-100 text-primary-700 border-primary-300';
+    }
+
+    // Farbschema basierend auf Kategorie-ID
+    switch (categorizedService.category_id) {
+      case 1: // Ernährung
+        return 'bg-orange-100 text-orange-700 border-orange-300';
+      case 2: // Zubehör
+        return 'bg-purple-100 text-purple-700 border-purple-300';
+      case 3: // Urlaub mit Tier
+        return 'bg-blue-100 text-blue-700 border-blue-300';
+      case 4: // Gesundheit
+        return 'bg-red-100 text-red-700 border-red-300';
+      case 5: // Züchter
+        return 'bg-indigo-100 text-indigo-700 border-indigo-300';
+      case 6: // Verein
+        return 'bg-teal-100 text-teal-700 border-teal-300';
+      case 7: // Training
+        return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+      case 8: // Allgemein (Default)
+      default:
+        return 'bg-primary-100 text-primary-700 border-primary-300';
+    }
+  };
+
+  // Handler für Leistungen
+  function handleServicesChange(field: string, value: any) {
+    setServicesDraft(d => ({ ...d, [field]: value }));
   }
+
+  // Handler für Qualifikationen
+  function handleQualificationsChange(field: string, value: any) {
+    setQualificationsDraft(d => ({ ...d, [field]: value }));
+  }
+
   function validatePriceInput(value: string): string {
     // Nur Zahlen, Punkt und Komma erlauben
     let cleanValue = value.replace(/[^0-9.,]/g, '');
@@ -227,91 +284,131 @@ function CaretakerDashboardPage() {
 
   function handlePriceChange(key: string, value: string) {
     const validatedValue = validatePriceInput(value);
-    setSkillsDraft(d => ({ ...d, prices: { ...d.prices, [key]: validatedValue } }));
+    setServicesDraft(d => ({ ...d, prices: { ...d.prices, [key]: validatedValue } }));
   }
   function handleRemovePrice(key: string) {
-    setSkillsDraft(d => { const p = { ...d.prices }; delete p[key]; return { ...d, prices: p }; });
+    setServicesDraft(d => { const p = { ...d.prices }; delete p[key]; return { ...d, prices: p }; });
   }
   function handleAddPrice() {
-    setSkillsDraft(d => ({ ...d, prices: { ...d.prices, '': '' } }));
+    setServicesDraft(d => ({ ...d, prices: { ...d.prices, '': '' } }));
   }
-  const handleSaveSkills = async () => {
+
+  // Speichern der Leistungen
+  const handleSaveServices = async () => {
+    if (!user || !profile) return;
+    
+    try {
+      console.log('🔄 Speichere Leistungen...');
+      console.log('📊 Services Draft:', servicesDraft);
+      
+      // Nur die Leistungs-Felder speichern
+      const { data, error } = await caretakerProfileService.saveProfile(user.id, {
+        services: servicesDraft.services,
+        servicesWithCategories: servicesDraft.servicesWithCategories,
+        animalTypes: servicesDraft.animal_types,
+        prices: servicesDraft.prices,
+      });
+      
+      if (error) {
+        console.error('❌ Fehler beim Speichern der Leistungen:', error);
+        setError('Fehler beim Speichern: ' + error.message);
+        return;
+      }
+      
+      console.log('✅ Leistungen erfolgreich gespeichert:', data);
+      
+      // Aktualisiere das Profil mit den neuen Daten
+      setProfile((prev: any) => ({
+        ...prev,
+        services: servicesDraft.services,
+        animal_types: servicesDraft.animal_types,
+        prices: servicesDraft.prices,
+      }));
+      
+      setEditServices(false);
+      setError(null); // Lösche eventuelle Fehler
+    } catch (error) {
+      console.error('❌ Exception beim Speichern der Leistungen:', error);
+      setError('Unerwarteter Fehler beim Speichern');
+    }
+  };
+
+  // Abbrechen der Leistungen
+  function handleCancelServices() {
+    setServicesDraft({
+      services: profile?.services || [],
+      servicesWithCategories: profile?.services_with_categories || [],
+      animal_types: profile?.animal_types || [],
+      prices: profile?.prices || {},
+    });
+    setEditServices(false);
+  }
+
+  // Speichern der Qualifikationen
+  const handleSaveQualifications = async () => {
     if (!user || !profile) return;
     
     // Validierung für gewerbliche Betreuer
-    if (skillsDraft.isCommercial && !skillsDraft.taxNumber.trim()) {
+    if (qualificationsDraft.isCommercial && !qualificationsDraft.taxNumber.trim()) {
       setError('Bitte gib deine Steuernummer an, wenn du als gewerblicher Betreuer tätig bist.');
       return;
     }
     
     try {
-      // Konvertiere aktuelle Verfügbarkeit zu String-Array für Datenbank
-      const dbAvailability: Record<string, string[]> = {};
-      for (const [day, slots] of Object.entries(availability)) {
-        dbAvailability[day] = slots.map(slot => `${slot.start}-${slot.end}`);
+      console.log('🔄 Speichere Qualifikationen...');
+      console.log('📊 Qualifications Draft:', qualificationsDraft);
+      
+      // Nur die Qualifikations-Felder speichern
+      const { data, error } = await caretakerProfileService.saveProfile(user.id, {
+        qualifications: qualificationsDraft.qualifications,
+        experienceDescription: qualificationsDraft.experience_description,
+        languages: qualificationsDraft.languages,
+        isCommercial: qualificationsDraft.isCommercial,
+        companyName: qualificationsDraft.companyName || undefined,
+        taxNumber: qualificationsDraft.taxNumber || undefined,
+        vatId: qualificationsDraft.vatId || undefined,
+      });
+      
+      if (error) {
+        console.error('❌ Fehler beim Speichern der Qualifikationen:', error);
+        setError('Fehler beim Speichern: ' + error.message);
+        return;
       }
       
-      await caretakerProfileService.saveProfile(user.id, {
-        services: skillsDraft.services,
-        animalTypes: skillsDraft.animal_types,
-        prices: skillsDraft.prices,
-        serviceRadius: profile.service_radius || 0,
-        availability: dbAvailability,
-        homePhotos: profile.home_photos || [],
-        qualifications: skillsDraft.qualifications,
-        experienceDescription: skillsDraft.experience_description,
-        shortAboutMe: profile.short_about_me || '',
-        longAboutMe: profile.long_about_me || '',
-        languages: skillsDraft.languages,
-        isCommercial: skillsDraft.isCommercial,
-        companyName: skillsDraft.companyName || undefined,
-        taxNumber: skillsDraft.taxNumber || undefined,
-        vatId: skillsDraft.vatId || undefined,
-      });
+      console.log('✅ Qualifikationen erfolgreich gespeichert:', data);
       
       // Aktualisiere das Profil mit den neuen Daten
       setProfile((prev: any) => ({
         ...prev,
-        services: skillsDraft.services,
-        animal_types: skillsDraft.animal_types,
-        qualifications: skillsDraft.qualifications,
-        experience_description: skillsDraft.experience_description,
-        prices: skillsDraft.prices,
-        languages: skillsDraft.languages,
+        qualifications: qualificationsDraft.qualifications,
+        experience_description: qualificationsDraft.experience_description,
+        languages: qualificationsDraft.languages,
+        is_commercial: qualificationsDraft.isCommercial,
+        company_name: qualificationsDraft.companyName,
+        tax_number: qualificationsDraft.taxNumber,
+        vat_id: qualificationsDraft.vatId,
       }));
       
-      setEditSkills(false);
+      setEditQualifications(false);
+      setError(null); // Lösche eventuelle Fehler
     } catch (error) {
-      console.error('Fehler beim Speichern der Leistungen & Qualifikationen:', error);
+      console.error('❌ Exception beim Speichern der Qualifikationen:', error);
+      setError('Unerwarteter Fehler beim Speichern');
     }
   };
-  function handleCancelSkills() {
-    // Rückwärtskompatibilität auch beim Abbrechen berücksichtigen
-    const profileServices = profile?.services || [];
-    const servicesWithCategories = (profile as any)?.services_with_categories;
-    
-    let normalizedServices: string[];
-    if (servicesWithCategories && Array.isArray(servicesWithCategories)) {
-            normalizedServices = SupabaseServiceUtils.extractServiceNames(servicesWithCategories);
-          } else if (SupabaseServiceUtils.isLegacyFormat(profileServices)) {
-      normalizedServices = profileServices;
-    } else {
-      normalizedServices = [];
-    }
 
-    setSkillsDraft({
-      services: normalizedServices,
-      animal_types: profile?.animal_types || [],
+  // Abbrechen der Qualifikationen
+  function handleCancelQualifications() {
+    setQualificationsDraft({
       qualifications: profile?.qualifications || [],
       experience_description: profile?.experience_description || '',
-      prices: profile?.prices || {},
       languages: profile?.languages || [],
       isCommercial: profile?.is_commercial || false,
       companyName: profile?.company_name || '',
       taxNumber: profile?.tax_number || '',
       vatId: profile?.vat_id || '',
     });
-    setEditSkills(false);
+    setEditQualifications(false);
   }
 
   // State für kurze Beschreibung im Texte-Tab
@@ -331,31 +428,25 @@ function CaretakerDashboardPage() {
     if (!user || !profile) return;
     
     try {
-      // Konvertiere aktuelle Verfügbarkeit zu String-Array für Datenbank
-      const dbAvailability: Record<string, string[]> = {};
-      for (const [day, slots] of Object.entries(availability)) {
-        dbAvailability[day] = slots.map(slot => `${slot.start}-${slot.end}`);
+      console.log('🔄 Speichere kurze Beschreibung...');
+      
+      // Nur das shortAboutMe Feld speichern
+      const { data, error } = await caretakerProfileService.saveProfile(user.id, {
+        shortAboutMe: newText,
+      });
+      
+      if (error) {
+        console.error('❌ Fehler beim Speichern der kurzen Beschreibung:', error);
+        return;
       }
       
-      await caretakerProfileService.saveProfile(user.id, {
-        ...profile,
-        services: profile.services || [],
-        animalTypes: profile.animal_types || [],
-        prices: profile.prices || {},
-        serviceRadius: profile.service_radius || 0,
-        availability: dbAvailability,
-        homePhotos: profile.home_photos || [],
-        qualifications: profile.qualifications || [],
-        experienceDescription: profile.experience_description || '',
-        shortAboutMe: newText,
-        longAboutMe: profile.long_about_me || '',
-      });
+      console.log('✅ Kurze Beschreibung erfolgreich gespeichert:', data);
       
       setShortDescription(newText);
       setProfile((prev: any) => ({ ...prev, short_about_me: newText }));
       setEditShortDesc(false);
     } catch (error) {
-      console.error('Fehler beim Speichern der kurzen Beschreibung:', error);
+      console.error('❌ Exception beim Speichern der kurzen Beschreibung:', error);
     }
   };
 
@@ -364,31 +455,25 @@ function CaretakerDashboardPage() {
     if (!user || !profile) return;
     
     try {
-      // Konvertiere aktuelle Verfügbarkeit zu String-Array für Datenbank
-      const dbAvailability: Record<string, string[]> = {};
-      for (const [day, slots] of Object.entries(availability)) {
-        dbAvailability[day] = slots.map(slot => `${slot.start}-${slot.end}`);
-      }
+      console.log('🔄 Speichere Über mich Beschreibung...');
       
-      await caretakerProfileService.saveProfile(user.id, {
-        ...profile,
-        services: profile.services || [],
-        animalTypes: profile.animal_types || [],
-        prices: profile.prices || {},
-        serviceRadius: profile.service_radius || 0,
-        availability: dbAvailability,
-        homePhotos: profile.home_photos || [],
-        qualifications: profile.qualifications || [],
-        experienceDescription: profile.experience_description || '',
-        shortAboutMe: profile.short_about_me || '',
+      // Nur das longAboutMe Feld speichern
+      const { data, error } = await caretakerProfileService.saveProfile(user.id, {
         longAboutMe: newText,
       });
+      
+      if (error) {
+        console.error('❌ Fehler beim Speichern der Über mich Beschreibung:', error);
+        return;
+      }
+      
+      console.log('✅ Über mich Beschreibung erfolgreich gespeichert:', data);
       
       setAboutMe(newText);
       setProfile((prev: any) => ({ ...prev, long_about_me: newText }));
       setEditAboutMe(false);
     } catch (error) {
-      console.error('Fehler beim Speichern der Über mich Beschreibung:', error);
+      console.error('❌ Exception beim Speichern der Über mich Beschreibung:', error);
     }
   };
 
@@ -479,15 +564,35 @@ function CaretakerDashboardPage() {
 
   // Hilfsfunktion: Upload eines einzelnen Bildes zu Supabase Storage
   async function uploadPhotoToSupabase(file: File, userId: string): Promise<string | null> {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${userId}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
-    const { error: uploadError } = await supabase.storage.from('caretaker-home-photos').upload(fileName, file, { upsert: true });
-    if (uploadError) {
-      setPhotoError('Fehler beim Bildupload: ' + uploadError.message);
+    try {
+      console.log('🔄 Starte Upload für Datei:', file.name, 'User:', userId);
+      
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+      
+      console.log('📁 Dateiname:', fileName);
+      
+      const { error: uploadError } = await supabase.storage.from('caretaker-home-photos').upload(fileName, file, { upsert: true });
+      
+      if (uploadError) {
+        console.error('❌ Upload-Fehler:', uploadError);
+        setPhotoError('Fehler beim Bildupload: ' + uploadError.message);
+        return null;
+      }
+      
+      console.log('✅ Upload erfolgreich, hole Public URL...');
+      
+      const { data: urlData } = supabase.storage.from('caretaker-home-photos').getPublicUrl(fileName);
+      const publicUrl = urlData?.publicUrl || null;
+      
+      console.log('🔗 Public URL:', publicUrl);
+      
+      return publicUrl;
+    } catch (error) {
+      console.error('❌ Exception beim Upload:', error);
+      setPhotoError('Unerwarteter Fehler beim Bildupload');
       return null;
     }
-    const { data: urlData } = supabase.storage.from('caretaker-home-photos').getPublicUrl(fileName);
-    return urlData?.publicUrl || null;
   }
 
   // Hilfsfunktion: Löschen eines Bildes aus Supabase Storage
@@ -503,33 +608,56 @@ function CaretakerDashboardPage() {
     if (!user) return;
     setPhotoUploading(true);
     setPhotoError(null);
+    
+    // Validierung der Dateien
+    const files = Array.from(newFiles);
+    for (const file of files) {
+      // Prüfe Dateityp
+      if (!file.type.startsWith('image/')) {
+        setPhotoError('Nur Bilddateien sind erlaubt');
+        setPhotoUploading(false);
+        return;
+      }
+      
+      // Prüfe Dateigröße (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        setPhotoError('Datei zu groß. Maximale Größe: 5MB');
+        setPhotoUploading(false);
+        return;
+      }
+    }
+    
     const uploadedUrls: string[] = [];
-    for (const file of Array.from(newFiles)) {
+    for (const file of files) {
       const url = await uploadPhotoToSupabase(file, user.id);
       if (url) uploadedUrls.push(url);
     }
+    
     // Update caretaker_profiles.home_photos
     const newPhotoList = [...(profile?.home_photos || []), ...uploadedUrls];
-    // Konvertiere aktuelle Verfügbarkeit zu String-Array für Datenbank
-    const dbAvailability: Record<string, string[]> = {};
-    for (const [day, slots] of Object.entries(availability)) {
-      dbAvailability[day] = slots.map(slot => `${slot.start}-${slot.end}`);
-    }
     
-    await caretakerProfileService.saveProfile(user.id, {
-      ...profile,
-      homePhotos: newPhotoList,
-      services: profile.services || [],
-      animalTypes: profile.animal_types || [],
-      prices: profile.prices || {},
-      serviceRadius: profile.service_radius || 0,
-      availability: dbAvailability,
-      qualifications: profile.qualifications || [],
-      experienceDescription: profile.experience_description || '',
-    });
-    setPhotos(newPhotoList);
-    setProfile((p: any) => ({ ...p, home_photos: newPhotoList }));
-    setPhotoUploading(false);
+    try {
+      // Nur das homePhotos Feld aktualisieren
+      const { data, error } = await caretakerProfileService.saveProfile(user.id, {
+        homePhotos: newPhotoList,
+      });
+      
+      if (error) {
+        console.error('❌ Fehler beim Speichern der Fotos:', error);
+        setPhotoError('Fehler beim Speichern der Fotos: ' + error.message);
+        return;
+      }
+      
+      console.log('✅ Fotos erfolgreich gespeichert:', data);
+      setPhotos(newPhotoList);
+      setProfile((p: any) => ({ ...p, home_photos: newPhotoList }));
+    } catch (error) {
+      console.error('❌ Exception beim Speichern der Fotos:', error);
+      setPhotoError('Fehler beim Speichern der Fotos');
+    } finally {
+      setPhotoUploading(false);
+    }
   }
 
   // Handler für Löschen eines Fotos (Storage + DB)
@@ -539,25 +667,24 @@ function CaretakerDashboardPage() {
     if (typeof toDelete === 'string') {
       await deletePhotoFromSupabase(toDelete);
       const newPhotoList = photos.filter((_, i) => i !== idx).filter(Boolean) as string[];
-      // Konvertiere aktuelle Verfügbarkeit zu String-Array für Datenbank
-      const dbAvailability: Record<string, string[]> = {};
-      for (const [day, slots] of Object.entries(availability)) {
-        dbAvailability[day] = slots.map(slot => `${slot.start}-${slot.end}`);
-      }
       
-      await caretakerProfileService.saveProfile(user.id, {
-        ...profile,
-        homePhotos: newPhotoList,
-        services: profile.services || [],
-        animalTypes: profile.animal_types || [],
-        prices: profile.prices || {},
-        serviceRadius: profile.service_radius || 0,
-        availability: dbAvailability,
-        qualifications: profile.qualifications || [],
-        experienceDescription: profile.experience_description || '',
-      });
-      setPhotos(newPhotoList);
-      setProfile((p: any) => ({ ...p, home_photos: newPhotoList }));
+      try {
+        // Nur das homePhotos Feld aktualisieren
+        const { data, error } = await caretakerProfileService.saveProfile(user.id, {
+          homePhotos: newPhotoList,
+        });
+        
+        if (error) {
+          console.error('❌ Fehler beim Löschen des Fotos:', error);
+          return;
+        }
+        
+        console.log('✅ Foto erfolgreich gelöscht:', data);
+        setPhotos(newPhotoList);
+        setProfile((p: any) => ({ ...p, home_photos: newPhotoList }));
+      } catch (error) {
+        console.error('❌ Exception beim Löschen des Fotos:', error);
+      }
     }
   }
 
@@ -681,12 +808,16 @@ function CaretakerDashboardPage() {
             normalizedServices = [];
           }
 
-          setSkillsDraft({
+          setServicesDraft({
             services: normalizedServices,
+            servicesWithCategories: servicesWithCategories || [],
             animal_types: (ensuredProfile as any).animal_types || [],
+            prices: mergedPrices,
+          });
+          
+          setQualificationsDraft({
             qualifications: (ensuredProfile as any).qualifications || [],
             experience_description: (ensuredProfile as any).experience_description || '',
-            prices: mergedPrices,
             languages: (ensuredProfile as any).languages || [],
             isCommercial: (ensuredProfile as any).is_commercial || false,
             companyName: (ensuredProfile as any).company_name || '',
@@ -905,13 +1036,28 @@ function CaretakerDashboardPage() {
     if (!user) return;
 
     try {
+      console.log('🔄 Speichere Kontaktdaten...');
+      console.log('📊 Aktuelle Daten:', caretakerData);
+      console.log('📊 UserProfile:', userProfile);
+
       // Prepare data for updateProfile
       const dataToUpdate: { [key: string]: any } = {};
 
       // Only include fields that have changed
-      if (caretakerData.phoneNumber !== (userProfile?.phone_number || '')) dataToUpdate.phoneNumber = caretakerData.phoneNumber;
-      if (caretakerData.email !== (userProfile?.email || '')) dataToUpdate.email = caretakerData.email;
-      if (caretakerData.street !== (userProfile?.street || '')) dataToUpdate.street = caretakerData.street;
+      if (caretakerData.phoneNumber !== (userProfile?.phone_number || '')) {
+        dataToUpdate.phoneNumber = caretakerData.phoneNumber;
+        console.log('📝 PhoneNumber geändert:', caretakerData.phoneNumber);
+      }
+      
+      if (caretakerData.email !== (userProfile?.email || '')) {
+        dataToUpdate.email = caretakerData.email;
+        console.log('📝 Email geändert:', caretakerData.email);
+      }
+      
+      if (caretakerData.street !== (userProfile?.street || '')) {
+        dataToUpdate.street = caretakerData.street;
+        console.log('📝 Street geändert:', caretakerData.street);
+      }
 
       // Handle PLZ and City logic
       const plzChanged = caretakerData.plz !== (userProfile?.plz || '');
@@ -920,14 +1066,18 @@ function CaretakerDashboardPage() {
       if (plzChanged || cityChanged) {
         // Add PLZ and City to dataToUpdate for users table
         dataToUpdate.plz = caretakerData.plz;
-        dataToUpdate.location = caretakerData.city;
+        dataToUpdate.city = caretakerData.city; // Verwende 'city' statt 'location'
+        console.log('📝 PLZ/City geändert:', caretakerData.plz, caretakerData.city);
       }
 
       // If no fields have changed, exit without saving
       if (Object.keys(dataToUpdate).length === 0) {
+        console.log('ℹ️ Keine Änderungen, beende ohne Speichern');
         setEditData(false);
         return;
       }
+
+      console.log('📤 Daten zum Speichern:', dataToUpdate);
 
       // Import userService
       const { userService } = await import('../lib/supabase/db');
@@ -936,12 +1086,25 @@ function CaretakerDashboardPage() {
       const { data: updatedProfile, error: updateError } = await userService.updateUserProfile(user.id, dataToUpdate);
 
       if (updateError) {
-        console.error('Fehler beim Speichern der Kontaktdaten:', updateError);
-      } else {
-        setEditData(false);
+        console.error('❌ Fehler beim Speichern der Kontaktdaten:', updateError);
+        // Zeige Fehler an, aber stürze nicht ab
+        alert('Fehler beim Speichern: ' + updateError.message);
+        return;
       }
+
+      console.log('✅ Kontaktdaten erfolgreich gespeichert:', updatedProfile);
+      
+      // Aktualisiere den lokalen State mit den neuen Daten
+      if (updatedProfile && updatedProfile[0]) {
+        updateProfileState(updatedProfile[0]);
+        console.log('🔄 Lokaler State aktualisiert');
+      }
+      
+      setEditData(false);
     } catch (e) {
-      console.error('Exception beim Speichern der Kontaktdaten:', e);
+      console.error('❌ Exception beim Speichern der Kontaktdaten:', e);
+      // Zeige Fehler an, aber stürze nicht ab
+      alert('Unerwarteter Fehler beim Speichern der Kontaktdaten');
     }
   };
   const handleCancelEdit = () => {
@@ -1522,6 +1685,18 @@ function CaretakerDashboardPage() {
                         </div>
                       </div>
                     )}
+                    {/* Briefcase-Icon für Professional-Status mit Hovereffekt */}
+                    {profile?.is_commercial && (
+                      <div className="group relative">
+                        <div className="inline-flex items-center justify-center w-6 h-6 text-purple-600 hover:text-purple-700 transition-colors">
+                          <Briefcase className="h-4 w-4" />
+                        </div>
+                        <div className="absolute left-1/2 transform -translate-x-1/2 top-8 w-48 p-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                          <div className="text-center">Professional</div>
+                          <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                        </div>
+                      </div>
+                    )}
                     {editData && (
                       <div className="group relative">
                         <Info className="h-5 w-5 text-blue-500 cursor-help" />
@@ -1539,29 +1714,33 @@ function CaretakerDashboardPage() {
                         <Verified className="h-2.5 w-2.5 mr-1" /> Verifiziert
                       </span>
                     )}
-                    {profile?.is_commercial && (
-                      <span className="bg-gradient-to-r from-purple-600 to-purple-700 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-md flex items-center">
-                        <Briefcase className="h-2.5 w-2.5 mr-1" /> Pro
-                      </span>
-                    )}
+
 
                     {/* Kurzfristig Verfügbar Toggle */}
-                    <button
-                      onClick={handleShortTermAvailabilityToggle}
-                      disabled={shortTermLoading}
-                      className={`flex items-center px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200 ${
-                        shortTermAvailable
-                          ? 'bg-green-500 text-white shadow-md hover:bg-green-600'
-                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                      } ${shortTermLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                      title={shortTermAvailable ? 'Kurzfristig verfügbar - Klicken zum Deaktivieren' : 'Nicht kurzfristig verfügbar - Klicken zum Aktivieren'}
-                    >
-                      <Clock className="h-2.5 w-2.5 mr-1" />
-                      {shortTermLoading ? (
-                        <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin mr-1" />
-                      ) : null}
-                      Kurzfristig Verfügbar
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">Kurzfristig verfügbar</span>
+                      <button
+                        onClick={handleShortTermAvailabilityToggle}
+                        disabled={shortTermLoading}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                          shortTermAvailable
+                            ? 'bg-green-500'
+                            : 'bg-gray-300'
+                        } ${shortTermLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        title={shortTermAvailable ? 'Kurzfristig verfügbar - Klicken zum Deaktivieren' : 'Nicht kurzfristig verfügbar - Klicken zum Aktivieren'}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            shortTermAvailable ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                        {shortTermLoading && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
+                          </div>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1749,276 +1928,322 @@ function CaretakerDashboardPage() {
       {/* Tab-Inhalt */}
       {activeTab === 'uebersicht' && (
         <>
-          {/* Leistungen & Qualifikationen */}
-          <div className="mb-2">
-            <h2 className="text-xl font-semibold flex items-center gap-2 text-gray-900 mb-2"><Shield className="w-5 h-5" /> Leistungen & Qualifikationen</h2>
-          </div>
-          <div className="bg-white rounded-xl shadow p-6 mb-8 relative">
-            {!editSkills && (
-              <button className="absolute top-4 right-4 p-2 text-gray-400 hover:text-primary-600" onClick={() => setEditSkills(true)} title="Bearbeiten">
-                <Edit className="h-3.5 w-3.5" />
-              </button>
-            )}
-            {!editSkills ? (
-              <>
-                <div className="mb-2">
-                  <span className="font-semibold">Leistungen:</span>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {profile.services?.length ? profile.services.map((s: string) => (
-                      <span key={s} className="bg-primary-100 text-primary-700 px-2 py-1 rounded text-xs">{s}</span>
-                    )) : <span className="text-gray-400">Keine Angaben</span>}
-                  </div>
-                </div>
-                <div className="mb-2">
-                  <span className="font-semibold">Tierarten:</span>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {profile.animal_types?.length ? profile.animal_types.map((a: string) => (
-                      <span key={a} className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">{a}</span>
-                    )) : <span className="text-gray-400">Keine Angaben</span>}
-                  </div>
-                </div>
-                <div className="mb-2">
-                  <span className="font-semibold">Qualifikationen:</span>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {profile.qualifications?.length ? profile.qualifications.map((q: string) => (
-                      <span key={q} className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">{q}</span>
-                    )) : <span className="text-gray-400">Keine Angaben</span>}
-                  </div>
-                </div>
-                <div className="mb-2">
-                  <span className="font-semibold">Beschreibung:</span>
-                  <div className="mt-1 text-gray-700 text-sm whitespace-pre-line">{profile.experience_description || <span className="text-gray-400">Keine Angaben</span>}</div>
-                </div>
-                <div className="mb-2">
-                  <span className="font-semibold">Sprachen:</span>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {profile.languages?.length ? profile.languages.map((lang: string) => (
-                      <span key={lang} className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs">{lang}</span>
-                    )) : <span className="text-gray-400">Keine Angaben</span>}
-                  </div>
-                </div>
-                <div className="mb-2">
-                  <span className="font-semibold">Preise:</span>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {profile.prices ? Object.entries(profile.prices).map(([k, v]: [string, any]) => (
-                      <span key={k} className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs">{k}: {v} €</span>
-                    )) : <span className="text-gray-400">Keine Angaben</span>}
-                  </div>
-                </div>
-                {/* Commercial Information */}
-                {profile.is_commercial && (
+          {/* Leistungen */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold flex items-center gap-2 text-gray-900 mb-2"><PawPrint className="w-5 h-5" /> Leistungen</h2>
+            <div className="bg-white rounded-xl shadow p-6 mb-8 relative">
+              {!editServices && (
+                <button className="absolute top-4 right-4 p-2 text-gray-400 hover:text-primary-600" onClick={() => setEditServices(true)} title="Bearbeiten">
+                  <Edit className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {!editServices ? (
+                <>
                   <div className="mb-2">
-                    <div className="mb-2">
-                      <span className="font-semibold">Gewerblicher Betreuer</span>
+                    <span className="font-semibold">Leistungen:</span>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {profile.services?.length ? profile.services.map((s: string) => {
+                        // Finde die Kategorie für diesen Service
+                        const categorizedService = profile.services_with_categories?.find((cat: any) => cat.name === s);
+                        const colorClass = categorizedService ? getServiceCategoryColor(s) : 'bg-primary-100 text-primary-700 border-primary-300';
+                        return (
+                          <span key={s} className={`px-2 py-1 rounded text-xs border ${colorClass}`}>{s}</span>
+                        );
+                      }) : <span className="text-gray-400">Keine Angaben</span>}
                     </div>
-                    {profile.company_name && (
-                      <div className="text-sm text-gray-700 mb-1">
-                        <span className="font-medium">Firmenname:</span> {profile.company_name}
-                      </div>
-                    )}
-                    {profile.tax_number && (
-                      <div className="text-sm text-gray-700 mb-1">
-                        <span className="font-medium">Steuernummer:</span> {profile.tax_number}
-                      </div>
-                    )}
-                    {profile.vat_id && (
-                      <div className="text-sm text-gray-700">
-                        <span className="font-medium">USt-IdNr.:</span> {profile.vat_id}
-                      </div>
-                    )}
                   </div>
-                )}
-              </>
-            ) : (
-              <form onSubmit={e => { e.preventDefault(); handleSaveSkills(); }} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Leistungen</label>
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {/* Default-Checkboxen */}
-                    {defaultServices.map((s: string) => (
-                      <label key={s} className={`px-2 py-1 rounded text-xs cursor-pointer border ${skillsDraft.services.some((service: any) => typeof service === 'string' ? service === s : service.name === s) ? 'bg-primary-100 text-primary-700 border-primary-300' : 'bg-gray-50 text-gray-700 border-gray-200'}`}>
-                        <input type="checkbox" className="mr-1" checked={skillsDraft.services.some((service: any) => typeof service === 'string' ? service === s : service.name === s)} onChange={e => {
-                          if (e.target.checked) {
-                            const newService: CategorizedService = { name: s, category_id: 8 }; // Allgemein
-                            handleSkillsChange('services', [...skillsDraft.services.filter((service: any) => typeof service === 'string' ? service !== s : service.name !== s), newService]);
-                          } else {
-                            handleSkillsChange('services', skillsDraft.services.filter((service: any) => typeof service === 'string' ? service !== s : service.name !== s));
-                          }
-                        }} />
-                        {s}
-                      </label>
-                    ))}
-                    {/* Individuelle Services als Chips */}
-                    {skillsDraft.services.filter((service: any) => {
-                      const serviceName = typeof service === 'string' ? service : service.name;
-                      return !defaultServices.includes(serviceName);
-                    }).map((service: any, index: number) => {
-                      const serviceName = typeof service === 'string' ? service : service.name;
-                      return (
-                        <span key={`${serviceName}-${index}`} className="flex items-center px-2 py-1 rounded text-xs bg-primary-100 text-primary-700 border border-primary-300">
-                          {serviceName}
-                          <button type="button" className="ml-1 text-gray-400 hover:text-red-500" onClick={() => {
-                            if (typeof service === 'string') {
-                              handleSkillsChange('services', skillsDraft.services.filter((s: any) => s !== service));
+                  <div className="mb-2">
+                    <span className="font-semibold">Tierarten:</span>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {profile.animal_types?.length ? profile.animal_types.map((a: string) => (
+                        <span key={a} className="bg-primary-100 text-primary-700 border border-primary-300 px-2 py-1 rounded text-xs">{a}</span>
+                      )) : <span className="text-gray-400">Keine Angaben</span>}
+                  </div>
+                  </div>
+                  <div className="mb-2">
+                    <span className="font-semibold">Preise:</span>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {profile.prices ? Object.entries(profile.prices).map(([k, v]: [string, any]) => (
+                        <span key={k} className="bg-primary-100 text-primary-700 border border-primary-300 px-2 py-1 rounded text-xs">{k}: {v} €</span>
+                      )) : <span className="text-gray-400">Keine Angaben</span>}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <form onSubmit={e => { e.preventDefault(); handleSaveServices(); }} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Leistungen</label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {/* Default-Checkboxen */}
+                      {defaultServices.map((s: string) => (
+                        <label key={s} className={`px-2 py-1 rounded text-xs cursor-pointer border ${servicesDraft.services.includes(s) ? 'bg-primary-100 text-primary-700 border-primary-300' : 'bg-gray-50 text-gray-700 border-gray-200'}`}>
+                          <input type="checkbox" className="mr-1" checked={servicesDraft.services.includes(s)} onChange={e => {
+                            if (e.target.checked) {
+                              handleServicesChange('services', [...servicesDraft.services, s]);
                             } else {
-                              handleSkillsChange('services', skillsDraft.services.filter((s: any) => !(typeof s === 'object' && s.name === service.name && s.category_id === service.category_id)));
+                              handleServicesChange('services', servicesDraft.services.filter((service: string) => service !== s));
                             }
+                          }} />
+                          {s}
+                        </label>
+                      ))}
+                      {/* Individuelle Services als Chips */}
+                      {servicesDraft.services.filter((service: string) => !defaultServices.includes(service)).map((service: string, index: number) => (
+                        <span key={`${service}-${index}`} className={`flex items-center px-2 py-1 rounded text-xs border ${getServiceCategoryColor(service)}`}>
+                          {service}
+                          <button type="button" className="ml-1 text-gray-400 hover:text-red-500" onClick={() => {
+                            handleServicesChange('services', servicesDraft.services.filter((s: string) => s !== service));
+                            handleServicesChange('servicesWithCategories', servicesDraft.servicesWithCategories.filter((s: CategorizedService) => s.name !== service));
                           }} title="Entfernen">
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                           </button>
                         </span>
-                      );
-                    })}
-                  </div>
-                  <div className="flex gap-2 items-center">
-                    <input className="input flex-[2]" placeholder="Neue Leistung" value={newService} onChange={e => setNewService(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newService.trim()) { const newCategorizedService: CategorizedService = { name: newService.trim(), category_id: newServiceCategory }; handleSkillsChange('services', [...skillsDraft.services, newCategorizedService]); setNewService(''); } }} />
-                    <select className="input flex-1" value={newServiceCategory} onChange={e => setNewServiceCategory(parseInt(e.target.value))}>
-                      {DEFAULT_SERVICE_CATEGORIES.map(category => (
-                        <option key={category.id} value={category.id}>{category.name}</option>
                       ))}
-                    </select>
-                    <button type="button" className="text-green-600 hover:bg-green-100 rounded p-1" disabled={!newService.trim()} onClick={() => { const newCategorizedService: CategorizedService = { name: newService.trim(), category_id: newServiceCategory }; handleSkillsChange('services', [...skillsDraft.services, newCategorizedService]); setNewService(''); }} title="Hinzufügen"><Check className="w-4 h-4" /></button>
-                    <button type="button" className="text-gray-400 hover:text-red-500 rounded p-1" onClick={() => setNewService('')} title="Abbrechen"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <input className="input flex-[2]" placeholder="Neue Leistung" value={newService} onChange={e => setNewService(e.target.value)} onKeyDown={e => { 
+                        if (e.key === 'Enter' && newService.trim()) { 
+                          // Finde die ausgewählte Kategorie
+                          const selectedCategory = DEFAULT_SERVICE_CATEGORIES.find(cat => cat.id === newServiceCategory);
+                          // Erstelle ein kategorisiertes Service-Objekt
+                          const categorizedService: CategorizedService = {
+                            name: newService.trim(),
+                            category_id: newServiceCategory,
+                            category_name: selectedCategory?.name || 'Allgemein'
+                          };
+                          // Füge sowohl zum String-Array als auch zum kategorisierten Array hinzu
+                          handleServicesChange('services', [...servicesDraft.services, newService.trim()]);
+                          handleServicesChange('servicesWithCategories', [...servicesDraft.servicesWithCategories, categorizedService]);
+                          setNewService(''); 
+                        } 
+                      }} />
+                      <select className="input flex-1" value={newServiceCategory} onChange={e => setNewServiceCategory(parseInt(e.target.value))}>
+                        {DEFAULT_SERVICE_CATEGORIES.map(category => (
+                          <option key={category.id} value={category.id}>{category.name}</option>
+                        ))}
+                      </select>
+                      <button type="button" className="text-green-600 hover:bg-green-100 rounded p-1" disabled={!newService.trim()} onClick={() => { 
+                        // Finde die ausgewählte Kategorie
+                        const selectedCategory = DEFAULT_SERVICE_CATEGORIES.find(cat => cat.id === newServiceCategory);
+                        // Erstelle ein kategorisiertes Service-Objekt
+                        const categorizedService: CategorizedService = {
+                          name: newService.trim(),
+                          category_id: newServiceCategory,
+                          category_name: selectedCategory?.name || 'Allgemein'
+                        };
+                        // Füge sowohl zum String-Array als auch zum kategorisierten Array hinzu
+                        handleServicesChange('services', [...servicesDraft.services, newService.trim()]);
+                        handleServicesChange('servicesWithCategories', [...servicesDraft.servicesWithCategories, categorizedService]);
+                        setNewService(''); 
+                      }} title="Hinzufügen"><Check className="w-4 h-4" /></button>
+                      <button type="button" className="text-gray-400 hover:text-red-500 rounded p-1" onClick={() => setNewService('')} title="Abbrechen"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Tierarten</label>
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {/* Default-Checkboxen */}
-                    {defaultAnimals.map((a: string) => (
-                      <label key={a} className={`px-2 py-1 rounded text-xs cursor-pointer border ${skillsDraft.animal_types.includes(a) ? 'bg-green-100 text-green-700 border-green-300' : 'bg-gray-50 text-gray-700 border-gray-200'}`}>
-                        <input type="checkbox" className="mr-1" checked={skillsDraft.animal_types.includes(a)} onChange={e => handleSkillsChange('animal_types', e.target.checked ? [...skillsDraft.animal_types, a] : skillsDraft.animal_types.filter((x: string) => x !== a))} />
-                        {a}
-                      </label>
-                    ))}
-                    {/* Individuelle Tierarten als Chips */}
-                    {skillsDraft.animal_types.filter((a: string) => !defaultAnimals.includes(a)).map((a: string) => (
-                      <span key={a} className="flex items-center px-2 py-1 rounded text-xs bg-green-100 text-green-700 border border-green-300">
-                        {a}
-                        <button type="button" className="ml-1 text-gray-400 hover:text-red-500" onClick={() => handleSkillsChange('animal_types', skillsDraft.animal_types.filter((x: string) => x !== a))} title="Entfernen">
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                      </span>
-                    ))}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Tierarten</label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {/* Default-Checkboxen */}
+                      {defaultAnimals.map((a: string) => (
+                        <label key={a} className={`px-2 py-1 rounded text-xs cursor-pointer border ${servicesDraft.animal_types.includes(a) ? 'bg-primary-100 text-primary-700 border-primary-300' : 'bg-gray-50 text-gray-700 border-gray-200'}`}>
+                          <input type="checkbox" className="mr-1" checked={servicesDraft.animal_types.includes(a)} onChange={e => handleServicesChange('animal_types', e.target.checked ? [...servicesDraft.animal_types, a] : servicesDraft.animal_types.filter((x: string) => x !== a))} />
+                          {a}
+                        </label>
+                      ))}
+                      {/* Individuelle Tierarten als Chips */}
+                      {servicesDraft.animal_types.filter((a: string) => !defaultAnimals.includes(a)).map((a: string) => (
+                        <span key={a} className="flex items-center px-2 py-1 rounded text-xs bg-primary-100 text-primary-700 border border-primary-300">
+                          {a}
+                          <button type="button" className="ml-1 text-gray-400 hover:text-red-500" onClick={() => handleServicesChange('animal_types', servicesDraft.animal_types.filter((x: string) => x !== a))} title="Entfernen">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <input className="input flex-1" placeholder="Neue Tierart" value={newAnimal} onChange={e => setNewAnimal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newAnimal.trim()) { handleServicesChange('animal_types', [...servicesDraft.animal_types, newAnimal.trim()]); setNewAnimal(''); } }} />
+                      <button type="button" className="text-green-600 hover:bg-green-100 rounded p-1" disabled={!newAnimal.trim()} onClick={() => { handleServicesChange('animal_types', [...servicesDraft.animal_types, newAnimal.trim()]); setNewAnimal(''); }} title="Hinzufügen"><Check className="w-4 h-4" /></button>
+                      <button type="button" className="text-gray-400 hover:text-red-500 rounded p-1" onClick={() => setNewAnimal('')} title="Abbrechen"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                    </div>
                   </div>
-                  <div className="flex gap-2 items-center">
-                    <input className="input flex-1" placeholder="Neue Tierart" value={newAnimal} onChange={e => setNewAnimal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newAnimal.trim()) { handleSkillsChange('animal_types', [...skillsDraft.animal_types, newAnimal.trim()]); setNewAnimal(''); } }} />
-                    <button type="button" className="text-green-600 hover:bg-green-100 rounded p-1" disabled={!newAnimal.trim()} onClick={() => { handleSkillsChange('animal_types', [...skillsDraft.animal_types, newAnimal.trim()]); setNewAnimal(''); }} title="Hinzufügen"><Check className="w-4 h-4" /></button>
-                    <button type="button" className="text-gray-400 hover:text-red-500 rounded p-1" onClick={() => setNewAnimal('')} title="Abbrechen"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Preise</label>
+                    <div className="space-y-3">
+                      {/* Standard-Preisfelder wie bei der Anmeldung */}
+                      {Object.entries(defaultPriceFields).map(([service, _]) => (
+                        <div key={service} className="flex items-center gap-4">
+                          <label className="w-56 text-gray-700">{priceFieldLabels[service as keyof typeof priceFieldLabels]}</label>
+                          <input 
+                            type="text" 
+                            inputMode="decimal"
+                            className="input w-32" 
+                            placeholder="€" 
+                            value={servicesDraft.prices[service] || ''} 
+                            onChange={e => handlePriceChange(service, e.target.value)} 
+                          />
+                        </div>
+                      ))}
+                      
+                      {/* Zusätzliche individuelle Preise */}
+                      {Object.entries(servicesDraft.prices).filter(([k, _]) => !defaultPriceFields.hasOwnProperty(k)).map(([k, v], idx) => (
+                        <div key={`price-${idx}`} className="flex gap-2 items-center">
+                          <input className="input w-32" placeholder="Leistung" value={k} onChange={e => {
+                            const newKey = e.target.value;
+                            const newPrices = { ...servicesDraft.prices };
+                            delete newPrices[k];
+                            newPrices[newKey] = v;
+                            handleServicesChange('prices', newPrices);
+                          }} />
+                          <input 
+                            type="text" 
+                            inputMode="decimal"
+                            className="input w-24" 
+                            placeholder="Preis (€)" 
+                            value={String(v)} 
+                            onChange={e => handlePriceChange(k, e.target.value)} 
+                          />
+                          <button type="button" className="text-red-500 hover:bg-red-50 rounded p-1" onClick={() => handleRemovePrice(k)} title="Entfernen"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                        </div>
+                      ))}
+                      <button type="button" className="text-primary-600 hover:bg-primary-50 rounded px-2 py-1 text-xs" onClick={handleAddPrice}>+ Zusätzlichen Preis hinzufügen</button>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Qualifikationen</label>
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {/* Default-Checkboxen */}
-                    {defaultQualifications.map((q: string) => (
-                      <label key={q} className={`px-2 py-1 rounded text-xs cursor-pointer border ${skillsDraft.qualifications.includes(q) ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-gray-50 text-gray-700 border-gray-200'}`}>
-                        <input type="checkbox" className="mr-1" checked={skillsDraft.qualifications.includes(q)} onChange={e => handleSkillsChange('qualifications', e.target.checked ? [...skillsDraft.qualifications, q] : skillsDraft.qualifications.filter((x: string) => x !== q))} />
-                        {q}
-                      </label>
-                    ))}
-                    {/* Individuelle Qualifikationen als Chips */}
-                    {skillsDraft.qualifications.filter((q: string) => !defaultQualifications.includes(q)).map((q: string) => (
-                      <span key={q} className="flex items-center px-2 py-1 rounded text-xs bg-blue-100 text-blue-700 border border-blue-300">
-                        {q}
-                        <button type="button" className="ml-1 text-gray-400 hover:text-red-500" onClick={() => handleSkillsChange('qualifications', skillsDraft.qualifications.filter((x: string) => x !== q))} title="Entfernen">
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                      </span>
-                    ))}
+                  <div className="flex gap-2 pt-2">
+                    <button type="submit" className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm">Speichern</button>
+                    <button type="button" className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm" onClick={handleCancelServices}>Abbrechen</button>
                   </div>
-                  <div className="flex gap-2 items-center">
-                    <input className="input flex-1" placeholder="Neue Qualifikation" value={newQualification} onChange={e => setNewQualification(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newQualification.trim()) { handleSkillsChange('qualifications', [...skillsDraft.qualifications, newQualification.trim()]); setNewQualification(''); } }} />
-                    <button type="button" className="text-green-600 hover:bg-green-100 rounded p-1" disabled={!newQualification.trim()} onClick={() => { handleSkillsChange('qualifications', [...skillsDraft.qualifications, newQualification.trim()]); setNewQualification(''); }} title="Hinzufügen"><Check className="w-4 h-4" /></button>
-                    <button type="button" className="text-gray-400 hover:text-red-500 rounded p-1" onClick={() => setNewQualification('')} title="Abbrechen"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                </form>
+              )}
+            </div>
+          </div>
+
+          {/* Qualifikationen */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold flex items-center gap-2 text-gray-900 mb-2"><Shield className="w-5 h-5" /> Qualifikationen</h2>
+            <div className="bg-white rounded-xl shadow p-6 mb-8 relative">
+              {!editQualifications && (
+                <button className="absolute top-4 right-4 p-2 text-gray-400 hover:text-primary-600" onClick={() => setEditQualifications(true)} title="Bearbeiten">
+                  <Edit className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {!editQualifications ? (
+                <>
+                  <div className="mb-2">
+                    <span className="font-semibold">Qualifikationen:</span>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {profile.qualifications?.length ? profile.qualifications.map((q: string) => (
+                        <span key={q} className="bg-primary-100 text-primary-700 border border-primary-300 px-2 py-1 rounded text-xs">{q}</span>
+                      )) : <span className="text-gray-400">Keine Angaben</span>}
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Sprachen</label>
-                  <LanguageSelector
-                    selectedLanguages={skillsDraft.languages}
-                    onChange={(languages) => handleSkillsChange('languages', languages)}
-                  />
-                </div>
-                <div>
-                  <CommercialInfoInput
-                    isCommercial={skillsDraft.isCommercial}
-                    companyName={skillsDraft.companyName}
-                    taxNumber={skillsDraft.taxNumber}
-                    vatId={skillsDraft.vatId}
-                    onIsCommercialChange={(value) => {
-                      handleSkillsChange('isCommercial', value);
-                      if (!value) {
-                        handleSkillsChange('companyName', '');
-                        handleSkillsChange('taxNumber', '');
-                        handleSkillsChange('vatId', '');
-                      }
-                    }}
-                    onCompanyNameChange={(value) => handleSkillsChange('companyName', value)}
-                    onTaxNumberChange={(value) => handleSkillsChange('taxNumber', value)}
-                    onVatIdChange={(value) => handleSkillsChange('vatId', value)}
-                    errors={{
-                      taxNumber: skillsDraft.isCommercial && !skillsDraft.taxNumber.trim() ? 'Steuernummer ist bei gewerblichen Betreuern erforderlich' : undefined
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Beschreibung</label>
-                  <textarea
-                    className="input w-full min-h-[60px]"
-                    value={skillsDraft.experience_description}
-                    onChange={e => handleSkillsChange('experience_description', e.target.value)}
-                    placeholder="Erzähle den Tierbesitzern von deiner Erfahrung mit Tieren, inkl. beruflicher Erfahrung oder eigenen Tieren"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Preise</label>
-                  <div className="space-y-3">
-                    {/* Standard-Preisfelder wie bei der Anmeldung */}
-                    {Object.entries(defaultPriceFields).map(([service, _]) => (
-                      <div key={service} className="flex items-center gap-4">
-                        <label className="w-56 text-gray-700">{priceFieldLabels[service as keyof typeof priceFieldLabels]}</label>
-                        <input 
-                          type="text" 
-                          inputMode="decimal"
-                          className="input w-32" 
-                          placeholder="€" 
-                          value={skillsDraft.prices[service] || ''} 
-                          onChange={e => handlePriceChange(service, e.target.value)} 
-                        />
+                  <div className="mb-2">
+                    <span className="font-semibold">Sprachen:</span>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {profile.languages?.length ? profile.languages.map((lang: string) => (
+                        <span key={lang} className="bg-primary-100 text-primary-700 border border-primary-300 px-2 py-1 rounded text-xs">{lang}</span>
+                      )) : <span className="text-gray-400">Keine Angaben</span>}
+                  </div>
+                  </div>
+                  <div className="mb-2">
+                    <span className="font-semibold">Beschreibung:</span>
+                    <div className="mt-1 text-gray-700 text-sm whitespace-pre-line">{profile.experience_description || <span className="text-gray-400">Keine Angaben</span>}</div>
+                  </div>
+                  {/* Commercial Information */}
+                  {profile.is_commercial && (
+                    <div className="mb-2">
+                      <div className="mb-2">
+                        <span className="font-semibold">Gewerblicher Betreuer</span>
                       </div>
-                    ))}
-                    
-                    {/* Zusätzliche individuelle Preise */}
-                    {Object.entries(skillsDraft.prices).filter(([k, _]) => !defaultPriceFields.hasOwnProperty(k)).map(([k, v], idx) => (
-                      <div key={`price-${idx}`} className="flex gap-2 items-center">
-                        <input className="input w-32" placeholder="Leistung" value={k} onChange={e => {
-                          const newKey = e.target.value;
-                          const newPrices = { ...skillsDraft.prices };
-                          delete newPrices[k];
-                          newPrices[newKey] = v;
-                          handleSkillsChange('prices', newPrices);
-                        }} />
-                        <input 
-                          type="text" 
-                          inputMode="decimal"
-                          className="input w-24" 
-                          placeholder="Preis (€)" 
-                          value={String(v)} 
-                          onChange={e => handlePriceChange(k, e.target.value)} 
-                        />
-                        <button type="button" className="text-red-500 hover:bg-red-50 rounded p-1" onClick={() => handleRemovePrice(k)} title="Entfernen"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
-                      </div>
-                    ))}
-                    <button type="button" className="text-primary-600 hover:bg-primary-50 rounded px-2 py-1 text-xs" onClick={handleAddPrice}>+ Zusätzlichen Preis hinzufügen</button>
+                      {profile.company_name && (
+                        <div className="text-sm text-gray-700 mb-1">
+                          <span className="font-medium">Firmenname:</span> {profile.company_name}
+                        </div>
+                      )}
+                      {profile.tax_number && (
+                        <div className="text-sm text-gray-700 mb-1">
+                          <span className="font-medium">Steuernummer:</span> {profile.tax_number}
+                        </div>
+                      )}
+                      {profile.vat_id && (
+                        <div className="text-sm text-gray-700">
+                          <span className="font-medium">USt-IdNr.:</span> {profile.vat_id}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <form onSubmit={e => { e.preventDefault(); handleSaveQualifications(); }} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Qualifikationen</label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {/* Default-Checkboxen */}
+                      {defaultQualifications.map((q: string) => (
+                        <label key={q} className={`px-2 py-1 rounded text-xs cursor-pointer border ${qualificationsDraft.qualifications.includes(q) ? 'bg-primary-100 text-primary-700 border-primary-300' : 'bg-gray-50 text-gray-700 border-gray-200'}`}>
+                          <input type="checkbox" className="mr-1" checked={qualificationsDraft.qualifications.includes(q)} onChange={e => handleQualificationsChange('qualifications', e.target.checked ? [...qualificationsDraft.qualifications, q] : qualificationsDraft.qualifications.filter((x: string) => x !== q))} />
+                          {q}
+                        </label>
+                      ))}
+                      {/* Individuelle Qualifikationen als Chips */}
+                      {qualificationsDraft.qualifications.filter((q: string) => !defaultQualifications.includes(q)).map((q: string) => (
+                        <span key={q} className="flex items-center px-2 py-1 rounded text-xs bg-primary-100 text-primary-700 border border-primary-300">
+                          {q}
+                          <button type="button" className="ml-1 text-gray-400 hover:text-red-500" onClick={() => handleQualificationsChange('qualifications', qualificationsDraft.qualifications.filter((x: string) => x !== q))} title="Entfernen">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <input className="input flex-1" placeholder="Neue Qualifikation" value={newQualification} onChange={e => setNewQualification(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newQualification.trim()) { handleQualificationsChange('qualifications', [...qualificationsDraft.qualifications, newQualification.trim()]); setNewQualification(''); } }} />
+                      <button type="button" className="text-green-600 hover:bg-green-100 rounded p-1" disabled={!newQualification.trim()} onClick={() => { handleQualificationsChange('qualifications', [...qualificationsDraft.qualifications, newQualification.trim()]); setNewQualification(''); }} title="Hinzufügen"><Check className="w-4 h-4" /></button>
+                      <button type="button" className="text-gray-400 hover:text-red-500 rounded p-1" onClick={() => setNewQualification('')} title="Abbrechen"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                    </div>
                   </div>
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <button type="submit" className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm">Speichern</button>
-                  <button type="button" className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm" onClick={handleCancelSkills}>Abbrechen</button>
-                </div>
-              </form>
-            )}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Sprachen</label>
+                    <LanguageSelector
+                      selectedLanguages={qualificationsDraft.languages}
+                      onChange={(languages) => handleQualificationsChange('languages', languages)}
+                    />
+                  </div>
+                  <div>
+                    <CommercialInfoInput
+                      isCommercial={qualificationsDraft.isCommercial}
+                      companyName={qualificationsDraft.companyName}
+                      taxNumber={qualificationsDraft.taxNumber}
+                      vatId={qualificationsDraft.vatId}
+                      onIsCommercialChange={(value) => {
+                        handleQualificationsChange('isCommercial', value);
+                        if (!value) {
+                          handleQualificationsChange('companyName', '');
+                          handleQualificationsChange('taxNumber', '');
+                          handleQualificationsChange('vatId', '');
+                        }
+                      }}
+                      onCompanyNameChange={(value) => handleQualificationsChange('companyName', value)}
+                      onTaxNumberChange={(value) => handleQualificationsChange('taxNumber', value)}
+                      onVatIdChange={(value) => handleQualificationsChange('vatId', value)}
+                      errors={{
+                        taxNumber: qualificationsDraft.isCommercial && !qualificationsDraft.taxNumber.trim() ? 'Steuernummer ist bei gewerblichen Betreuern erforderlich' : undefined
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Beschreibung</label>
+                    <textarea
+                      className="input w-full min-h-[60px]"
+                      value={qualificationsDraft.experience_description}
+                      onChange={e => handleQualificationsChange('experience_description', e.target.value)}
+                      placeholder="Erzähle den Tierbesitzern von deiner Erfahrung mit Tieren, inkl. beruflicher Erfahrung oder eigenen Tieren"
+                    />
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button type="submit" className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 text-sm">Speichern</button>
+                    <button type="button" className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm" onClick={handleCancelQualifications}>Abbrechen</button>
+                  </div>
+                </form>
+              )}
+            </div>
           </div>
 
           {/* Verfügbarkeit */}
@@ -2034,6 +2259,7 @@ function CaretakerDashboardPage() {
 
           {/* Übernachtungs-Verfügbarkeit */}
           <div className="mb-8">
+            <h2 className="text-xl font-semibold flex items-center gap-2 text-gray-900 mb-2"><Moon className="w-5 h-5" /> Übernachtungen</h2>
             <div className="bg-white rounded-xl shadow p-6">
               <OvernightAvailabilitySelector
                 overnightAvailability={overnightAvailability}

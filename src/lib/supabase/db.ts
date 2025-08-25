@@ -603,9 +603,15 @@ export const caretakerProfileService = {
     if (profile.services !== undefined) {
       updateData.services = profile.services;
       // Automatisch kategorisierte Services erstellen, falls nicht explizit übergeben
-      const categorizedServices = profile.servicesWithCategories || 
-        ServiceUtils.migrateStringArrayToCategories(profile.services);
-      updateData.services_with_categories = categorizedServices;
+      try {
+        const categorizedServices = profile.servicesWithCategories || 
+          ServiceUtils.migrateStringArrayToCategories(profile.services);
+        updateData.services_with_categories = categorizedServices;
+      } catch (error) {
+        console.error('❌ Fehler beim Konvertieren der Services:', error);
+        // Fallback: Leeres Array für services_with_categories
+        updateData.services_with_categories = [];
+      }
     }
     
     if (profile.animalTypes !== undefined) updateData.animal_types = profile.animalTypes;

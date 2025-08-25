@@ -192,7 +192,7 @@ function AvailabilityScheduler({ availability, onAvailabilityChange }: Availabil
     <div className="space-y-6">
       <div>
         <p className="text-sm text-gray-600 mb-4">
-          Legen Sie fest, wann Sie regelmäßig für Termine zur Verfügung stehen. Sie können mehrere Zeitblöcke pro Tag hinzufügen.
+          Lege fest, wann du regelmäßig für Termine zur Verfügung stehst. Du kannst mehrere Zeitblöcke pro Tag hinzufügen.
         </p>
         {saving && (
           <div className="flex items-center gap-2 text-sm text-primary-600 mb-4">

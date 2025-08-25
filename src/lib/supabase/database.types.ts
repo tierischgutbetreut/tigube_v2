@@ -229,6 +229,7 @@ export type Database = {
           is_verified: boolean | null
           languages: string[] | null
           long_about_me: string | null
+          overnight_availability: Json | null
           prices: Json | null
           qualifications: string[] | null
           rating: number | null
@@ -257,6 +258,7 @@ export type Database = {
           is_verified?: boolean | null
           languages?: string[] | null
           long_about_me?: string | null
+          overnight_availability?: Json | null
           prices?: Json | null
           qualifications?: string[] | null
           rating?: number | null
@@ -285,6 +287,7 @@ export type Database = {
           is_verified?: boolean | null
           languages?: string[] | null
           long_about_me?: string | null
+          overnight_availability?: Json | null
           prices?: Json | null
           qualifications?: string[] | null
           rating?: number | null
