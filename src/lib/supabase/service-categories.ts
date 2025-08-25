@@ -8,6 +8,7 @@ export interface ServiceCategory {
 export interface CategorizedService {
   name: string;
   category_id: number;
+  category_name: string;
 }
 
 export const DEFAULT_SERVICE_CATEGORIES: ServiceCategory[] = [
@@ -29,7 +30,8 @@ export class ServiceUtils {
   static migrateStringArrayToCategories(services: string[]): CategorizedService[] {
     return services.map(service => ({
       name: service,
-      category_id: 8 // Allgemein
+      category_id: 8, // Allgemein
+      category_name: 'Allgemein'
     }));
   }
 

@@ -59,13 +59,14 @@ export default function OvernightAvailabilitySelector({
 
   return (
     <div className="space-y-4">
+      {/* Info Text */}
+      <p className="text-sm text-gray-600">
+        Wähle die Tage aus, an denen du Übernachtungen anbietest. 
+        Dies wird in deinem Profil angezeigt und hilft Tierbesitzern bei der Suche.
+      </p>
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Moon className="h-5 w-5 text-primary-500" />
-          <h3 className="text-lg font-semibold text-gray-900">Übernachtungen</h3>
-        </div>
-        
+      <div className="flex items-center justify-end">
         {!disabled && (
           <div className="flex gap-2">
             <button
@@ -85,12 +86,6 @@ export default function OvernightAvailabilitySelector({
           </div>
         )}
       </div>
-
-      {/* Info Text */}
-      <p className="text-sm text-gray-600">
-        Wähle die Tage aus, an denen du Übernachtungen anbietest. 
-        Dies wird in deinem Profil angezeigt und hilft Tierbesitzern bei der Suche.
-      </p>
 
       {/* Day Checkboxes */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">

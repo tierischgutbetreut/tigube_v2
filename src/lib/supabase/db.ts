@@ -603,9 +603,15 @@ export const caretakerProfileService = {
     if (profile.services !== undefined) {
       updateData.services = profile.services;
       // Automatisch kategorisierte Services erstellen, falls nicht explizit übergeben
-      const categorizedServices = profile.servicesWithCategories || 
-        ServiceUtils.migrateStringArrayToCategories(profile.services);
-      updateData.services_with_categories = categorizedServices;
+      try {
+        const categorizedServices = profile.servicesWithCategories || 
+          ServiceUtils.migrateStringArrayToCategories(profile.services);
+        updateData.services_with_categories = categorizedServices;
+      } catch (error) {
+        console.error('❌ Fehler beim Konvertieren der Services:', error);
+        // Fallback: Leeres Array für services_with_categories
+        updateData.services_with_categories = [];
+      }
     }
     
     if (profile.animalTypes !== undefined) updateData.animal_types = profile.animalTypes;
@@ -804,6 +810,7 @@ export const caretakerSearchService = {
           short_about_me,
           long_about_me,
           qualifications,
+          experience_description,
           experience_years,
           languages,
           availability,
@@ -886,6 +893,7 @@ export const caretakerSearchService = {
         fullBio: result.long_about_me || result.short_about_me || 'Keine ausführliche Beschreibung verfügbar.',
         qualifications: Array.isArray(result.qualifications) ? result.qualifications : [],
         languages: Array.isArray(result.languages) ? result.languages : [],
+        experience_description: result.experience_description || null,
         availability: result.availability || {},
         home_photos: Array.isArray(result.home_photos) ? result.home_photos : [],
         phone: null,
