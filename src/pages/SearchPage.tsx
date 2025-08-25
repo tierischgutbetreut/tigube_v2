@@ -697,7 +697,7 @@ function SearchPage() {
 
         {/* Results Grid */}
         {!loading && !error && caretakers.length > 0 && (
-          <div className="grid grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {caretakers.map(caretaker => (
               <CaretakerCard key={caretaker.id} caretaker={caretaker} />
             ))}
@@ -738,7 +738,7 @@ function CaretakerCard({ caretaker }: CaretakerCardProps) {
   };
 
   return (
-    <div className="card group hover:border-primary-200 transition-all duration-200 w-60">
+    <div className="card group hover:border-primary-200 transition-all duration-200 w-full max-w-sm">
       <div className="relative">
         {/* Quadratisches Bild */}
         <div className="relative w-full aspect-square">
@@ -774,10 +774,10 @@ function CaretakerCard({ caretaker }: CaretakerCardProps) {
         </div>
 
         {/* Info-Bereich - unter dem Bild */}
-        <div className="p-4 bg-white rounded-b-xl">
+        <div className="p-5 bg-white rounded-b-xl">
           {/* Name und Bewertung */}
-          <div className="flex justify-between items-start mb-2">
-            <div className="flex-1 min-w-0 mr-2">
+          <div className="flex justify-between items-start mb-3">
+            <div className="flex-1 min-w-0 mr-3">
               <h3 className="font-semibold text-base group-hover:text-primary-600 transition-colors truncate" title={caretaker.name}>
                 {caretaker.name}
               </h3>
@@ -793,14 +793,14 @@ function CaretakerCard({ caretaker }: CaretakerCardProps) {
             </div>
           </div>
 
-          {/* Bio - kürzer für quadratisches Format */}
-          <p className="text-gray-700 text-sm mb-3 line-clamp-2 leading-tight">
+          {/* Bio - mehr Platz für größere Karten */}
+          <p className="text-gray-700 text-sm mb-4 line-clamp-3 leading-relaxed">
             {caretaker.bio}
           </p>
 
-          {/* Services - kompakter */}
-          <div className="flex flex-wrap gap-1 mb-3">
-            {caretaker.services.slice(0, 2).map((service: string) => (
+          {/* Services - mehr Platz */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {caretaker.services.slice(0, 3).map((service: string) => (
               <span
                 key={service}
                 className="text-xs font-medium bg-gray-100 text-gray-800 px-2 py-1 rounded-full"
@@ -808,15 +808,15 @@ function CaretakerCard({ caretaker }: CaretakerCardProps) {
                 {service}
               </span>
             ))}
-            {caretaker.services.length > 2 && (
+            {caretaker.services.length > 3 && (
               <span className="text-xs font-medium bg-gray-100 text-gray-800 px-2 py-1 rounded-full">
-                +{caretaker.services.length - 2}
+                +{caretaker.services.length - 3}
               </span>
             )}
           </div>
 
           {/* Preis und Button */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <p className="font-semibold text-primary-600 text-sm text-center">
               {getDisplayPrice(caretaker)}
             </p>
